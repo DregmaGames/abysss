@@ -1,0 +1,8 @@
+{
+  "prefixes": ["utm_", "pk_", "mtm_", "hsa_", "vero_", "oly_", "stm_", "__hs", "_hs", "ga_", "sc_", "trk_"],
+  "names": ["fbclid", "gclid", "gclsrc", "dclid", "gbraid", "wbraid", "msclkid", "twclid", "ttclid", "li_fat_id",
+    "igshid", "igsh", "mc_cid", "mc_eid", "mkt_tok", "yclid", "ysclid", "_ga", "_gl", "_openstat", "s_cid", "s_kwcid",
+    "ef_id", "srsltid", "si", "spm", "scm", "ref_src", "ref_url", "cmpid", "trk", "trkcampaign", "wt_mc",
+    "rb_clickid", "oft_id", "hsctatracking", "campaign_id", "ad_id", "adset_id", "epik", "vgo_ee", "wickedid", "zanpid",
+    "share_id", "share_source", "feature", "pp", "rdt_cid", "sfnsn", "mibextid", "__twitter_impression", "s", "t"]
+}

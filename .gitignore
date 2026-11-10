@@ -3,3 +3,24 @@ __pycache__/
 *.pyc
 .DS_Store
 node_modules/
+
+# credentials and key material: never commit (tools/check_secrets.py also refuses them)
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.ppk
+id_rsa*
+id_dsa*
+id_ecdsa*
+id_ed25519*
+.npmrc
+.netrc
+.pypirc
+credentials*.json
+secrets/
+.claude/settings.local.json
