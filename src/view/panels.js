@@ -1,222 +1,206 @@
-// Panels: equipment screen (10 slots + bag), settings (zoom, shake), run result.
-// One panel at a time; opening one pauses the run. Works from the HUD and from the title.
+// Panels: equipment screen (7 slots + bag + item details), settings (zoom and shake sliders),
+// and the end-of-run result. They are built in whichever UI scene opens them (title or HUD),
+// pause the run while open, and are rebuilt on resize so they fit both orientations.
 (function (G) {
   var UI = G.UI;
-  var EQ_POS = { weapon: [0, 0], helmet: [1, 0], amulet: [2, 0], shield: [0, 1], armor: [1, 1], ring1: [2, 1],
-    gloves: [0, 2], belt: [1, 2], ring2: [2, 2], boots: [1, 3] };
-  var P = G.Panels = { m: null, kind: null, scene: null, sel: null, hits: {} };
+  // paper-doll layout on a 3x3 grid
+  var DOLL = { helmet: [1, 0], weapon: [0, 1], armor: [1, 1], shield: [2, 1], gloves: [0, 2], belt: [1, 2], boots: [2, 2] };
+  var P = G.Panels = { current: null, L: null, scene: null, sel: null, resultState: null };
 
-  P.isOpen = function () { return !!P.m; };
-  // The result panel only closes through its own buttons (force), so Esc / I cannot strand a finished run.
-  P.close = function (force) {
-    if (!P.m || (P.kind === 'result' && !force)) return;
-    if (P.off) { P.off(); P.off = null; }
-    P.m.destroy(); P.m = null; P.kind = null; P.hits = {};
-    G.paused = false;
-    G.screen = G.gameScene && G.hud ? 'game' : 'title';
-    if (P.scene && P.scene.refresh && !G.hud) P.scene.refresh();
+  P.isOpen = function () { return !!P.current; };
+  P.close = function (silent) {
+    if (P.L) P.L.destroy();
+    P.L = null; P.current = null;
+    if (!silent) { G.paused = false; if (G.screen !== 'title') G.screen = 'game'; }
+    G.storeSave(G.save);
   };
-  function begin(scene, kind) {
-    if (P.m && P.kind === 'result' && kind !== 'result') return false;
-    if (P.m) { if (P.off) { P.off(); P.off = null; } P.m.destroy(); P.m = null; }
-    P.scene = scene; P.kind = kind; P.hits = {};
-    G.paused = true; G.screen = kind;
-    return true;
-  }
-  function sim() { return G.gameScene && G.hud ? G.gameScene.sim : null; }
-  function hit(name, x, y) { P.hits[name] = { x: x * UI.S, y: y * UI.S }; }   // logical 960x540 coords, for QA clicks
+  P.relayout = function (scene) {
+    if (!P.current) return;
+    var c = P.current;
+    if (P.L) P.L.destroy();
+    P.L = null; P.current = null;
+    if (c === 'inventory') P.openInventory(scene, true);
+    else if (c === 'settings') P.openSettings(scene, P.back);
+    else if (c === 'result') P.openResult(scene, P.resultState);
+  };
+  function sim() { return G.gameScene && G.screen !== 'title' ? G.gameScene.sim : null; }
+  function gear() { var s = sim(); return s ? s.gear : G.save.gear; }
+  function fmt(v, d) { return d ? v.toFixed(d) : '' + Math.round(v); }
+  function statText(k, v) { var lab = G.STAT_LABEL[k]; return '+' + (k === 'regen' ? v.toFixed(1) : v) + lab[1] + ' ' + lab[0]; }
 
-  // ------------------------------------------------------------- equipment
-  function statLine(k, v) { var L = G.STAT_LABEL[k]; return (k === 'cdrPct' ? '-' : '+') + v + L[1] + ' ' + L[0]; }
+  // ------------------------------------------------------------- inventory
+  P.openInventory = function (scene, keepSel) {
+    if (P.L) P.L.destroy();
+    var V = G.view, g = gear(), B = G.BAL, s = sim(), wide = V.W >= 300;
+    P.current = 'inventory'; P.scene = scene; G.paused = true;
+    if (G.screen !== 'title') G.screen = 'inventory';
+    if (!keepSel) P.sel = null;
+    var pw = wide ? Math.min(V.W - 8, 340) : Math.min(V.W - 8, 264), ph = wide ? Math.min(V.H - 8, 200) : Math.min(V.H - 8, 340);
+    var L = P.L = UI.modal(scene, pw, ph, 'EQUIPMENT');
+    var x0 = L.x, y0 = L.y;
+    L.text(x0 + 70, y0 + 6, 'Gear score ' + G.gearScore(g), 'ui_dim');
+    L.button(x0 + pw - 22, y0 + 3, 18, 16, '', function () { P.close(); }, { icon: 'i_close', name: 'inv_close' });
+    L.button(x0 + pw - 44, y0 + 3, 18, 16, '', function () { P.openSettings(scene, 'inventory'); }, { icon: 'i_gear', name: 'inv_settings' });
 
-  P.openInventory = function (scene) { if (begin(scene, 'inventory')) P.drawInventory(); };
-
-  P.drawInventory = function () {
-    var scene = P.scene, gear = G.save.gear, B = G.BAL, s = sim();
-    if (P.m) P.m.destroy();
-    P.hits = {};
-    var m = P.m = UI.modal(scene, 304, 164, 'EQUIPMENT');
-    m.button(214, 3, 62, 14, 'SETTINGS', function () { P.openSettings(P.scene, 'inventory'); }); hit('settings', m.x + 245, m.y + 10);
-    m.button(280, 3, 20, 14, 'X', function () { P.close(); });
-    hit('close', m.x + 290, m.y + 10);
-
-    function cell(x, y, item, ghost, selected, name, onClick) {
-      var bg = scene.add.image(m.x + x, m.y + y, 'atlas', 'slot').setOrigin(0, 0);
-      m.c.add(bg);
-      if (item) {
-        m.c.add(scene.add.image(m.x + x + 10, m.y + y + 10, 'atlas', 'i_' + item.slot));
-        m.c.add(scene.add.image(m.x + x, m.y + y, 'atlas', 'rar_' + item.rarity).setOrigin(0, 0));
-      } else if (ghost) m.c.add(scene.add.image(m.x + x + 10, m.y + y + 10, 'atlas', 'i_' + ghost).setAlpha(0.2));
-      if (selected) m.c.add(scene.add.image(m.x + x - 1, m.y + y - 1, 'atlas', 'select').setOrigin(0, 0));
-      bg.setInteractive({ useHandCursor: !!item });
-      bg.on('pointerdown', onClick);
-      hit(name, m.x + x + 10, m.y + y + 10);
+    var passives = s ? s.player.passives : {}, stats = G.computeStats(B, g, passives), base = G.computeStats(B, { equipped: {} }, passives);
+    function select(sel) {
+      // tapping the selected thing again acts on it (equip / unequip)
+      if (P.sel && sel && P.sel.kind === sel.kind && P.sel.key === sel.key) { act(); return; }
+      P.sel = sel; P.openInventory(scene, true);
     }
-
-    // resolve the selection against current gear (items move when equipped)
-    var selItem = null, selWhere = null, selIdx = -1, k, i;
-    if (P.sel != null) {
-      for (k in gear.equipped) if (gear.equipped[k] && gear.equipped[k].id === P.sel) { selItem = gear.equipped[k]; selWhere = k; }
-      for (i = 0; i < gear.bag.length; i++) if (gear.bag[i].id === P.sel) { selItem = gear.bag[i]; selWhere = 'bag'; selIdx = i; }
-      if (!selItem) P.sel = null;
+    function act() {
+      var sl = P.sel;
+      if (!sl) return;
+      if (sl.kind === 'bag') { if (s) s.equip(sl.key); else G.equipFromBag(g, sl.key, B); }
+      else { if (s) s.unequip(sl.key); else G.unequip(g, sl.key, B); }
+      P.sel = null; G.storeSave(G.save); P.openInventory(scene, true);
     }
-
-    Object.keys(EQ_POS).forEach(function (key) {
-      var it = gear.equipped[key], pos = EQ_POS[key];
-      cell(8 + pos[0] * 21, 19 + pos[1] * 21, it, key.replace(/[12]$/, ''), it && it.id === P.sel, 'eq_' + key, function () {
-        if (!it) return;
-        if (P.sel === it.id) P.act('unequip'); else { P.sel = it.id; P.drawInventory(); }
-      });
-    });
-    m.text(84, 9, 'BAG ' + gear.bag.length + '/' + B.loot.bagSize, 'ui_dim');
-    for (i = 0; i < B.loot.bagSize; i++) {
-      (function (idx) {
-        var it = gear.bag[idx];
-        cell(84 + (idx % 5) * 21, 19 + Math.floor(idx / 5) * 21, it, null, it && it.id === P.sel, 'bag_' + idx, function () {
-          if (!it) return;
-          if (P.sel === it.id) P.act('equip'); else { P.sel = it.id; P.drawInventory(); }
-        });
-      })(i);
-    }
-
-    // details
-    m.c.add(UI.panel(scene, m.x + 198, m.y + 19, 100, 139, 'plate'));
-    if (selItem) {
-      var col = UI.RARITY[selItem.rarity], y = 23;
-      var nm = m.text(203, y, selItem.name, col); nm.setMaxWidth(92);
-      y += nm.height > 12 ? 21 : 11;
-      m.text(203, y, UI.RARITY_NAME[selItem.rarity] + ' ' + G.SLOT_NAME[selItem.slot], 'ui_dim'); y += 10;
-      m.text(203, y, 'Level ' + selItem.ilvl + '   Power ' + selItem.power, 'ui_dim'); y += 12;
-      G.STAT_ORDER.forEach(function (sk) {
-        if (selItem.stats[sk] == null) return;
-        m.text(203, y, statLine(sk, selItem.stats[sk]), 'ui_text'); y += 10;
-      });
-      if (selWhere === 'bag') {
-        var cur = gear.equipped[G.targetSlot(gear, selItem, B)];
-        var d = cur ? G.itemValue(selItem, B) - G.itemValue(cur, B) : 1;
-        m.text(203, 127, cur ? (d > 0.01 ? 'Better than equipped' : (d < -0.01 ? 'Weaker than equipped' : 'Same as equipped')) : 'Slot is empty',
-          d > 0.01 ? 'ui_good' : (d < -0.01 ? 'ui_bad' : 'ui_dim'));
-        m.button(202, 138, 46, 16, 'EQUIP', function () { P.act('equip'); }); hit('equip', m.x + 225, m.y + 146);
-        m.button(250, 138, 44, 16, 'DROP', function () { P.act('drop'); }); hit('drop', m.x + 272, m.y + 146);
-      } else {
-        m.text(203, 127, 'Equipped: ' + G.SLOT_NAME[selWhere], 'ui_good');
-        var ub = m.button(202, 138, 92, 16, 'UNEQUIP', function () { P.act('unequip'); }); hit('unequip', m.x + 248, m.y + 146);
-        ub.setEnabled(gear.bag.length < B.loot.bagSize);
+    function cell(x, y, item, slotKey, sel, name) {
+      var bg = L.image(x + 10, y + 10, item ? 'rar_' + item.rarity : 'slot', 1);
+      var ic = L.image(x + 10, y + 10, 'i_' + (item ? item.slot : slotKey || 'bag'), 2);
+      if (!item) { ic.setAlpha(slotKey ? 0.22 : 0); }
+      if (P.sel && P.sel.kind === sel.kind && P.sel.key === sel.key) L.image(x + 10, y + 10, 'select', 3);
+      if (item || slotKey) {
+        bg.setInteractive({ useHandCursor: true });
+        bg.on('pointerdown', function () { if (item) select(sel); });
       }
+      UI.hit(name, x, y, 20, 20);
+    }
+    // the 7 equipment slots
+    var dx = x0 + 8, dy = y0 + 20, k;
+    for (k in DOLL) cell(dx + DOLL[k][0] * 22, dy + DOLL[k][1] * 22, g.equipped[k], k, { kind: 'slot', key: k }, 'slot_' + k);
+
+    // character stats (totals; green when gear is adding to them)
+    var rows = [['HP', fmt(stats.maxHp), stats.maxHp > base.maxHp], ['Armor', fmt(stats.armor), stats.armor > base.armor],
+      ['Damage', fmt(stats.dmg, 1), stats.dmg > base.dmg], ['Atk/s', fmt(1 / stats.atkInterval, 2), stats.atkInterval < base.atkInterval],
+      ['Crit', fmt(stats.crit * 100) + '%', stats.crit > base.crit], ['Move', fmt(stats.speed), stats.speed > base.speed],
+      ['Range', fmt(stats.range), stats.range > base.range], ['Pulse', fmt(stats.pulseDmg), stats.pulseDmg > base.pulseDmg],
+      ['Regen', fmt(stats.regen, 1) + '/s', stats.regen > base.regen]];
+    var sx = wide ? x0 + 8 : x0 + 8 + 72, sy = wide ? dy + 70 : dy, sw = wide ? 66 : pw - 88, maxRows = wide ? Math.floor((ph - 96) / 10) : 7;
+    rows.slice(0, maxRows).forEach(function (r, i) {
+      L.text(sx, sy + i * 10, r[0], 'ui_dim');
+      var t = L.text(0, sy + i * 10, r[1], r[2] ? 'ui_good' : 'ui_text');
+      t.x = sx + sw - t.width;
+    });
+
+    // bag
+    var bx = wide ? x0 + 82 : x0 + 8, by = wide ? y0 + 20 : dy + 72;
+    var cols = wide ? 5 : Math.max(5, Math.min(10, Math.floor((pw - 14) / 22))), rowsN = Math.ceil(B.loot.bagSize / cols), i;
+    L.text(bx, by, 'BAG ' + g.bag.length + '/' + B.loot.bagSize, 'ui_dim');
+    for (i = 0; i < B.loot.bagSize; i++) cell(bx + (i % cols) * 22, by + 11 + Math.floor(i / cols) * 22, g.bag[i], null, { kind: 'bag', key: i }, 'bag_' + i);
+
+    // item details
+    var ix = wide ? bx + cols * 22 + 6 : x0 + 8, iy = wide ? y0 + 20 : by + 11 + rowsN * 22 + 4, iw = x0 + pw - 8 - ix, ih = y0 + ph - 6 - iy;
+    L.panel(ix, iy, iw, ih, 'inset', 1);
+    var sl = P.sel, item = sl ? (sl.kind === 'bag' ? g.bag[sl.key] : g.equipped[sl.key]) : null;
+    if (!item) {
+      P.sel = null;
+      L.text(ix + 5, iy + 5, wide ? 'Tap an item to see its stats. Tap it again to equip.' : 'Tap an item for its stats. Tap again to equip.', 'ui_dim').setMaxWidth(iw - 10);
     } else {
-      var hint = m.text(203, 26, 'Click an item to see its stats. Click it again to equip or unequip.', 'ui_dim');
-      hint.setMaxWidth(90);
-    }
-
-    // character stats: totals, with the part that comes from gear in green
-    var st = s ? s.stats : G.computeStats(B, gear, null), g = G.gearStats(gear);
-    var rows = [
-      ['Max HP', '' + st.maxHp, g.hp ? '+' + g.hp : ''],
-      ['Armor', '' + st.armor, g.armor ? '+' + g.armor : ''],
-      ['Damage', st.dmg.toFixed(1), g.dmgPct ? '+' + g.dmgPct + '%' : ''],
-      ['Atk/s', (1 / st.atkInterval).toFixed(2), g.atkPct ? '+' + g.atkPct + '%' : ''],
-      ['Crit', Math.round(st.crit * 100) + '%', g.crit ? '+' + g.crit + '%' : ''],
-      ['Move', '' + Math.round(st.speed), g.movePct ? '+' + g.movePct + '%' : ''],
-      ['Range', '' + Math.round(st.range), g.rangePct ? '+' + g.rangePct + '%' : ''],
-      ['Pulse', '' + Math.round(st.pulseDmg), g.pulsePct ? '+' + g.pulsePct + '%' : ''],
-      ['Pulse cd', st.pulseCd.toFixed(1) + 's', g.cdrPct ? '-' + g.cdrPct + '%' : ''],
-      ['Regen', st.regen.toFixed(1) + '/s', g.regen ? '+' + g.regen.toFixed(1) : '']
-    ];
-    if (g.expPct) rows[9] = ['EXP', Math.round(st.expMult * 100) + '%', '+' + g.expPct + '%'];
-    m.text(8, 106, 'STATS', 'ui_warn');
-    m.text(40, 106, 'Gear score ' + G.gearScore(gear) + '   green = from gear', 'ui_dim');
-    rows.forEach(function (r, idx) {
-      var cx = 8 + Math.floor(idx / 5) * 88, cy = 116 + (idx % 5) * 9;
-      var a = m.text(cx, cy, r[0], 'ui_dim'), b = m.text(cx, cy, r[1], 'ui_text');
-      b.x = a.x + 44;
-      if (r[2]) { var c = m.text(cx, cy, r[2], 'ui_good'); c.x = b.x + b.width + 4; }
-    });
-  };
-
-  P.act = function (what) {
-    var gear = G.save.gear, B = G.BAL, s = sim(), i, idx = -1, key = null;
-    for (i = 0; i < gear.bag.length; i++) if (gear.bag[i].id === P.sel) idx = i;
-    for (var k in gear.equipped) if (gear.equipped[k] && gear.equipped[k].id === P.sel) key = k;
-    if (what === 'equip' && idx >= 0) G.equipFromBag(gear, idx, B);
-    else if (what === 'unequip' && key) G.unequip(gear, key, B);
-    else if (what === 'drop' && idx >= 0) { G.dropFromBag(gear, idx); P.sel = null; }
-    else return;
-    if (s) s.recalc();                    // stats change immediately
-    G.storeSave(G.save);
-    P.drawInventory();
-  };
-
-  // --------------------------------------------------------------- settings
-  P.openSettings = function (scene, back) {
-    if (!begin(scene, 'settings')) return;
-    var m = P.m = UI.modal(scene, 210, 124, 'SETTINGS'), set = G.save.settings, inRun = !!sim();
-    var handlers = [];
-    function slider(y, name, label, min, max, step, get, put, fmt) {
-      var tx = 96, tw = 80;
-      m.text(10, y + 2, label, 'ui_text');
-      var track = scene.add.image(m.x + tx, m.y + y + 5, 'atlas', 'px').setOrigin(0, 0).setDisplaySize(tw, 2).setTint(UI.hex('ui_line'));
-      var zone = scene.add.image(m.x + tx - 6, m.y + y - 3, 'atlas', 'px').setOrigin(0, 0).setDisplaySize(tw + 12, 18).setAlpha(0.001);
-      var knob = UI.panel(scene, 0, m.y + y - 1, 8, 14, 'btn_hot');
-      var val = UI.text(scene, m.x + tx + tw + 6, m.y + y + 2, '', 'ui_warn');
-      m.c.add([track, zone, knob, val]);
-      function place() { var v = get(); knob.x = m.x + tx + Math.round((v - min) / (max - min) * tw) - 4; val.setText(fmt(v)); }
-      function setFrom(px) {
-        var f = Math.max(0, Math.min(1, (px - (m.x + tx)) / tw));
-        put(Math.round((min + f * (max - min)) / step) * step);
-        place(); G.storeSave(G.save);
-        if (G.gameScene && G.hud) G.gameScene.applySettings();
+      var col = UI.RARITY[item.rarity], ty = iy + 5;
+      var nm = L.text(ix + 5, ty, item.name, col).setMaxWidth(iw - 10); ty += nm.height + 3;
+      L.text(ix + 5, ty, UI.RARITY_NAME[item.rarity] + ' ' + G.SLOT_NAME[item.slot], col); ty += 10;
+      L.text(ix + 5, ty, 'Item level ' + item.ilvl, 'ui_dim'); ty += 12;
+      // each stat, and the change against what is equipped in that slot
+      var cur = sl.kind === 'bag' ? g.equipped[item.slot] : null;
+      G.STAT_ORDER.forEach(function (st) {
+        var v = item.stats[st], c = cur ? cur.stats[st] || 0 : 0;
+        if (v == null && !(sl.kind === 'bag' && c)) return;
+        if (ty > iy + ih - 34) return;
+        var line = L.text(ix + 5, ty, v != null ? statText(st, v) : G.STAT_LABEL[st][0], v != null ? 'ui_text' : 'ui_dim');
+        if (sl.kind === 'bag' && cur) {
+          var d = Math.round(((v || 0) - c) * 10) / 10;
+          if (d) { var dt = L.text(0, ty, (d > 0 ? '+' : '') + d, d > 0 ? 'ui_good' : 'ui_bad'); dt.x = ix + iw - 5 - dt.width; if (dt.x < line.x + line.width + 3) dt.setVisible(false); }
+        }
+        ty += 10;
+      });
+      var bw = Math.floor((iw - 14) / 2), byy = iy + ih - 22;
+      if (sl.kind === 'bag') {
+        var better = !cur || G.itemValue(item, B) > G.itemValue(cur, B);
+        L.button(ix + 5, byy, bw, 18, 'EQUIP', act, { name: 'equip', color: better ? 'ui_good' : 'ui_text' });
+        L.button(ix + 9 + bw, byy, bw, 18, 'DROP', function () { G.dropFromBag(g, sl.key); P.sel = null; G.storeSave(G.save); P.openInventory(scene, true); }, { name: 'drop' });
+      } else {
+        L.button(ix + 5, byy, Math.max(bw, 52), 18, 'UNEQUIP', act, { name: 'unequip' }).setEnabled(g.bag.length < B.loot.bagSize);
       }
-      var drag = false;
-      zone.setInteractive({ useHandCursor: true });
-      zone.on('pointerdown', function (p) { drag = true; setFrom(p.worldX); });
-      var mv = function (p) { if (drag && p.isDown) setFrom(p.worldX); else drag = false; };
-      scene.input.on('pointermove', mv);
-      handlers.push(mv);
-      place();
-      hit(name + '_min', m.x + tx, m.y + y + 6); hit(name + '_max', m.x + tx + tw, m.y + y + 6); hit(name + '_mid', m.x + tx + tw / 2, m.y + y + 6);
     }
-    slider(26, 'zoom', 'Zoom', 2, 4, 1, function () { return set.zoom; }, function (v) { set.zoom = v; }, function (v) { return 'x' + v; });
-    slider(50, 'shake', 'Screen shake', 0, 100, 10, function () { return set.shake; }, function (v) { set.shake = v; }, function (v) { return v + '%'; });
-    var note = m.text(10, 70, 'Zoom x3 keeps world and HUD on one pixel size.', 'ui_dim'); note.setMaxWidth(190);
-    m.button(10, 100, 60, 16, 'BACK', function () { if (back === 'inventory') P.openInventory(scene); else P.close(); }); hit('back', m.x + 40, m.y + 108);
-    if (inRun) { m.button(140, 100, 60, 16, 'QUIT RUN', function () { P.close(); G.toTitle(); }); hit('quit', m.x + 170, m.y + 108); }
-    P.off = function () { handlers.forEach(function (h) { scene.input.off('pointermove', h); }); };
   };
 
-  // ----------------------------------------------------------------- result
+  // -------------------------------------------------------------- settings
+  P.openSettings = function (scene, back) {
+    if (P.L) P.L.destroy();
+    var V = G.view, set = G.save.settings, inRun = !!sim();
+    P.current = 'settings'; P.scene = scene; P.back = back || null; G.paused = true;
+    if (G.screen !== 'title') G.screen = 'settings';
+    var pw = Math.min(V.W - 8, 190), ph = 132;
+    var L = P.L = UI.modal(scene, pw, ph, 'SETTINGS'), x0 = L.x, y0 = L.y, sw = pw - 78;
+    L.button(x0 + pw - 22, y0 + 3, 18, 16, '', function () { leave(); }, { icon: 'i_close', name: 'set_close' });
+    function leave() { if (P.back === 'inventory') P.openInventory(scene); else P.close(); }
+
+    // zoom: integer pixel scale for the whole game (art and UI together)
+    L.text(x0 + 8, y0 + 28, 'Zoom');
+    var zt = L.text(x0 + pw - 30, y0 + 28, V.S + 'x', 'ui_warn');
+    UI.slider(L, x0 + 44, y0 + 24, sw - 8, V.steps, Math.min(set.zoom, V.steps - 1), function (k) {
+      set.zoom = k; G.storeSave(G.save);
+      scene.time.delayedCall(1, function () { G.applyView(); });       // rebuilds this panel at the new scale
+    }, 'zoom');
+    if (V.steps === 1) L.text(x0 + 8, y0 + 40, 'Screen too small to zoom in.', 'ui_dim');
+    else L.text(x0 + 8, y0 + 40, 'Bigger pixels, closer view.', 'ui_dim');
+
+    // screen shake: 0..100 % of a capped amplitude
+    L.text(x0 + 8, y0 + 62, 'Shake');
+    var st = L.text(x0 + pw - 30, y0 + 62, set.shake + '%', 'ui_warn');
+    UI.slider(L, x0 + 44, y0 + 58, sw - 8, 11, Math.round(set.shake / 10), function (k) {
+      set.shake = k * 10; st.setText(set.shake + '%'); G.storeSave(G.save);
+      if (G.gameScene && inRun) G.gameScene.fx.shake(0.6);
+    }, 'shake');
+    L.text(x0 + 8, y0 + 74, 'Set to 0% to turn shake off.', 'ui_dim');
+
+    var bw = Math.floor((pw - 22) / 2);
+    L.button(x0 + 8, y0 + ph - 26, bw, 18, inRun ? 'RESUME' : 'CLOSE', leave, { name: 'set_resume' });
+    if (inRun) L.button(x0 + 14 + bw, y0 + ph - 26, bw, 18, 'QUIT RUN', function () { P.close(true); G.toTitle(); }, { name: 'set_quit', color: 'ui_bad' });
+    else L.button(x0 + 14 + bw, y0 + ph - 26, bw, 18, 'RESET SAVE', function () {
+      var keep = G.save.settings; G.save = G.newSave(); G.save.settings = keep; G.storeSave(G.save); P.close(true); G.toTitle();
+    }, { name: 'set_reset', color: 'ui_bad' });
+    void zt;
+  };
+
+  // ---------------------------------------------------------------- result
   P.openResult = function (scene, state) {
-    begin(scene, 'result');
-    var s = G.gameScene.sim, won = state === 'won', m = P.m = UI.modal(scene, 230, 136, null), B = G.BAL;
-    var head = m.text(0, 9, won ? 'RIFT SEALED' : 'YOU DIED', won ? 'ui_good' : 'ui_bad', true);
-    head.x = Math.round((UI.W - head.width) / 2);
-    var secs = Math.round(s.tick / 60);
-    var lines = [
-      ['Seed', G.runSeed + '   Tier ' + (G.tier + 1)],
-      ['Rooms cleared', s.roomsCleared + ' / ' + B.run.rooms],
-      ['Kills', '' + s.kills],
-      ['Level', '' + s.player.level],
-      ['Time', Math.floor(secs / 60) + ':' + ('0' + secs % 60).slice(-2)],
-      ['Gear score', G.gearScore(G.save.gear) + '  (gear is kept)']
-    ];
-    lines.forEach(function (l, i) { m.text(22, 34 + i * 11, l[0], 'ui_dim'); m.text(104, 34 + i * 11, l[1], 'ui_text'); });
-    m.button(10, 110, 66, 18, 'RETRY SEED', function () { P.close(true); G.restartRun(false); }); hit('retry', m.x + 43, m.y + 119);
-    m.button(82, 110, 66, 18, 'NEW RUN', function () { P.close(true); G.restartRun(true); }); hit('new', m.x + 115, m.y + 119);
-    m.button(154, 110, 66, 18, 'TITLE', function () { P.close(true); G.toTitle(); }); hit('title', m.x + 187, m.y + 119);
-    G.save.stats.runs++; if (won) G.save.stats.wins++;
-    G.storeSave(G.save);
-    G.lastResult = { seed: G.runSeed, tier: G.tier, state: state, rooms: s.roomsCleared, kills: s.kills, level: s.player.level, seconds: secs };
+    if (P.L) P.L.destroy();
+    var V = G.view, s = G.gameScene.sim, B = s.B, won = state === 'won';
+    if (P.resultState !== state || !P.counted) {
+      P.counted = true;
+      G.save.stats.runs++; if (won) G.save.stats.wins++;
+      G.save.stats.best = Math.max(G.save.stats.best || 0, s.roomsCleared);
+      G.storeSave(G.save);
+    }
+    P.current = 'result'; P.scene = scene; P.resultState = state; G.paused = true; G.screen = 'result';
+    G.gameScene.ended = true;
+    var pw = Math.min(V.W - 8, 230), ph = 132;
+    var L = P.L = UI.modal(scene, pw, ph, null), x0 = L.x, y0 = L.y, cx = V.W / 2;
+    UI.centerX(L.text(0, y0 + 9, won ? 'RIFT SEALED' : 'YOU DIED', won ? 'ui_good' : 'ui_bad', true), cx);
+    var t = Math.round(s.tick / 60), gs = G.gearScore(s.gear), lines = [
+      [won ? 'All ' + B.run.rooms + ' rooms cleared' : 'Fell in room ' + (s.roomIndex + 1) + ' of ' + B.run.rooms, 'ui_text'],
+      ['Level ' + s.player.level + '   Kills ' + s.kills + '   ' + Math.floor(t / 60) + ':' + ('0' + t % 60).slice(-2), 'ui_dim'],
+      ['Gear score ' + gs + '  (gear is kept)', 'ui_dim']];
+    var next = B.run.tierGear[s.tier + 1];
+    if (next != null) lines.push(gs >= next ? ['Tier ' + (s.tier + 2) + ' unlocked: harder rifts, better loot', 'ui_warn'] : ['Tier ' + (s.tier + 2) + ' needs gear score ' + next, 'ui_dim']);
+    lines.forEach(function (l, i) { UI.centerX(L.text(0, y0 + 34 + i * 12, l[0], l[1]), cx); });
+    var bw = Math.floor((pw - 28) / 3);
+    L.button(x0 + 8, y0 + ph - 28, bw, 20, 'AGAIN', function () { P.counted = false; P.close(true); G.restartRun(); }, { name: 'res_again', color: 'ui_good' });
+    L.button(x0 + 14 + bw, y0 + ph - 28, bw, 20, 'GEAR', function () { P.counted = false; P.close(true); G.toTitle(true); }, { name: 'res_gear' });
+    L.button(x0 + 20 + bw * 2, y0 + ph - 28, bw, 20, 'TITLE', function () { P.counted = false; P.close(true); G.toTitle(); }, { name: 'res_title' });
   };
 
-  G.restartRun = function (newSeed) {
-    if (newSeed) G.runSeed = Math.floor(Math.random() * 1000000);
-    var gs = G.gameScene;
-    gs.scene.stop('hud');
-    gs.scene.restart();
+  G.restartRun = function () {
+    var g = G.game.scene;
+    G.runSeed = (G.runSeed + 1) >>> 0;
+    G.paused = false;
+    g.stop('hud'); g.stop('game'); g.start('game');
   };
-  G.toTitle = function () {
-    var gs = G.gameScene;
-    G.storeSave(G.save);
-    gs.scene.stop('hud');
-    gs.scene.start('title');
+  G.toTitle = function (openGear) {
+    var g = G.game.scene;
+    G.paused = false; G.openGearOnTitle = !!openGear;
+    g.stop('hud'); g.stop('game'); g.start('title');
   };
 })(globalThis.G = globalThis.G || {});

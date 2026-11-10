@@ -1,12 +1,13 @@
 // Gear: generation, scoring, equip rules. Pure functions over a `gear` object
 // { equipped: {slotKey: item|null}, bag: [item], nextId }.
 (function (G) {
-  var ITEM_SLOTS = ['helmet', 'armor', 'gloves', 'boots', 'belt', 'weapon', 'shield', 'ring', 'amulet'];
-  var BASE_NAME = { helmet: 'Cowl', armor: 'Robe', gloves: 'Wraps', boots: 'Treads', belt: 'Sash', weapon: 'Staff', shield: 'Ward', ring: 'Band', amulet: 'Charm' };
+  var ITEM_SLOTS = ['helmet', 'armor', 'gloves', 'boots', 'belt', 'weapon', 'shield'];
+  G.ITEM_SLOTS = ITEM_SLOTS;
+  var BASE_NAME = { helmet: 'Cowl', armor: 'Robe', gloves: 'Wraps', boots: 'Treads', belt: 'Sash', weapon: 'Staff', shield: 'Ward' };
   var PREFIX = { hp: 'Stalwart', dmgPct: 'Savage', atkPct: 'Swift', movePct: 'Fleet', armor: 'Warded', crit: 'Keen',
     rangePct: 'Far', pulsePct: 'Resonant', cdrPct: 'Lucid', regen: 'Mending', expPct: 'Sage' };
   G.SLOT_NAME = { helmet: 'Helmet', armor: 'Armor', gloves: 'Gloves', boots: 'Boots', belt: 'Belt', weapon: 'Weapon',
-    shield: 'Shield', ring1: 'Ring 1', ring2: 'Ring 2', ring: 'Ring', amulet: 'Amulet' };
+    shield: 'Shield' };
   G.STAT_LABEL = { hp: ['Max HP', ''], dmgPct: ['Damage', '%'], atkPct: ['Atk speed', '%'], movePct: ['Move speed', '%'],
     armor: ['Armor', ''], crit: ['Crit chance', '%'], rangePct: ['Range', '%'], pulsePct: ['Pulse dmg', '%'],
     cdrPct: ['Cooldowns', '%'], regen: ['HP regen', '/s'], expPct: ['EXP gain', '%'] };
@@ -54,14 +55,8 @@
     return out;
   };
 
-  // which equipment slot a bag item would go into (rings: empty slot first, else the weaker ring)
-  G.targetSlot = function (gear, item, B) {
-    if (item.slot !== 'ring') return item.slot;
-    var a = gear.equipped.ring1, b = gear.equipped.ring2;
-    if (!a) return 'ring1';
-    if (!b) return 'ring2';
-    return G.itemValue(a, B) <= G.itemValue(b, B) ? 'ring1' : 'ring2';
-  };
+  // which equipment slot a bag item goes into: one slot per item type
+  G.targetSlot = function (gear, item) { return item.slot; };
 
   G.equipFromBag = function (gear, idx, B) {
     var item = gear.bag[idx];
