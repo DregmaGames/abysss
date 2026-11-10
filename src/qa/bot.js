@@ -3,7 +3,7 @@
 // so one seed always gives the same run in Node and in the browser.
 (function (G) {
   var T = 16;
-  var KEEP = { riftling: 38, gazer: 30, husk: 54, warden: 46, boss: 62 };
+  var KEEP = { imp: 44, bat: 38, skeleton: 36, hound: 64, warden: 56, tyrant: 76 };
   var PICK = { multi: 12, power: 10, haste: 10, pierce: 9, vital: 7, crit: 7, ward: 6, regen: 6, leech: 6, swift: 5, pulse: 4, range: 4, blink: 3, wisdom: 3 };
   var DIRS = [];
   for (var i = 0; i < 16; i++) DIRS.push({ x: Math.cos(i / 16 * 6.2832), y: Math.sin(i / 16 * 6.2832) });
@@ -117,15 +117,18 @@
         else if (sim.phase === 'exit') g = this.pathDir(sim.exit.x, sim.exit.y);
         else {
           // wait near the fissure that is about to matter, but not on top of it
-          var f = null;
-          for (i = 0; i < sim.fissures.length && !f; i++) {
-            var fi = sim.fissures[i];
-            if (fi.state === 'opening' || fi.state === 'open' || (fi.state === 'dormant' && (!fi.big || sim.phase === 'super'))) f = fi;
+          // explore: an open fissure first, else walk to the nearest dormant one to wake it
+          var f = null, fbest = 1e9;
+          for (i = 0; i < sim.fissures.length; i++) {
+            var fi = sim.fissures[i], fd0 = Math.abs(fi.x - p.x) + Math.abs(fi.y - p.y);
+            if (fi.state === 'opening' || fi.state === 'open') fd0 -= 10000;
+            else if (!(fi.state === 'dormant' && (!fi.big || sim.phase === 'super'))) continue;
+            if (fd0 < fbest) { fbest = fd0; f = fi; }
           }
           if (f) {
             var fx = f.x - p.x, fy = f.y - p.y, fd = Math.sqrt(fx * fx + fy * fy);
-            if (fd > 76) g = this.pathDir(f.x, f.y);
-            else if (fd < 52) { g = { x: -fx / (fd || 1), y: -fy / (fd || 1) }; gw = 0.6; }
+            if (fd > 62) g = this.pathDir(f.x, f.y);
+            else if (fd < 48) { g = { x: -fx / (fd || 1), y: -fy / (fd || 1) }; gw = 0.6; }
           }
         }
       }
@@ -162,7 +165,7 @@
     opts = opts || {};
     var gear = opts.gear || G.newSave().gear;
     var sim = new G.Sim({ seed: seed, tier: opts.tier || 0, gear: gear, bal: opts.bal }), bot = new Bot(sim);
-    var maxTicks = (opts.maxSeconds || 1200) * 60, softlock = false, worstStuck = 0, roomTicks = [], last = 0, lastRoom = 0, minHp = [1, 1, 1, 1];
+    var maxTicks = (opts.maxSeconds || 1200) * 60, softlock = false, worstStuck = 0, roomTicks = [], last = 0, lastRoom = 0, minHp = sim.B.run.roomMult.map(function () { return 1; });
     while (sim.tick < maxTicks && (sim.state === 'play' || sim.state === 'levelup')) {
       if (sim.state === 'levelup') { sim.choosePassive(bot.pickPassive()); continue; }
       bot.update();
