@@ -12,7 +12,10 @@
         self.textures.addImage('font', imgs.font);
         G.UI.registerFonts(self);
         G.save = G.loadSave();
-        G.params = new URLSearchParams(location.search);
+        if (G.params.get('fresh') === '1') G.save = G.newSave();
+        if (G.params.has('zoom')) G.save.settings.zoom = parseInt(G.params.get('zoom'), 10) || 0;
+        G.touch = G.params.get('touch') === '1';
+        G.applyView();
         self.scene.start(G.params.get('scene') === 'game' ? 'game' : 'title');
       }
       ['atlas', 'tiles', 'font'].forEach(function (k) {

@@ -1,5 +1,5 @@
 // HUD scene. By default the screen shows only: HP, level, current objective, fissure
-// progress and the inventory button, all inside the safe margins. Panels open on top.
+// progress and the inventory button. Touch controls appear only after a touch. Panels open on top.
 (function (G) {
   var UI = G.UI;
 
@@ -8,108 +8,178 @@
     initialize: function HudScene() { Phaser.Scene.call(this, { key: 'hud' }); },
 
     create: function () {
-      var self = this, X = UI.SAFE_X, Y = UI.SAFE_Y;
-      UI.camera(this);
+      var self = this;
       G.hud = this;
       this.game_ = G.gameScene;
-      this.last = {};
-      this.add.image(0, 0, 'atlas', 'vignette').setOrigin(0, 0).setDisplaySize(UI.W, UI.H);
-
-      // HP + level (top-left)
-      UI.panel(this, X, Y, 82, 25, 'plate');
-      this.add.image(X + 8, Y + 8, 'atlas', 'heart');
-      this.bar(X + 15, Y + 4, 42, 7, 'hp_d');
-      this.hpFill = this.bar(X + 15, Y + 4, 42, 7, 'hp');
-      this.hpText = UI.text(this, X + 60, Y + 4, '');
-      this.lvText = UI.text(this, X + 4, Y + 14, '', 'ui_warn');
-      this.bar(X + 32, Y + 17, 44, 3, 'xp_d');
-      this.xpFill = this.bar(X + 32, Y + 17, 44, 3, 'xp');
-
-      // objective + fissure progress (top-centre)
-      this.objPlate = UI.panel(this, 0, Y, 100, 25, 'plate');
-      this.objText = UI.text(this, 0, Y + 4, '');
-      this.pips = [];
-      this.superBarBg = this.bar(0, Y + 16, 60, 4, 'wf1');
-      this.superBar = this.bar(0, Y + 16, 60, 4, 'scar_edge');
-
-      // inventory button (top-right)
-      this.invBtn = UI.button(this, UI.W - X - 24, Y, 24, 20, '', function () { self.toggleInventory(); });
-      this.invIcon = this.add.image(UI.W - X - 12, Y + 10, 'atlas', 'i_bag');
-      this.invBadge = UI.text(this, UI.W - X - 7, Y - 2, '!', 'ui_warn').setVisible(false);
-
-      // transient toast (pickups, bag full): fades out, not part of the resting HUD
-      this.toast = UI.text(this, 0, UI.H - Y - 24, '').setVisible(false);
-      this.toastT = 0;
+      this.L = null; this.level = null; this.toastT = 0; this.toastMsg = null;
+      this.botWait = 0; this.endT = -1; this.stickId = null;
+      this.build();
+      this.game.events.on('viewchange', this.onView, this);
 
       var kb = this.input.keyboard;
       kb.on('keydown-I', function () { self.toggleInventory(); });
       kb.on('keydown-TAB', function (e) { e.preventDefault(); self.toggleInventory(); });
-      kb.on('keydown-ESC', function () { if (G.Panels && G.Panels.isOpen()) G.Panels.close(); else if (!self.level && G.Panels) G.Panels.openSettings(self); });
+      kb.on('keydown-ESC', function () { if (G.Panels.isOpen()) G.Panels.close(); else if (!self.level) G.Panels.openSettings(self); });
       ['ONE', 'TWO', 'THREE'].forEach(function (k, i) { kb.on('keydown-' + k, function () { self.pickLevel(i); }); });
-      this.events.once('shutdown', function () { G.hud = null; if (G.Panels) G.Panels.close(true); G.paused = false; });
-      this.botWait = 0; this.endT = -1;
-      this.refresh(true);
+
+      // touch: a floating stick on the left 60 % of the screen
+      this.input.on('pointerdown', function (p, over) {
+        if (p.wasTouch && !G.touch) { G.touch = true; self.build(); }
+        if (!G.touch || over.length || G.paused || self.level || self.stickId != null) return;
+        var S = G.view.S;
+        if (p.x / S > G.view.W * 0.6) return;
+        self.stickId = p.id; self.stickX = p.x / S; self.stickY = p.y / S;
+        self.stickBase.setPosition(Math.round(self.stickX), Math.round(self.stickY)).setVisible(true);
+        self.stickKnob.setPosition(Math.round(self.stickX), Math.round(self.stickY)).setVisible(true);
+      });
+      this.input.on('pointermove', function (p) {
+        if (p.id !== self.stickId) return;
+        var S = G.view.S, dx = p.x / S - self.stickX, dy = p.y / S - self.stickY, l = Math.sqrt(dx * dx + dy * dy) || 1, m = Math.min(l, 18);
+        self.stickKnob.setPosition(Math.round(self.stickX + dx / l * m), Math.round(self.stickY + dy / l * m));
+        var v = self.game_.controls.virtual;
+        if (l < 5) { v.mx = 0; v.my = 0; } else { v.mx = dx / l; v.my = dy / l; }
+      });
+      var release = function (p) { if (p.id === self.stickId) self.dropStick(); };
+      this.input.on('pointerup', release);
+      this.input.on('pointerupoutside', release);
+
+      this.events.once('shutdown', function () {
+        self.game.events.off('viewchange', self.onView, self);
+        G.hud = null; G.Panels.close(true); G.paused = false;
+      });
     },
 
-    bar: function (x, y, w, h, color) {
-      return this.add.image(x, y, 'atlas', 'px').setOrigin(0, 0).setDisplaySize(w, h).setTint(UI.hex(color));
+    dropStick: function () {
+      this.stickId = null;
+      if (this.stickBase) { this.stickBase.setVisible(false); this.stickKnob.setVisible(false); }
+      var v = this.game_.controls.virtual; v.mx = 0; v.my = 0;
+    },
+
+    onView: function () {
+      this.build();
+      if (this.level) this.openLevel();
+      G.Panels.relayout(this);
+    },
+
+    // ---------------------------------------------------------------- layout
+    build: function () {
+      var self = this, V = G.view, X = UI.PAD, Y = UI.PAD;
+      UI.camera(this);
+      if (this.L) this.L.destroy();
+      var L = this.L = UI.layer(this, 100);
+      this.last = {};
+      var vg = this.add.image(0, 0, UI.vignette(this)).setOrigin(0, 0);
+      vg._dz = -50; L.add(vg);
+
+      // HP + level (top-left)
+      L.panel(X, Y, 86, 27, 'plate');
+      L.image(X + 8, Y + 9, 'heart');
+      L.bar(X + 15, Y + 4, 66, 9, 'hp_d');
+      this.hpFill = L.bar(X + 15, Y + 4, 66, 9, 'hp', 1.5);
+      this.hpText = L.text(X + 17, Y + 5, '');
+      this.lvText = L.text(X + 5, Y + 17, '', 'ui_warn');
+      L.bar(X + 37, Y + 19, 44, 3, 'xp_d');
+      this.xpFill = L.bar(X + 37, Y + 19, 44, 3, 'xp', 1.5);
+
+      // inventory button (top-right)
+      this.invBtn = L.button(V.W - X - 26, Y, 26, 26, '', function () { self.toggleInventory(); }, { icon: 'i_bag', name: 'inv' });
+      this.invBadge = L.text(V.W - X - 8, Y - 1, '!', 'ui_warn').setVisible(false);
+      this.invBadge._dz = 4; this.invBadge.setDepth(L.depth + 4);
+
+      // objective + fissure progress: top-centre, or a second row when the screen is narrow
+      var free = V.W - (86 + X * 2) - (26 + X * 2);
+      this.obj = free >= 150 ? { x: X + 86 + X, y: Y, w: free } : { x: X, y: Y + 30, w: V.W - X * 2 };
+      this.objPlate = L.panel(0, this.obj.y, 100, 27, 'plate');
+      this.objText = L.text(0, this.obj.y + 5, '');
+      this.roomText = L.text(0, this.obj.y + 16, '', 'ui_dim');
+      this.pips = [];
+      this.superBarBg = L.bar(0, this.obj.y + 18, 72, 4, 'hp_d');
+      this.superBar = L.bar(0, this.obj.y + 18, 72, 4, 'em2', 1.5);
+
+      // transient toast (pickups, bag full): fades out, not part of the resting HUD
+      this.toast = L.text(0, Math.round(V.H * 0.7), '').setVisible(false);
+      if (this.toastMsg && this.toastT > 0) this.say(this.toastMsg[0], this.toastMsg[1], true);
+
+      // touch controls: only once a touch has been seen (or ?touch=1)
+      this.stickBase = L.image(0, 0, 'stick_base').setVisible(false);
+      this.stickKnob = L.image(0, 0, 'stick_knob', 3).setVisible(false);
+      this.stickId = null;
+      this.tDodge = this.tPulse = null;
+      if (G.touch) {
+        var mk = function (x, y, icon, fn, name) {
+          var b = L.image(x, y, 'tbtn'); L.image(x, y, icon, 3);
+          b.setInteractive({ useHandCursor: true });
+          b.on('pointerdown', fn);
+          UI.hit(name, x - 15, y - 15, 30, 30);
+          return b;
+        };
+        this.tPulse = mk(V.W - 24, V.H - 60, 't_pulse', function () { if (!G.paused) self.game_.controls.pulse(); }, 'tpulse');
+        this.tDodge = mk(V.W - 58, V.H - 26, 't_dodge', function () { if (!G.paused) self.game_.controls.dodge(); }, 'tdodge');
+      }
+      this.refresh();
     },
 
     toggleInventory: function () {
-      if (!G.Panels || this.level) return;
+      if (this.level) return;
       if (G.Panels.isOpen()) { G.Panels.close(); return; }
       var st = this.game_.sim.state;
       if (st === 'dead' || st === 'won') return;
       this.invBadge.setVisible(false);
+      this.dropStick();
       G.Panels.openInventory(this);
     },
 
-    say: function (text, color) {
+    say: function (text, color, keep) {
       this.toast.setText(text).setTint(UI.hex(color || 'ui_text')).setVisible(true).setAlpha(1);
-      this.toast.x = Math.round((UI.W - this.toast.width) / 2);
-      this.toastT = 150;
+      UI.centerX(this.toast, G.view.W / 2);
+      this.toastMsg = [text, color];
+      if (!keep) this.toastT = 150;
     },
 
     onEvent: function (e) {
       if (e.t === 'pickup') {
         if (e.item) { this.say(UI.RARITY_NAME[e.item.rarity] + ' ' + e.item.name, UI.RARITY[e.item.rarity]); this.invBadge.setVisible(true); }
-        else this.say('Tome of power', 'violet_l');
+        else this.say('Ability tome', 'tome2');
       } else if (e.t === 'msg') this.say(e.text, 'ui_bad');
       else if (e.t === 'levelup') this.openLevel();
       else if (e.t === 'dead' || e.t === 'won') this.endT = 50;
-      else if (e.t === 'room') this.last = {};
+      else if (e.t === 'room') { this.last = {}; G.storeSave(G.save); }
     },
 
     // ------------------------------------------------------- level-up choice
     openLevel: function () {
-      var sim = this.game_.sim, self = this, B = sim.B;
+      var sim = this.game_.sim, self = this, B = sim.B, V = G.view;
       if (this.level) this.level.destroy();
-      if (G.Panels && G.Panels.isOpen()) G.Panels.close();
-      var m = this.level = UI.modal(this, 300, 130, null), n = sim.choices.length, cw = 92, gap = 6;
-      var head = m.text(0, 7, sim.choiceTome ? 'TOME OF POWER' : 'LEVEL ' + sim.player.level, 'ui_warn', true);
-      head.x = Math.round((UI.W - head.width) / 2);
-      var sub = m.text(0, 26, 'Choose one passive  (click or press 1-' + n + ')', 'ui_dim');
-      sub.x = Math.round((UI.W - sub.width) / 2);
-      var x0 = Math.round((300 - (n * cw + (n - 1) * gap)) / 2);
-      this.cards = [];
+      if (sim.state !== 'levelup') { this.level = null; return; }
+      if (G.Panels.isOpen()) G.Panels.close();
+      this.dropStick();
+      var n = sim.choices.length, row = V.W >= 300, gap = 6;
+      var cw = row ? Math.min(108, Math.floor((V.W - 24 - gap * (n - 1)) / n)) : Math.min(V.W - 24, 230), ch = row ? 88 : 46;
+      var mw = row ? n * cw + (n - 1) * gap + 16 : cw + 16, mh = row ? 40 + ch + 8 : 40 + n * (ch + gap) + 4;
+      var m = this.level = UI.modal(this, mw, mh, null);
+      UI.centerX(m.text(0, m.y + 7, sim.choiceTome ? 'ABILITY TOME' : 'LEVEL ' + sim.player.level, 'ui_warn', true), V.W / 2);
+      UI.centerX(m.text(0, m.y + 26, 'Choose one passive', 'ui_dim'), V.W / 2);
       sim.choices.forEach(function (id, i) {
-        var info = G.passiveInfo(id, B), lvl = sim.player.passives[id] || 0, cx = x0 + i * (cw + gap), col = G.PASSIVE_COLOR[info.rarity];
-        var bg = UI.panel(self, m.x + cx, m.y + 38, cw, 86, 'btn');
-        m.c.add(bg);
-        m.image(cx + cw / 2, 38 + 14, 'p_' + id);
-        var name = m.text(cx + 5, 38 + 25, info.name, col);
-        name.x = m.x + cx + Math.round((cw - name.width) / 2);
-        var rar = m.text(cx + 5, 38 + 35, G.PASSIVE_RARITY[info.rarity] + '   Lv ' + (lvl + 1) + '/' + info.max, 'ui_dim');
-        rar.x = m.x + cx + Math.round((cw - rar.width) / 2);
-        var desc = m.text(cx + 6, 38 + 49, info.desc, 'ui_text');
-        desc.setMaxWidth(cw - 12);
-        m.text(cx + 4, 38 + 4, '' + (i + 1), 'ui_dim');
+        var info = G.passiveInfo(id, B), lvl = sim.player.passives[id] || 0, col = G.PASSIVE_COLOR[info.rarity];
+        var cx = row ? m.x + 8 + i * (cw + gap) : m.x + 8, cy = row ? m.y + 40 : m.y + 40 + i * (ch + gap);
+        var bg = m.panel(cx, cy, cw, ch, 'btn', 1);
+        if (row) {
+          m.image(cx + cw / 2, cy + 14, 'p_' + id);
+          UI.centerX(m.text(0, cy + 25, info.name, col), cx + cw / 2);
+          UI.centerX(m.text(0, cy + 36, G.PASSIVE_RARITY[info.rarity] + '  Lv ' + (lvl + 1) + '/' + info.max, 'ui_dim'), cx + cw / 2);
+          m.text(cx + 6, cy + 50, info.desc, 'ui_text').setMaxWidth(cw - 12);
+          m.text(cx + 5, cy + 5, '' + (i + 1), 'ui_dim');
+        } else {
+          m.image(cx + 13, cy + 14, 'p_' + id);
+          m.text(cx + 26, cy + 5, info.name, col);
+          m.text(cx + 26, cy + 15, G.PASSIVE_RARITY[info.rarity] + '  Lv ' + (lvl + 1) + '/' + info.max, 'ui_dim');
+          m.text(cx + 26, cy + 26, info.desc, 'ui_text').setMaxWidth(cw - 32);
+        }
         bg.setInteractive({ useHandCursor: true });
         bg.on('pointerover', function () { bg.setFrame('btn_hot'); });
         bg.on('pointerout', function () { bg.setFrame('btn'); });
         bg.on('pointerdown', function () { self.pickLevel(i); });
-        self.cards.push(bg);
-        if (G.Panels) G.Panels.hits['card_' + i] = { x: (m.x + cx + cw / 2) * UI.S, y: (m.y + 38 + 43) * UI.S };
+        UI.hit('card_' + i, cx, cy, cw, ch);
       });
       this.botWait = this.game_.speed > 4 ? 1 : 30;
       G.screen = 'levelup';
@@ -123,47 +193,54 @@
     },
 
     // --------------------------------------------------------------- refresh
-    refresh: function (force) {
-      var sim = this.game_.sim, p = sim.player, L = this.last, X = UI.SAFE_X, Y = UI.SAFE_Y, i;
+    refresh: function () {
+      var sim = this.game_.sim, p = sim.player, L = this.last, X = UI.PAD, i, O = this.obj;
       var hp = Math.ceil(p.hp), key = hp + '/' + p.maxHp;
       if (L.hp !== key) {
         L.hp = key;
-        this.hpFill.setDisplaySize(Math.max(0.01, Math.round(42 * Math.max(0, p.hp) / p.maxHp)), 7);
-        this.hpText.setText('' + hp).setTint(UI.hex(p.hp < p.maxHp * 0.3 ? 'ui_bad' : 'ui_text'));
+        this.hpFill.setDisplaySize(Math.max(0.01, Math.round(66 * Math.max(0, p.hp) / p.maxHp)), 9);
+        this.hpText.setText(key).setTint(UI.hex(p.hp < p.maxHp * 0.3 ? 'ui_warn' : 'ui_text'));
+        UI.centerX(this.hpText, X + 15 + 33);
       }
       if (L.lv !== p.level) { L.lv = p.level; this.lvText.setText('LV ' + p.level); }
       var xp = Math.round(44 * Math.min(1, p.exp / p.expNext));
       if (L.xp !== xp) { L.xp = xp; this.xpFill.setDisplaySize(Math.max(0.01, xp), 3); }
 
       var fp = sim.fissureProgress(), obj = sim.objective();
-      var okey = obj + '|' + fp.states.join(',') + '|' + sim.phase;
+      var okey = obj + '|' + fp.states.join(',') + '|' + sim.phase + '|' + sim.roomIndex;
       if (L.obj !== okey) {
         L.obj = okey;
         this.objText.setText(obj);
-        var showBar = sim.phase === 'super', n = fp.total + 1, rowW = showBar ? 60 : fp.total * 9 + 11;
-        var w = Math.max(this.objText.width, rowW) + 16, x0 = Math.round((UI.W - w) / 2);
-        // keep clear of the HP plate on the left and the inventory button on the right
-        x0 = Math.max(X + 86, Math.min(UI.W - X - 28 - w, x0));
-        this.objPlate.setPosition(x0, Y).setSize(w, 25);
-        this.objText.setPosition(x0 + Math.round((w - this.objText.width) / 2), Y + 4);
-        while (this.pips.length < n) this.pips.push(this.add.image(0, 0, 'atlas', 'pip_wait').setOrigin(0, 0));
-        var px = x0 + Math.round((w - (fp.total * 9 + 11)) / 2);
+        var showBar = sim.phase === 'super', n = fp.total + 1, pipsW = fp.total * 8 + 10, rowW = showBar ? 72 : pipsW;
+        var room = (sim.roomIndex + 1) + '/' + sim.B.run.rooms;
+        this.roomText.setText(room);
+        var w = Math.min(O.w, Math.max(this.objText.width, rowW + this.roomText.width + 8) + 14), x0 = O.x + Math.round((O.w - w) / 2);
+        // centre on the screen when the free area allows it
+        var mid = Math.round((G.view.W - w) / 2);
+        if (mid >= O.x && mid + w <= O.x + O.w) x0 = mid;
+        this.objPlate.setPosition(x0, O.y).setSize(w, 27);
+        UI.centerX(this.objText, x0 + w / 2);
+        var total = rowW + 8 + this.roomText.width, px = x0 + Math.round((w - total) / 2);
+        this.roomText.setPosition(px + rowW + 8, O.y + 16);
+        while (this.pips.length < n) this.pips.push(this.L.image(0, 0, 'pip_wait').setOrigin(0, 0));
         for (i = 0; i < this.pips.length; i++) {
           var pip = this.pips[i], st = fp.states[i];
           pip.setVisible(i < n && !showBar);
           if (i >= n) continue;
           var tag = st === 'scar' ? 'done' : (st === 'dormant' ? 'wait' : 'open');
-          pip.setFrame((i === n - 1 ? 'pips_' : 'pip_') + tag).setPosition(px + i * 9, Y + (i === n - 1 ? 12 : 13));
+          pip.setFrame((i === n - 1 ? 'pips_' : 'pip_') + tag).setPosition(px + i * 8, O.y + (i === n - 1 ? 15 : 16));
         }
-        this.superBarBg.setVisible(showBar).setPosition(x0 + Math.round((w - 60) / 2), Y + 16);
-        this.superBar.setVisible(showBar).setPosition(x0 + Math.round((w - 60) / 2), Y + 16);
+        this.superBarBg.setVisible(showBar).setPosition(px, O.y + 18);
+        this.superBar.setVisible(showBar).setPosition(px, O.y + 18);
       }
-      if (sim.phase === 'super') this.superBar.setDisplaySize(Math.max(0.01, Math.round(60 * sim.superProgress())), 4);
+      if (sim.phase === 'super') this.superBar.setDisplaySize(Math.max(0.01, Math.round(72 * sim.superProgress())), 4);
+      if (this.tPulse) this.tPulse.setAlpha(p.pulseCd > 0 ? 0.35 : 1);
+      if (this.tDodge) this.tDodge.setAlpha(p.dodgeCd > 0 ? 0.35 : 1);
     },
 
     update: function () {
       var gs = this.game_, sim = gs.sim;
-      this.refresh(false);
+      this.refresh();
       if (this.toastT > 0) {
         this.toastT--;
         if (this.toastT < 30) this.toast.setAlpha(this.toastT < 15 ? 0.4 : 0.7);
@@ -171,7 +248,7 @@
       }
       if (sim.state === 'levelup' && !this.level) this.openLevel();
       if (this.level && gs.bot && !G.manualLevel && --this.botWait <= 0) this.pickLevel(gs.bot.pickPassive());
-      if (this.endT > 0 && --this.endT === 0 && G.Panels) G.Panels.openResult(this, sim.state);
+      if (this.endT > 0 && --this.endT === 0) G.Panels.openResult(this, sim.state);
     }
   });
 })(globalThis.G = globalThis.G || {});
