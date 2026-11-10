@@ -38,7 +38,6 @@
     var pw = wide ? Math.min(V.W - 8, 340) : Math.min(V.W - 8, 264), ph = wide ? Math.min(V.H - 8, 200) : Math.min(V.H - 8, 340);
     var L = P.L = UI.modal(scene, pw, ph, 'EQUIPMENT');
     var x0 = L.x, y0 = L.y;
-    L.text(x0 + 70, y0 + 6, 'Gear score ' + G.gearScore(g), 'ui_dim');
     L.button(x0 + pw - 22, y0 + 3, 18, 16, '', function () { P.close(); }, { icon: 'i_close', name: 'inv_close' });
     L.button(x0 + pw - 44, y0 + 3, 18, 16, '', function () { P.openSettings(scene, 'inventory'); }, { icon: 'i_gear', name: 'inv_settings' });
 
@@ -71,12 +70,13 @@
     for (k in DOLL) cell(dx + DOLL[k][0] * 22, dy + DOLL[k][1] * 22, g.equipped[k], k, { kind: 'slot', key: k }, 'slot_' + k);
 
     // character stats (totals; green when gear is adding to them)
-    var rows = [['HP', fmt(stats.maxHp), stats.maxHp > base.maxHp], ['Armor', fmt(stats.armor), stats.armor > base.armor],
+    var gsc = G.gearScore(g), rows = [['Gear', '' + gsc, gsc > 0], ['HP', fmt(stats.maxHp), stats.maxHp > base.maxHp], ['Armor', fmt(stats.armor), stats.armor > base.armor],
       ['Damage', fmt(stats.dmg, 1), stats.dmg > base.dmg], ['Atk/s', fmt(1 / stats.atkInterval, 2), stats.atkInterval < base.atkInterval],
       ['Crit', fmt(stats.crit * 100) + '%', stats.crit > base.crit], ['Move', fmt(stats.speed), stats.speed > base.speed],
       ['Range', fmt(stats.range), stats.range > base.range], ['Pulse', fmt(stats.pulseDmg), stats.pulseDmg > base.pulseDmg],
       ['Regen', fmt(stats.regen, 1) + '/s', stats.regen > base.regen]];
     var sx = wide ? x0 + 8 : x0 + 8 + 72, sy = wide ? dy + 70 : dy, sw = wide ? 66 : pw - 88, maxRows = wide ? Math.floor((ph - 96) / 10) : 7;
+    if (!wide) sy -= 2;
     rows.slice(0, maxRows).forEach(function (r, i) {
       L.text(sx, sy + i * 10, r[0], 'ui_dim');
       var t = L.text(0, sy + i * 10, r[1], r[2] ? 'ui_good' : 'ui_text');

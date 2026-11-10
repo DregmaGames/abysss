@@ -112,6 +112,23 @@
     return this.room.boss ? 'Leave through the gate' : 'Take the exit';
   };
 
+  // where the current objective is (for the off-screen pointer); null while the fight is on top of you
+  S.objectiveTarget = function () {
+    var p = this.player, i, f, best = null, bd = 1e9;
+    if (this.phase === 'chest') return { x: this.chest.x, y: this.chest.y, kind: 'chest' };
+    if (this.phase === 'exit') return { x: this.exit.x, y: this.exit.y, kind: 'exit' };
+    if (this.phase === 'super') { f = this.fissures[this.fissures.length - 1]; return { x: f.x, y: f.y, kind: 'super' }; }
+    for (i = 0; i < this.fissures.length; i++) {
+      f = this.fissures[i];
+      if (f.big) continue;
+      if (f.state === 'opening' || f.state === 'open') return { x: f.x, y: f.y, kind: 'fissure' };
+      if (f.state !== 'dormant') continue;
+      var d = Math.abs(f.x - p.x) + Math.abs(f.y - p.y);
+      if (d < bd) { bd = d; best = f; }
+    }
+    return best ? { x: best.x, y: best.y, kind: 'fissure' } : null;
+  };
+
   S.updateRoomGoals = function () {
     var p = this.player, c = this.chest, e = this.exit, L = this.B.loot, i;
     if (this.phase === 'chest') {

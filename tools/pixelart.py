@@ -27,7 +27,8 @@ T = 16
 PALETTE = {
     'outline': '#0b0a10', 'void': '#07060b', 'white': '#ffffff',
     # floor slabs (grout -> highlight)
-    'f0': '#14131b', 'f1': '#1f1e2a', 'f2': '#282735', 'f3': '#323141', 'f4': '#403f52',
+    'f0': '#121118', 'f1': '#1d1c27', 'f2': '#272633', 'f3': '#32313f', 'f4': '#434253',
+    'fa': '#2b2630', 'fb': '#232838',
     # walls: top surface, brick face
     'wt0': '#0f0e16', 'wt1': '#181722', 'wt2': '#55526e',
     'wb0': '#22202c', 'wb1': '#373546', 'wb2': '#4d4a63', 'wb3': '#6c6988',
@@ -60,7 +61,7 @@ PALETTE = {
     # UI
     'ui_bg': '#13111b', 'ui_bg2': '#1d1b29', 'ui_line': '#5a5674', 'ui_hi': '#8f8aae',
     'ui_text': '#f2efe6', 'ui_dim': '#aaa6ba', 'ui_warn': '#ffd060', 'ui_good': '#7cf09a', 'ui_bad': '#ff6e5e',
-    'hp': '#d8343c', 'hp_d': '#4c121c', 'xp': '#4aa8ff', 'xp_d': '#16304c',
+    'hp': '#b4242e', 'hp_d': '#3e0e16', 'xp': '#4aa8ff', 'xp_d': '#16304c',
     'r_common': '#d8d4c8', 'r_magic': '#6eaaff', 'r_rare': '#ffd84a', 'r_epic': '#cc80ff', 'r_legend': '#ff9434',
 }
 
@@ -984,11 +985,25 @@ FONT5X7 = [
 ]
 
 
+# Lowercase letters with real descenders (rows 7-8), replacing the squeezed 5x7 versions.
+DESCENDERS = {
+    'g': ['', '', '01111', '10001', '10001', '10001', '01111', '00001', '01110'],
+    'j': ['001', '', '011', '001', '001', '001', '001', '001', '110'],
+    'p': ['', '', '11110', '10001', '10001', '10001', '11110', '10000', '10000'],
+    'q': ['', '', '01111', '10001', '10001', '10001', '01111', '00001', '00001'],
+    'y': ['', '', '10001', '10001', '10001', '10001', '01111', '00001', '01110'],
+}
+
+
 def glyph(code):
     """Trimmed 1-bit glyph as a list of rows (strings of 0/1), proportional width."""
     cols = FONT5X7[(code - 32) * 5:(code - 32) * 5 + 5]
     if code == 32:
         return ['000'] * 7
+    if chr(code) in DESCENDERS:
+        rows = DESCENDERS[chr(code)]
+        w = max(len(r) for r in rows)
+        return [r.ljust(w, '0') for r in rows]
     used = [i for i, c in enumerate(cols) if c]
     cols = cols[used[0]:used[-1] + 1]
     return [''.join('1' if (c >> y) & 1 else '0' for c in cols) for y in range(7)]
@@ -1099,7 +1114,7 @@ def tiles():
     for cx, cy in cells:
         if (cx, cy) in owner:
             continue
-        for w, h in rng.sample([(2, 2), (2, 1), (1, 2), (3, 2), (2, 1), (1, 1), (2, 2), (1, 2)], 8):
+        for w, h in rng.sample([(2, 2), (2, 1), (1, 2), (3, 2), (2, 1), (2, 3), (2, 2), (1, 2), (3, 2), (2, 2)], 10):
             if all(((cx + i) % 16, (cy + j) % 16) not in owner for i in range(w) for j in range(h)):
                 break
         else:
@@ -1113,9 +1128,9 @@ def tiles():
     def put(x, y, key):
         floor.putpixel((x % FW, y % FW), rgb(key))
     for cx, cy, w, h in slabs:
-        shade = rng.choice(['f1', 'f2', 'f2', 'f2', 'f3'])
-        hi = {'f1': 'f2', 'f2': 'f3', 'f3': 'f4'}[shade]
-        lo = {'f1': 'f0', 'f2': 'f1', 'f3': 'f2'}[shade]
+        shade = rng.choice(['f1', 'f2', 'f2', 'f2', 'f3', 'fa', 'fb'])
+        hi = {'f1': 'f2', 'f2': 'f3', 'f3': 'f4', 'fa': 'f3', 'fb': 'f3'}[shade]
+        lo = {'f1': 'f0', 'f2': 'f1', 'f3': 'f2', 'fa': 'f1', 'fb': 'f1'}[shade]
         x0, y0, pw, ph = cx * 8, cy * 8, w * 8, h * 8
         for y in range(ph):
             for x in range(pw):
@@ -1132,7 +1147,7 @@ def tiles():
         for (x, y) in ((0, 0), (pw - 2, 0), (0, ph - 2), (pw - 2, ph - 2)):     # chipped corners
             if rng.random() < 0.5:
                 put(x0 + x, y0 + y, 'f0')
-        if pw * ph >= 128 and rng.random() < 0.5:              # hairline crack
+        if pw * ph >= 128 and rng.random() < 0.7:              # hairline crack
             x, y = rng.randint(2, pw - 4), rng.randint(1, 3)
             for _ in range(rng.randint(4, ph - 4)):
                 put(x0 + x, y0 + y, lo if rng.random() < 0.7 else 'f0')

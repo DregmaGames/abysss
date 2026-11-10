@@ -26,27 +26,27 @@
         if (a > base + 0.8) a = base + 0.8;
         if (a < base - 0.8) a = base - 0.8;
         x += Math.cos(a); y += Math.sin(a) * 0.8;
-        if (depth < 2 && t > 0.2 && t < 0.75 && rng.chance(big ? 0.1 : 0.09)) {
+        if (depth < 2 && t > 0.2 && t < 0.75 && rng.chance(big ? 0.08 : 0.07)) {
           walk(x, y, a + (rng.chance(0.5) ? 1 : -1) * rng.range(0.7, 1.2), Math.round((len - i) * 0.6), Math.max(1, w - 1), o0 + i, depth + 1);
         }
       }
     }
     var i, ang;
     if (big) {
-      var R = 9, arms = rng.int(5, 6), a0 = rng.range(0, 6.283);
+      var R = 13, arms = rng.int(6, 7), a0 = rng.range(0, 6.283);
       for (var py = -R; py <= R; py++) for (var px = -R - 2; px <= R + 2; px++) {      // the pit
         var d = Math.sqrt(px * px * 0.72 + py * py * 1.25) + Math.sin(Math.atan2(py, px) * 5 + a0) * 1.2;
         if (d <= R) stamp(px, py, 1, d * 0.8);
       }
       for (i = 0; i < arms; i++) {
         ang = a0 + i / arms * 6.283 + rng.range(-0.25, 0.25);
-        walk(Math.cos(ang) * (R - 2), Math.sin(ang) * (R - 2) * 0.8, ang, rng.int(26, 38), 5, R * 0.8, 1);
+        walk(Math.cos(ang) * (R - 3), Math.sin(ang) * (R - 3) * 0.8, ang, rng.int(34, 50), 6, R * 0.8, 1);
       }
     } else {
       ang = rng.range(0, Math.PI);
-      var len = rng.int(18, 26);
-      walk(0, 0, ang, len, 5, 0, 0);
-      walk(0, 0, ang + Math.PI + rng.range(-0.3, 0.3), len - rng.int(0, 5), 5, 0, 0);
+      var len = rng.int(28, 40);
+      walk(0, 0, ang, len, 7, 0, 0);
+      walk(0, 0, ang + Math.PI + rng.range(-0.3, 0.3), len - rng.int(0, 8), 7, 0, 0);
     }
     var cells = [], k, p;
     for (k in core) { p = k.split(','); cells.push({ x: +p[0], y: +p[1], o: core[k] / maxO, core: true }); }

@@ -9,7 +9,7 @@
       rooms: 10,                      // the last room is the boss room
       tierMult: [1.0, 1.5, 2.1],      // monster hp/dmg multiplier per difficulty tier
       tierGear: [0, 45, 120],         // gear score needed to unlock each tier
-      roomMult: [0.85, 0.95, 1.08, 1.22, 1.38, 1.55, 1.75, 1.95, 2.2, 2.5],   // monster hp/dmg multiplier per room
+      roomMult: [1.05, 1.3, 1.55, 1.8, 2.1, 2.4, 2.75, 3.1, 3.5, 3.0],   // monster hp/dmg multiplier per room
       gearK: 0.005,                   // +0.5 % monster hp/dmg per point of gear score ("gear level scales the room")
       ilvlTier: 3, ilvlRooms: 3       // item level = 1 + tier * ilvlTier + floor(room / ilvlRooms)
     },
@@ -20,7 +20,7 @@
       crit: 0.05, critMult: 1.8, sideBoltDmg: 0.6,
       dodgeDist: 54, dodgeTime: 0.16, dodgeIframes: 0.34, dodgeCd: 1.6,
       pulseDmg: 26, pulseRadius: 54, pulseCd: 7, pulseKnock: 200,
-      hurtIframes: 0.3, pickupR: 36, levelHeal: 0.06
+      hurtIframes: 0.3, pickupR: 36, levelHeal: 0.03
     },
 
     exp: { base: 9, grow: 5, pow: 1.22 },   // exp to next = base + grow * (level-1)^pow
@@ -36,7 +36,7 @@
       warden:   { ai: 'elite', r: 9, hp: 260, speed: 34, dmg: 12, exp: 26, threat: 8, shadow: 'm', elite: true,
                   shotDmg: 11, shotSpeed: 100, shotEvery: 2.3, windup: 0.5, spread: 0.3, keepMin: 46, keepMax: 86,
                   summonEvery: 7, summon: 2, summonType: 'imp' },
-      tyrant:   { ai: 'boss', r: 14, hp: 1500, speed: 32, dmg: 14, exp: 120, threat: 40, shadow: 'l', boss: true,
+      tyrant:   { ai: 'boss', r: 14, hp: 1200, speed: 32, dmg: 14, exp: 120, threat: 40, shadow: 'l', boss: true,
                   chaseTime: 2.4, enrageAt: 0.4, enrageRate: 0.7,
                   slamRadius: 56, slamWindup: 0.95, slamDmg: 22,
                   burstShots: 12, burstDmg: 9, burstSpeed: 70, burstGap: 0.55,
@@ -78,7 +78,7 @@
       firstDelay: 1.2,
       openTime: 1.0, closeTime: 1.0, superOpenTime: 1.8, superCloseTime: 1.6,
       spawnEvery: 0.3, superSpawnEvery: 0.5,       // packs come out in a burst
-      closeExp: 5, closeHeal: 0.04, superHeal: 0.12
+      closeExp: 5, closeHeal: 0.03, superHeal: 0.08
     },
 
     loot: {

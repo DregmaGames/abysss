@@ -112,7 +112,7 @@
             fx.number(e.x, e.y - 22, '-' + e.dmg, 'ui_bad');
             fx.burst(e.x, e.y, 'blood', 10, 80, 0.35);
             fx.shake(0.45);
-            this.hurtFlash = 8;
+            this.hurtFlash = 4;
             break;
           case 'heal': fx.number(e.x, e.y - 22, '+' + e.v, 'ui_good'); break;
           case 'die':
@@ -177,7 +177,7 @@
         s.setAlpha(m.emerge > 0 ? 0.6 : 1);
         if (s.flashCd > 0) s.flashCd--;
         if (s.flash > 0) { s.flash--; s.setTintFill(0xffffff); }
-        else if (s.wind > 0) { s.wind--; if ((s.wind >> 2) % 2) s.setTintFill(UI.hex('em4')); else s.clearTint(); }
+        else if (s.wind > 0) { s.wind--; if ((s.wind >> 2) % 2) s.setTint(0xffb040); else s.clearTint(); }
         else if (m.emerge > 0) s.setTint(UI.hex('rg3'));
         else if (m.enraged) s.setTint(0xffb080);
         else s.clearTint();

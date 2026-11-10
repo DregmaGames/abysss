@@ -97,7 +97,8 @@
       this.superBar = L.bar(0, this.obj.y + 18, 72, 4, 'em2', 1.5);
 
       // transient toast (pickups, bag full): fades out, not part of the resting HUD
-      this.toast = L.text(0, Math.round(V.H * 0.7), '').setVisible(false);
+      this.toast = L.text(0, V.H - 30, '').setVisible(false);
+      this.ptr = L.image(0, 0, 'pips_open').setVisible(false);
       if (this.toastMsg && this.toastT > 0) this.say(this.toastMsg[0], this.toastMsg[1], true);
 
       // touch controls: only once a touch has been seen (or ?touch=1)
@@ -199,7 +200,7 @@
       if (L.hp !== key) {
         L.hp = key;
         this.hpFill.setDisplaySize(Math.max(0.01, Math.round(66 * Math.max(0, p.hp) / p.maxHp)), 9);
-        this.hpText.setText(key).setTint(UI.hex(p.hp < p.maxHp * 0.3 ? 'ui_warn' : 'ui_text'));
+        this.hpText.setText(key);
         UI.centerX(this.hpText, X + 15 + 33);
       }
       if (L.lv !== p.level) { L.lv = p.level; this.lvText.setText('LV ' + p.level); }
@@ -212,7 +213,7 @@
         L.obj = okey;
         this.objText.setText(obj);
         var showBar = sim.phase === 'super', n = fp.total + 1, pipsW = fp.total * 8 + 10, rowW = showBar ? 72 : pipsW;
-        var room = (sim.roomIndex + 1) + '/' + sim.B.run.rooms;
+        var room = 'Room ' + (sim.roomIndex + 1) + '/' + sim.B.run.rooms;
         this.roomText.setText(room);
         var w = Math.min(O.w, Math.max(this.objText.width, rowW + this.roomText.width + 8) + 14), x0 = O.x + Math.round((O.w - w) / 2);
         // centre on the screen when the free area allows it
@@ -234,8 +235,21 @@
         this.superBar.setVisible(showBar).setPosition(px, O.y + 18);
       }
       if (sim.phase === 'super') this.superBar.setDisplaySize(Math.max(0.01, Math.round(72 * sim.superProgress())), 4);
+      this.updatePointer();
       if (this.tPulse) this.tPulse.setAlpha(p.pulseCd > 0 ? 0.35 : 1);
       if (this.tDodge) this.tDodge.setAlpha(p.dodgeCd > 0 ? 0.35 : 1);
+    },
+
+    // objective pointer: a blinking marker on the screen edge, only while the objective is off-screen
+    updatePointer: function () {
+      var gs = this.game_, t = gs.sim.objectiveTarget(), V = G.view, wv = gs.cameras.main.worldView;
+      if (!t || gs.sim.state !== 'play') { this.ptr.setVisible(false); return; }
+      var x = t.x - wv.x, y = t.y - wv.y, top = this.obj.y + 34, m = 12;
+      if (x >= m && x <= V.W - m && y >= top && y <= V.H - m) { this.ptr.setVisible(false); return; }
+      var cx = V.W / 2, cy = (top + V.H - m) / 2, dx = x - cx, dy = y - cy;
+      var k = Math.min(dx ? (dx > 0 ? V.W - m - cx : cx - m) / Math.abs(dx) : 1e9, dy ? (dy > 0 ? V.H - m - cy : cy - top) / Math.abs(dy) : 1e9);
+      this.ptr.setFrame(t.kind === 'chest' ? 'pip_done' : (t.kind === 'exit' ? 'pips_done' : 'pips_open'));
+      this.ptr.setPosition(Math.round(cx + dx * k), Math.round(cy + dy * k)).setVisible((gs.frame >> 4) % 4 !== 0);
     },
 
     update: function () {
