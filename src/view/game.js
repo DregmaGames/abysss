@@ -91,7 +91,10 @@
       var vw = V.W, vh = V.H, rw = room.w * 16, rh = room.h * 16;
       this.cam.x += (p.x - this.cam.x) * 0.14; this.cam.y += (p.y - 8 - this.cam.y) * 0.14;
       var cx = rw <= vw ? rw / 2 : Math.max(vw / 2, Math.min(rw - vw / 2, this.cam.x));
-      var cy = rh <= vh ? rh / 2 : Math.max(vh / 2, Math.min(rh - vh / 2, this.cam.y));
+      // the HUD covers the top strip of the screen: let the view scroll that far above the room,
+      // so the exit gate in the top wall is never hidden behind the objective plate
+      var top = G.hud && G.hud.obj ? G.hud.obj.y + 30 : 34;
+      var cy = rh + top <= vh ? (rh - top) / 2 : Math.max(vh / 2 - top, Math.min(rh - vh / 2, this.cam.y));
       cam.centerOn(Math.round(cx) + this.fx.sx, Math.round(cy) + this.fx.sy);
     },
 
@@ -103,7 +106,7 @@
         switch (e.t) {
           case 'hit':
             s = this.maps.monsters.get(e.id);
-            if (s && !(s.flashCd > 0)) { s.flash = 3; s.flashCd = s.big ? 14 : 7; }
+            if (s && !(s.flashCd > 0)) { s.flash = s.big ? 2 : 3; s.flashCd = s.big ? 16 : 7; }
             fx.number(e.x, e.y - (s ? s.height - 8 : 0), (e.crit ? e.dmg + '!' : '' + e.dmg), e.crit ? 'ui_warn' : 'ui_text');
             fx.burst(e.x, e.y, 'orb', e.crit ? 6 : 3, 60, 0.25);
             if (e.crit) fx.shake(0.12);

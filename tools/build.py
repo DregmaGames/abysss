@@ -21,9 +21,9 @@ SRC = [
 # Sim-only subset: runs under Node for bulk bot runs (tools/sim_bot.js).
 SIM = SRC[:11]
 
-HEAD = """<!doctype html>
+HEAD = """<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
 <title>Riftscar - prototype</title>
 <style>html,body{margin:0;width:100%;height:100%;background:#07060b;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none}
 #game{position:fixed;inset:0}canvas{image-rendering:pixelated;display:block}</style></head>

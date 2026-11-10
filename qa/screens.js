@@ -75,9 +75,12 @@ async function tour(browser, size, seed) {
   st = await until(page, s => s.sim.phase === 'chest', 'chest');
   await page.waitForTimeout(500);
   await snap(page, 'super_scar_chest');
+  // freeze the frame the chest opens (the bot is through the gate a moment later)
+  await page.evaluate(() => { const iv = setInterval(() => { if (G.gameScene.sim.phase === 'exit') { G.paused = true; clearInterval(iv); } }, 4); });
   st = await until(page, s => s.sim.phase === 'exit', 'exit open');
-  await page.waitForTimeout(120);
+  await page.waitForTimeout(250);
   await snap(page, 'exit_open_loot');
+  await page.evaluate(() => { G.paused = false; });
   st = await until(page, s => s.sim.room >= 1 && s.sim.bag + s.sim.gearScore > 0, 'room 2 with loot');
   // inventory: the bot auto-equips, so take one piece off to show bag + details + equip
   await Q.click(page, 'inv'); await page.waitForTimeout(250);
@@ -145,7 +148,13 @@ async function tour(browser, size, seed) {
 
   // ---- boss room and win screen (bot at speed, forced forward to the last room for the picture)
   page = await Q.open(browser, `?scene=game&seed=${seed}&fresh=1&bot=1&speed=4`, size);
-  await page.evaluate(() => { const s = G.gameScene.sim; s.loadRoom(s.B.run.rooms - 1); });
+  // picture only: jump to the last room with its fissures already sealed and a mage that survives the photo
+  await page.evaluate(() => {
+    const s = G.gameScene.sim;
+    s.loadRoom(s.B.run.rooms - 1);
+    s.fissures.forEach(f => { if (!f.big) { f.state = 'scar'; f.reveal = 0; f.queue = []; f.scarTick = s.tick; } });
+    s.player.maxHp = s.stats.maxHp = 5000; s.player.hp = 5000;
+  });
   st = await until(page, s => s.sim.phase === 'super' && s.sim.monsters >= 1, 'boss');
   await page.waitForTimeout(1500);
   await snap(page, 'boss_room');
