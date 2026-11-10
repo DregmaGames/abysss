@@ -13,6 +13,10 @@ async function tour(browser, size, seed) {
   let n = 0;
   const log = [];
   const snap = async (page, name) => {
+    // a level-up card may pop up at any moment: answer it first unless that is the shot we want
+    if (name !== 'levelup') {
+      for (let i = 0; i < 5 && (await Q.state(page)).screen === 'levelup'; i++) { await Q.click(page, 'card_0'); await page.waitForTimeout(80); }
+    }
     const f = path.join(dir, `${size}_${String(++n).padStart(2, '0')}_${name}.png`);
     await page.screenshot({ path: f });
     log.push(path.basename(f));
@@ -72,7 +76,7 @@ async function tour(browser, size, seed) {
   await page.waitForTimeout(500);
   await snap(page, 'super_scar_chest');
   st = await until(page, s => s.sim.phase === 'exit', 'exit open');
-  await page.waitForTimeout(400);
+  await page.waitForTimeout(120);
   await snap(page, 'exit_open_loot');
   st = await until(page, s => s.sim.room >= 1 && s.sim.bag + s.sim.gearScore > 0, 'room 2 with loot');
   // inventory: the bot auto-equips, so take one piece off to show bag + details + equip

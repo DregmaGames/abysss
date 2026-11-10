@@ -1,0 +1,65 @@
+# Grok prompts and the import pipeline
+
+Everything in the build today is drawn in code by `tools/pixelart.py`. Use generated art only
+for things code draws badly (large creatures with a lot of anatomy, key art). Imported art must
+come out at the game's pixel size and in the game's palette, so it always goes through
+`tools/import_asset.py`; never drop a generated image into the atlas by hand.
+
+## Rules for every prompt
+
+- Flat **pure magenta background (#FF00FF)**, no gradient, no floor, no cast shadow, no text.
+- One sprite per image, or an evenly spaced grid of frames (say which: `4x4 grid`).
+- Top-down 3/4 view, facing right or facing the camera, whole body inside the frame.
+- Flat colours, 2-3 shades per material, readable silhouette, bright accents on a mid-tone body.
+  Dark-on-dark sprites turn to mud when they are reduced to 20-36 art pixels.
+- Own designs only: no characters, logos or UI from existing games.
+
+## Prompts
+
+**Rift Tyrant (boss, imports at 34 px tall)**
+> Pixel art game sprite sheet, 4x4 grid, evenly spaced, pure magenta #FF00FF background. A hulking
+> horned demon, front view, top-down 3/4 perspective. Crimson skin in three flat shades, bone
+> coloured horns and claws, a glowing green crack down the chest, yellow eyes. Thick dark outline,
+> flat colours, no gradients, no shadow on the ground. Row 1 idle, row 2 walk, row 3 slam wind-up,
+> row 4 roar.
+
+**Warden (elite, 20-22 px tall)**
+> Pixel art game sprite sheet, 4x4 grid, pure magenta #FF00FF background. A stone golem brute,
+> front view, top-down 3/4 perspective, grey-green rock in three flat shades with glowing green
+> cracks, small head, huge fists. Dark outline, flat colours, no ground shadow.
+
+**Hound (14 px tall, faces right)**
+> Pixel art game sprite sheet, 4x1 grid, pure magenta #FF00FF background. A spiky purple wolf-like
+> beast running to the right, side view from slightly above, three flat purple shades, red eye,
+> white teeth. Dark outline, flat colours, no ground shadow.
+
+**Title key art (not a sprite: imported at 240x135 as a backdrop)**
+> Pixel art, 16:9, dark fantasy dungeon hall seen from above, cracked flagstone floor split by a
+> glowing green fissure with ember-orange edges, torches on the walls, a small blue-robed mage in
+> the centre. Limited palette of slate greys, toxic green, ember orange. No text, no UI.
+
+## Importing
+
+```
+python3 tools/import_asset.py raw/tyrant.jpg --name tyrant --grid 4x4 --cells 0,1 \
+        --height 34 --colors 8 --keys ty,horn,em,rg,eye,outline --gamma 0.8
+python3 tools/pixelart.py --sheet      # repacks the atlas; look at qa/out/artsheet.png
+python3 tools/build.py
+```
+
+What the importer does: keys out the magenta by hue (tolerates JPEG noise and gradients), cuts
+the grid, crops all chosen frames to one shared box so the animation stays aligned, area-averages
+down to `--height` art pixels, hardens the alpha, snaps every pixel to the nearest colour of the
+game palette (`--keys` limits it to named ramps from `assets/palette.json`, `--colors` caps the
+count, `--gamma` below 1 lifts dark sources), removes stray pixels and adds the same 1 px outline
+the code-drawn sprites have. A preview is written to `qa/out/import_<name>.png`.
+
+Frames land in `assets/imported/<name>_<n>.png`. `pixelart.py` packs that folder into the atlas,
+and an imported frame replaces a code-drawn frame with the same name (`tyrant_0`, `tyrant_1`, ...).
+Delete the file to go back to the code-drawn version.
+
+## Status
+
+The pipeline was tested on the raw sheets from the earlier Grok workspace (tyrant, chest, portal).
+They import cleanly, but those sources are dark and low-contrast, and after reduction they read
+worse than the code-drawn sprites, so nothing imported ships in the current build.

@@ -18,7 +18,7 @@
     run: {
       rooms: 10,                      // the last room is the boss room
       tierMult: [1.0, 1.5, 2.1],      // monster hp/dmg multiplier per difficulty tier
-      tierGear: [0, 45, 120],         // gear score needed to unlock each tier
+      tierGear: [0, 70, 170],         // gear score needed to unlock each tier
       roomMult: [1.05, 1.3, 1.55, 1.8, 2.1, 2.4, 2.75, 3.1, 3.5, 3.0],   // monster hp/dmg multiplier per room
       gearK: 0.005,                   // +0.5 % monster hp/dmg per point of gear score ("gear level scales the room")
       ilvlTier: 3, ilvlRooms: 3       // item level = 1 + tier * ilvlTier + floor(room / ilvlRooms)
@@ -2100,7 +2100,7 @@
       var need = G.BAL.run.tierGear[G.tier], gs = this.gearScore(), locked = gs < need, cx = Math.round(G.view.W / 2);
       this.tierText.setText('TIER ' + ROMAN[G.tier]).setTint(UI.hex(locked ? 'ui_bad' : 'ui_warn'));
       UI.centerX(this.tierText, cx);
-      this.tierInfo.setText(locked ? 'Locked: needs gear score ' + need + ' (you: ' + gs + ')' : 'Gear score ' + gs + '   Monsters x' + G.BAL.run.tierMult[G.tier].toFixed(2));
+      this.tierInfo.setText(locked ? 'Locked: needs gear score ' + need + ' (you: ' + gs + ')' : 'Gear score ' + gs + '   Monsters x' + (G.BAL.run.tierMult[G.tier] * (1 + G.BAL.run.gearK * gs)).toFixed(2));
       UI.centerX(this.tierInfo, cx);
       this.seedText.setText('Seed ' + G.runSeed);
       this.seedText.x = cx - 64;

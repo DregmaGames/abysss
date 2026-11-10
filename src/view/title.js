@@ -66,7 +66,7 @@
       var need = G.BAL.run.tierGear[G.tier], gs = this.gearScore(), locked = gs < need, cx = Math.round(G.view.W / 2);
       this.tierText.setText('TIER ' + ROMAN[G.tier]).setTint(UI.hex(locked ? 'ui_bad' : 'ui_warn'));
       UI.centerX(this.tierText, cx);
-      this.tierInfo.setText(locked ? 'Locked: needs gear score ' + need + ' (you: ' + gs + ')' : 'Gear score ' + gs + '   Monsters x' + G.BAL.run.tierMult[G.tier].toFixed(2));
+      this.tierInfo.setText(locked ? 'Locked: needs gear score ' + need + ' (you: ' + gs + ')' : 'Gear score ' + gs + '   Monsters x' + (G.BAL.run.tierMult[G.tier] * (1 + G.BAL.run.gearK * gs)).toFixed(2));
       UI.centerX(this.tierInfo, cx);
       this.seedText.setText('Seed ' + G.runSeed);
       this.seedText.x = cx - 64;

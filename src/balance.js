@@ -8,7 +8,7 @@
     run: {
       rooms: 10,                      // the last room is the boss room
       tierMult: [1.0, 1.5, 2.1],      // monster hp/dmg multiplier per difficulty tier
-      tierGear: [0, 45, 120],         // gear score needed to unlock each tier
+      tierGear: [0, 70, 170],         // gear score needed to unlock each tier
       roomMult: [1.05, 1.3, 1.55, 1.8, 2.1, 2.4, 2.75, 3.1, 3.5, 3.0],   // monster hp/dmg multiplier per room
       gearK: 0.005,                   // +0.5 % monster hp/dmg per point of gear score ("gear level scales the room")
       ilvlTier: 3, ilvlRooms: 3       // item level = 1 + tier * ilvlTier + floor(room / ilvlRooms)
