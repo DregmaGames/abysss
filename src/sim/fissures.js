@@ -20,9 +20,18 @@
     }
     if (this.phase === 'fissures') {
       if (dormant) {
-        this.openTimer -= dt;
-        if (active === 0 && this.openTimer > 1.5) this.openTimer = 1.5;     // never leave the room idle
-        if (this.openTimer <= 0 && active < F.maxActive) { this.openFissure(dormant); this.openTimer = F.nextDelay; }
+        // exploring wakes fissures: the nearest dormant one opens when the mage comes close.
+        // With nothing open, a timer opens one anyway, so the room never idles.
+        var p = this.player, near = null, nd = 1e9;
+        for (i = 0; i < fs.length; i++) {
+          f = fs[i];
+          if (f.big || f.state !== 'dormant') continue;
+          var d = Math.sqrt((f.x - p.x) * (f.x - p.x) + (f.y - p.y) * (f.y - p.y));
+          if (d < nd) { nd = d; near = f; }
+        }
+        if (active > 0) this.openTimer = F.idleOpen; else this.openTimer -= dt;
+        var awake = (this.tick - this.roomTick) * this.B.DT > F.firstDelay;
+        if (awake && active < F.maxActive && (nd < F.triggerR || this.openTimer <= 0)) { this.openFissure(near); this.openTimer = F.idleOpen; }
       } else if (scars === normal) {
         this.phase = 'super';
         this.openFissure(fs[fs.length - 1]);
@@ -97,7 +106,7 @@
 
   S.objective = function () {
     var fp = this.fissureProgress();
-    if (this.phase === 'fissures') return fp.open || fp.done ? 'Seal the fissures' : 'Explore the room';
+    if (this.phase === 'fissures') return fp.open ? 'Seal the fissure' : (fp.done ? 'Find the next fissure' : 'Explore the room');
     if (this.phase === 'super') return this.room.boss ? 'Slay the Rift Tyrant' : 'Close the super fissure';
     if (this.phase === 'chest') return 'Open the chest';
     return this.room.boss ? 'Leave through the gate' : 'Take the exit';
@@ -107,7 +116,7 @@
     var p = this.player, c = this.chest, e = this.exit, L = this.B.loot, i;
     if (this.phase === 'chest') {
       var dx = p.x - c.x, dy = p.y - c.y;
-      if (dx * dx + dy * dy < 14 * 14) {
+      if (dx * dx + dy * dy < 16 * 16) {
         c.state = 'open';
         var n = L.chestItems[this.roomIndex];
         for (i = 0; i < n; i++) this.spawnItem(c.x + (i - (n - 1) / 2) * 12, c.y + 14, this.room.boss ? L.luck.boss : L.luck.chest);
@@ -117,7 +126,7 @@
         this.emit({ t: 'phase', phase: 'exit' });
       }
     } else if (this.phase === 'exit') {
-      if (Math.abs(p.x - e.x) < 7 && p.y < e.y + 5) {
+      if (Math.abs(p.x - e.x) < 9 && p.y < e.y + 9) {
         this.roomsCleared++;
         this.progress();
         if (this.roomIndex === this.B.run.rooms - 1) { this.state = 'won'; this.emit({ t: 'won' }); }
