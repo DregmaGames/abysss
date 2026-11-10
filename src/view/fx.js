@@ -31,6 +31,10 @@
       this.parts.push({ x: x, y: y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: life * (0.6 + Math.random() * 0.4), max: life, c: c, s: Math.random() < 0.3 ? 2 : 1 });
     }
   };
+  FX.prototype.spark = function (x, y, color, life) {
+    if (this.quiet || this.parts.length > 600) return;
+    this.parts.push({ x: x, y: y, vx: 0, vy: 0, life: life, max: life, c: UI.hex(color), s: 1 });
+  };
   FX.prototype.ring = function (x, y, r0, r1, dur, color, squash) {
     if (this.quiet) return;
     this.rings.push({ x: Math.round(x), y: Math.round(y), r0: r0, r1: r1, t: 0, dur: dur, c: UI.hex(color), q: squash || 1 });
@@ -40,7 +44,7 @@
     var t = this.pool.pop();
     if (!t) t = this.scene.add.bitmapText(0, 0, 'font', '').setDepth(9500);
     t.setText(text).setTint(UI.hex(color)).setVisible(true).setAlpha(1);
-    t.x = Math.round(x - t.width / 2 + (Math.random() * 8 - 4)); t.y = Math.round(y - 10);
+    t.x = Math.round(x - t.width / 2 + (Math.random() * 10 - 5)); t.y = Math.round(y - 10);
     this.nums.push({ t: t, life: 0.7, y: t.y });
     if (this.nums.length > 40) this.release(this.nums.shift());
   };

@@ -64,7 +64,7 @@
     this.roomIndex = index;
     this.rngRoom = new G.RNG(G.hash32(room.seed, 77));
     this.threat = B.run.tierMult[this.tier] * B.run.roomMult[index] * (1 + B.run.gearK * G.gearScore(this.gear));
-    this.ilvl = B.run.ilvl[this.tier][index];
+    this.ilvl = 1 + this.tier * B.run.ilvlTier + Math.floor(index / B.run.ilvlRooms);
     this.player.x = room.start.x; this.player.y = room.start.y;
     this.player.dashT = 0;
     this.monsters = []; this.shots = []; this.bolts = []; this.orbs = []; this.drops = []; this.teles = [];
@@ -82,7 +82,7 @@
       return { id: i, x: f.x, y: f.y, big: f.big, cells: f.cells, state: 'dormant', t: 0, reveal: 0, queue: queue, total: queue.length, spawnCd: 0, alive: 0, dealt: 0 };
     });
     this.phase = 'fissures';             // fissures | super | chest | exit
-    this.openTimer = F.firstDelay;
+    this.openTimer = F.idleOpen; this.roomTick = this.tick;
     this.chest = { x: room.chest.x, y: room.chest.y, state: 'hidden' };
     this.exit = { x: room.exit.x, y: room.exit.y, open: false };
     this.flow = new Int16Array(room.w * room.h);

@@ -1,4 +1,4 @@
-// Boss: the Rift Tyrant. Chases, then cycles four telegraphed attacks; faster when enraged.
+// Boss: the Rift Tyrant (room 10). Chases, then cycles four telegraphed attacks; faster when enraged.
 (function (G) {
   var S = G.Sim.prototype;
   var CYCLE = ['slam', 'burst', 'charge', 'summon'];
@@ -26,7 +26,7 @@
             var n = D.summon + (enr ? 1 : 0);
             for (i = 0; i < n; i++) {
               a = i / n * 6.283 + 0.6;
-              this.spawnMonster(enr && i === 0 ? 'gazer' : 'riftling', m.x + Math.cos(a) * 22, m.y + Math.sin(a) * 22, m.fid);
+              this.spawnMonster(enr && i === 0 ? 'skeleton' : 'imp', m.x + Math.cos(a) * 26, m.y + Math.sin(a) * 26, m.fid);
             }
             this.emit({ t: 'summon', x: m.x, y: m.y });
           }
@@ -36,7 +36,7 @@
         var due = m.vol === 0 || (m.vol === 1 && m.t <= D.burstGap * rate);
         if (due && m.vol < 2) {
           var shots = D.burstShots + (enr ? 4 : 0), off = m.vol * Math.PI / shots + Math.atan2(dy, dx);
-          for (i = 0; i < shots; i++) this.fireShot(m, off + i / shots * 6.283, D.burstSpeed, D.burstDmg * m.mul, true);
+          for (i = 0; i < shots; i++) this.fireShot(m, off + i / shots * 6.283, D.burstSpeed, D.burstDmg * m.mul, 'big');
           m.vol++;
           this.emit({ t: 'shoot', id: m.id, x: m.x, y: m.y });
         }

@@ -87,7 +87,7 @@
   };
   S.spawnDrop = function (kind, x, y, item) {
     var a = this.rngRoom.range(0, 6.283), d = this.rngRoom.range(6, 14), nx = x + Math.cos(a) * d, ny = y + Math.sin(a) * d;
-    if (this.boxHits(nx, ny, 5)) { nx = x; ny = y; }
+    if (this.boxHits(nx, ny, 6)) { nx = x; ny = y; }
     this.drops.push({ id: this.nextId++, kind: kind, x: nx, y: ny, item: item, age: 0 });
     this.emit({ t: 'drop', x: nx, y: ny, kind: kind, rarity: item ? item.rarity : 2 });
   };
@@ -106,8 +106,8 @@
     if ((m.los && !m.detour) || d < 12) return { x: (p.x - m.x) / (d || 1), y: (p.y - m.y) / (d || 1) };
     return this.fieldDir(this.flow, m.x, m.y) || { x: (p.x - m.x) / (d || 1), y: (p.y - m.y) / (d || 1) };
   };
-  S.fireShot = function (m, ang, speed, dmg, big) {
-    this.shots.push({ id: this.nextId++, x: m.x, y: m.y, vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed, r: big ? 3.5 : 2.5, dmg: dmg, life: 5, big: !!big });
+  S.fireShot = function (m, ang, speed, dmg, kind) {
+    this.shots.push({ id: this.nextId++, x: m.x, y: m.y, vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed, r: kind === 'big' ? 3.5 : 2.5, dmg: dmg, life: 5, kind: kind });
   };
 
   S.updateMonsters = function (dt) {
@@ -131,36 +131,40 @@
 
       if (def.boss) {
         this.bossAI(m, dt, d, dx, dy);
-      } else if (m.type === 'riftling' || frenzy) {
+      } else if (def.ai === 'chase' || def.ai === 'weave' || frenzy) {
         dir = this.steer(m, p, d);
+        if (def.ai === 'weave' && !frenzy && d > 14) {      // bats swerve side to side as they close in
+          var wv = Math.sin(m.age * 7 + m.id) * def.weave, cw = Math.cos(wv), sw = Math.sin(wv);
+          dir = { x: dir.x * cw - dir.y * sw, y: dir.x * sw + dir.y * cw };
+        }
         this.move(m, dir.x * sp * dt, dir.y * sp * dt);
-      } else if (m.type === 'gazer' || m.type === 'warden') {
+      } else if (def.ai === 'ranged' || def.ai === 'elite') {
         m.cd -= dt;
         if (m.wind > 0) {
           m.wind -= dt;
           if (m.wind <= 0) {
             var a = Math.atan2(dy, dx);
-            if (m.type === 'warden') for (j = -1; j <= 1; j++) this.fireShot(m, a + j * def.spread, def.shotSpeed, def.shotDmg * m.mul);
-            else this.fireShot(m, a, def.shotSpeed, def.shotDmg * m.mul);
+            if (def.ai === 'elite') for (j = -1; j <= 1; j++) this.fireShot(m, a + j * def.spread, def.shotSpeed, def.shotDmg * m.mul, 'orb');
+            else this.fireShot(m, a, def.shotSpeed, def.shotDmg * m.mul, 'bone');
             m.cd = def.shotEvery;
             this.emit({ t: 'shoot', id: m.id, x: m.x, y: m.y });
           }
         } else {
-          var kmin = m.type === 'warden' ? 38 : def.keepMin, kmax = m.type === 'warden' ? 72 : def.keepMax;
+          var kmin = def.keepMin, kmax = def.keepMax;
           if (d > kmax || !m.los) { dir = this.steer(m, p, d); this.move(m, dir.x * sp * dt, dir.y * sp * dt); }
           else if (d < kmin) this.move(m, -dx / d * sp * 0.8 * dt, -dy / d * sp * 0.8 * dt);
           else this.move(m, -dy / d * m.side * sp * 0.5 * dt, dx / d * m.side * sp * 0.5 * dt);
           if ((this.tick + m.id) % 180 === 0) m.side = -m.side;
           if (m.cd <= 0 && m.los && d < (def.sight || 130)) { m.wind = def.windup; this.emit({ t: 'windup', id: m.id, dur: def.windup }); }
         }
-        if (m.type === 'warden') {
+        if (def.ai === 'elite') {
           m.cd2 -= dt;
           if (m.cd2 <= 0) {
             m.cd2 = def.summonEvery;
-            for (j = 0; j < def.summon; j++) this.spawnMonster('riftling', m.x + (j ? 10 : -10), m.y + 6, m.fid);
+            for (j = 0; j < def.summon; j++) this.spawnMonster(def.summonType, m.x + (j ? 12 : -12), m.y + 8, m.fid);
           }
         }
-      } else if (m.type === 'husk') {
+      } else if (def.ai === 'lunge') {
         m.cd -= dt;
         if (m.st === 'wind') {
           m.t -= dt;
