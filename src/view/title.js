@@ -66,7 +66,7 @@
       help.forEach(function (line, i) { if (y + i * 10 < V.H - 12) UI.centerX(L.text(0, y + i * 10, line, 'ui_dim'), cx); });
       this.refresh();
     },
-    gearScore: function () { return G.gearScore(G.save.gear); },
+    gearScore: function () { return G.gearScore(G.gearOf(G.save, G.cls)); },
     setTier: function (t) {
       G.tier = Math.max(0, Math.min(G.BAL.run.tierGear.length - 1, t));
       this.refresh();

@@ -73,7 +73,7 @@
     var out = {};
     for (var k in gear.equipped) {
       var it = gear.equipped[k];
-      if (!it || (B && !G.canEquip(it, B, clsId))) continue;      // a weapon of another class (class switched on the title) adds nothing
+      if (!it) continue;
       for (var s in it.stats) out[s] = (out[s] || 0) + it.stats[s];
     }
     return out;

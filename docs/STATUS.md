@@ -16,7 +16,7 @@ Design decisions live in the plan doc (the user has it); this file is what an ag
   3 active slots with the replace choice, ranks, families with bonuses at 2 and 4, monster statuses, all three class groups (mage,
   warrior with weapon overrides, archer) and the shared pool, every effect kind, level-up screen, bot builds, the ABILITIES page of the
   equipment panel. The old passives (table, files, flags) are gone.
-- Step 6 (doors and extraction) on branch `step-6-doors-extraction`: the after-room choice, door modifiers, the sealed bag, no in-run equipping.
+- Step 6 (doors and extraction) on branch `step-6-doors-extraction`: the after-room choice, door modifiers, the sealed bag, in-run equipping from the sealed bag, gear per class.
   Rules in `src/balance.js` (`doors`, `run.deathKeepsEquipped`, `loot.bagSize` = sealed bag of a run, `loot.stashSize` = kept bag).
 - `main` is the working base. One branch per step: `step-N-<slug>`.
 
@@ -30,10 +30,15 @@ Design decisions live in the plan doc (the user has it); this file is what an ag
 - Door modifiers (loot = +that share of gear drop chances and +that much rarity luck): Long cracks (arms x1.4) +25 %; More cracks (+1 crack) +30 %;
   Fast spawns (pause between packs x0.5) +20 %; Crowded (alive cap x1.6) +20 %; Extra elite (+1 warden in the super fissure wave) +30 %;
   Hardened foes (monster hp and damage x1.2) +25 %. The numbers are guesses, not balanced.
-- Bag and gear: loot goes to `sim.bag` (cap `bagSize` 20); the HUD shows count and best rarity on the inventory button. In a run the inventory
-  panel is read-only (no equip, unequip, drop: `Sim.equip/unequip/dropItem` are gone). Between runs (title, EQUIPMENT) the player equips and
-  discards from `gear.bag` (a class equips only its own weapons, as before). Save v3: key unchanged; a v2 save's bag becomes the kept bag
-  (bad entries dropped, cut to 30, `nextId` raised above every item id), equipped gear, settings, stats kept.
+- Bag and gear (per class): the save holds one gear set per class, `save.gears[classId] = {equipped, bag (kept bag), nextId}` (`G.gearOf(save, cls)`
+  creates an empty one on first use; `G.newGear()`). Settings and stats are shared. A run uses the gear of the class that plays it and banks into
+  that class's kept bag; the title EQUIPMENT view, the class picker and the gear score show the selected class's gear. Loot goes to `sim.bag` (cap
+  `bagSize` 20); the HUD shows count and best rarity on the inventory button. In a run the inventory shows the sealed bag as a grid ("sealed bag of
+  this run"); EQUIP (`Sim.equipFromSealed`) moves the item onto the hero (own-class weapons only) and the replaced item takes the equipped item's cell
+  in the sealed bag, so a swap never overflows the bag (a full bag cannot block it); DROP discards from the sealed bag. Death keeps equipped gear
+  (`deathKeepsEquipped`) and loses the rest of the sealed bag. Between runs (title) the player equips and discards from the class's `gears[c].bag`.
+  Save v4 (key unchanged): a v2/v3 save's shared gear (worn items + kept bag) goes whole to the class in `settings.cls` (default mage); a worn
+  weapon that class cannot use moves to its bag; an old bag over the stash size stays whole (nothing lost); `nextId` raised above every item id.
 - Bot: default goes on to room 10 and takes the door with the smaller loot bonus; `--leave N` (also `?leave=N` in the browser) leaves after room N.
   `G.Bot.prepareGear` equips and discards between runs (used by `--career`). `sim_bot` reports `left` and bag items.
 - Career (`sim_bot --career 10 --seeds 1-10`, 10 runs, gear kept): between runs `G.Bot.prepareGear` equips the best item per slot (own-class weapons only)

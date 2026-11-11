@@ -161,7 +161,8 @@
       else if (e.t === 'levelup') this.openLevel();
       else if (e.t === 'famTier' && e.tier > e.prev) this.say(this.game_.sim.B.families[e.fam].name + ' bonus ' + (e.tier === 2 ? 4 : 2) + '!', 'ui_good');
       else if (e.t === 'choice') this.openChoice();
-      else if (e.t === 'dead' || e.t === 'won' || e.t === 'left') { this.endT = 50; if (e.t !== 'dead') G.storeSave(G.save); }      // the bag was banked: save it now
+      else if (e.t === 'dead' || e.t === 'won' || e.t === 'left') { this.endT = 50; G.storeSave(G.save); }      // the bag was banked (or, on death, the worn gear kept): save it now
+      else if (e.t === 'equip') G.storeSave(G.save);
       else if (e.t === 'room') { this.last = {}; G.storeSave(G.save); }
     },
 

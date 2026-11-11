@@ -106,9 +106,23 @@
     return null;
   };
 
+  // In a run: equip what is better from the sealed bag (own-class weapons only).
+  Bot.prototype.manageGear = function () {
+    var sim = this.sim, g = sim.gear, B = sim.B, i, changed = true, guard = 0;
+    while (changed && guard++ < 30) {
+      changed = false;
+      for (i = 0; i < sim.bag.length; i++) {
+        var it = sim.bag[i], cur = g.equipped[G.targetSlot(g, it, B)];
+        if (!G.canEquip(it, B, sim.clsId)) continue;
+        if (!cur || G.itemValue(it, B) > G.itemValue(cur, B) + 0.01) { sim.equipFromSealed(i); changed = true; break; }
+      }
+    }
+  };
+
   Bot.prototype.update = function () {
     var sim = this.sim;
     if (sim.state !== 'play') return;
+    if (sim.tick % 30 === 0 && sim.bag.length) this.manageGear();
     var p = sim.player, s = sim.stats, K = sim.cls.skill, inp = sim.input, i;
     // Human-like reaction time: in a fight the bot only re-decides every `reactionTicks`
     // and holds its last decision in between. Out of combat it steers every tick.
@@ -225,7 +239,7 @@
   // Headless run of one seed (Node or browser console). Returns a summary.
   G.botRun = function (seed, opts) {
     opts = opts || {};
-    var gear = opts.gear || G.newSave().gear;
+    var gear = opts.gear || G.newGear();
     var sim = new G.Sim({ seed: seed, tier: opts.tier || 0, gear: gear, bal: opts.bal, cls: opts.cls }), bot = new Bot(sim, opts.build, { leave: opts.leave, lowHp: opts.lowHp });
     var maxTicks = (opts.maxSeconds || 1200) * 60, softlock = false, worstStuck = 0, roomTicks = [], last = 0, lastRoom = 0, minHp = sim.B.run.roomMult.map(function () { return 1; });
     while (sim.tick < maxTicks && (sim.state === 'play' || sim.state === 'levelup' || sim.state === 'choice')) {

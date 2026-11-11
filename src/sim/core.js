@@ -386,8 +386,19 @@
   };
 
   // ---------------------------------------------------------------- inventory
-  // No equipping inside a run: the gear a run starts with stays on all run. Equip and discard happen between runs
-  // (title screen) on gear.bag, with G.equipFromBag / G.unequip / G.dropFromBag.
+  // In a run the player equips from the sealed bag (this.bag): the item moves onto the hero and the item it replaces takes its place
+  // in the sealed bag (so a full bag never blocks a swap). Own-class weapons only. Equipped gear is kept on death
+  // (BAL.run.deathKeepsEquipped), the rest of the sealed bag is not. Between runs (title) the player works on gear.bag instead.
+  S.equipFromSealed = function (idx) {
+    var item = this.bag[idx];
+    if (!item || !G.canEquip(item, this.B, this.clsId)) return null;
+    var key = G.targetSlot(this.gear, item, this.B), old = this.gear.equipped[key];
+    this.gear.equipped[key] = item;
+    if (old) this.bag[idx] = old; else this.bag.splice(idx, 1);
+    this.recalc(); this.emit({ t: 'equip', slot: key });
+    return key;
+  };
+  S.dropSealed = function (idx) { return this.bag.splice(idx, 1)[0] || null; };
 
   // ------------------------------------------------------------------ cheats
   // Debug panel actions, to reach any part of a run fast. They go through the normal sim paths

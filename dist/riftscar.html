@@ -952,7 +952,7 @@
     var out = {};
     for (var k in gear.equipped) {
       var it = gear.equipped[k];
-      if (!it || (B && !G.canEquip(it, B, clsId))) continue;      // a weapon of another class (class switched on the title) adds nothing
+      if (!it) continue;
       for (var s in it.stats) out[s] = (out[s] || 0) + it.stats[s];
     }
     return out;
@@ -1514,8 +1514,19 @@
   };
 
   // ---------------------------------------------------------------- inventory
-  // No equipping inside a run: the gear a run starts with stays on all run. Equip and discard happen between runs
-  // (title screen) on gear.bag, with G.equipFromBag / G.unequip / G.dropFromBag.
+  // In a run the player equips from the sealed bag (this.bag): the item moves onto the hero and the item it replaces takes its place
+  // in the sealed bag (so a full bag never blocks a swap). Own-class weapons only. Equipped gear is kept on death
+  // (BAL.run.deathKeepsEquipped), the rest of the sealed bag is not. Between runs (title) the player works on gear.bag instead.
+  S.equipFromSealed = function (idx) {
+    var item = this.bag[idx];
+    if (!item || !G.canEquip(item, this.B, this.clsId)) return null;
+    var key = G.targetSlot(this.gear, item, this.B), old = this.gear.equipped[key];
+    this.gear.equipped[key] = item;
+    if (old) this.bag[idx] = old; else this.bag.splice(idx, 1);
+    this.recalc(); this.emit({ t: 'equip', slot: key });
+    return key;
+  };
+  S.dropSealed = function (idx) { return this.bag.splice(idx, 1)[0] || null; };
 
   // ------------------------------------------------------------------ cheats
   // Debug panel actions, to reach any part of a run fast. They go through the normal sim paths
@@ -2831,9 +2842,23 @@
     return null;
   };
 
+  // In a run: equip what is better from the sealed bag (own-class weapons only).
+  Bot.prototype.manageGear = function () {
+    var sim = this.sim, g = sim.gear, B = sim.B, i, changed = true, guard = 0;
+    while (changed && guard++ < 30) {
+      changed = false;
+      for (i = 0; i < sim.bag.length; i++) {
+        var it = sim.bag[i], cur = g.equipped[G.targetSlot(g, it, B)];
+        if (!G.canEquip(it, B, sim.clsId)) continue;
+        if (!cur || G.itemValue(it, B) > G.itemValue(cur, B) + 0.01) { sim.equipFromSealed(i); changed = true; break; }
+      }
+    }
+  };
+
   Bot.prototype.update = function () {
     var sim = this.sim;
     if (sim.state !== 'play') return;
+    if (sim.tick % 30 === 0 && sim.bag.length) this.manageGear();
     var p = sim.player, s = sim.stats, K = sim.cls.skill, inp = sim.input, i;
     // Human-like reaction time: in a fight the bot only re-decides every `reactionTicks`
     // and holds its last decision in between. Out of combat it steers every tick.
@@ -2950,7 +2975,7 @@
   // Headless run of one seed (Node or browser console). Returns a summary.
   G.botRun = function (seed, opts) {
     opts = opts || {};
-    var gear = opts.gear || G.newSave().gear;
+    var gear = opts.gear || G.newGear();
     var sim = new G.Sim({ seed: seed, tier: opts.tier || 0, gear: gear, bal: opts.bal, cls: opts.cls }), bot = new Bot(sim, opts.build, { leave: opts.leave, lowHp: opts.lowHp });
     var maxTicks = (opts.maxSeconds || 1200) * 60, softlock = false, worstStuck = 0, roomTicks = [], last = 0, lastRoom = 0, minHp = sim.B.run.roomMult.map(function () { return 1; });
     while (sim.tick < maxTicks && (sim.state === 'play' || sim.state === 'levelup' || sim.state === 'choice')) {
@@ -2982,30 +3007,58 @@
   var KEY = 'riftscar.save.v2';
   var SLOTS = ['helmet', 'armor', 'gloves', 'boots', 'belt', 'weapon', 'shield'];
   G.SLOTS = SLOTS;
-  G.newSave = function () {
+  // One gear set per class: { equipped: {slot: item|null}, bag: [kept items], nextId }. Created on first use for any class id.
+  G.newGear = function () {
     var eq = {};
     SLOTS.forEach(function (s) { eq[s] = null; });
-    return { v: 3, gear: { equipped: eq, bag: [], nextId: 1 }, settings: { zoom: 0, shake: 100 }, stats: { runs: 0, wins: 0, best: 0 } };
+    return { equipped: eq, bag: [], nextId: 1 };
+  };
+  G.newSave = function () {
+    return { v: 4, gears: {}, settings: { zoom: 0, shake: 100 }, stats: { runs: 0, wins: 0, best: 0 } };
+  };
+  // the gear (worn items and kept bag) of a class; the sim takes this object as its `gear` option
+  G.gearOf = function (save, clsId) {
+    var id = G.classDef(G.BAL, clsId).id;
+    if (!save.gears[id]) save.gears[id] = G.newGear();
+    return save.gears[id];
   };
   G.loadSave = function () {
     try {
       var raw = globalThis.localStorage && localStorage.getItem(KEY);
       if (raw) {
-        var s = JSON.parse(raw), d = G.newSave();
-        // v2 -> v3 (step 6): gear.bag used to fill during runs; it is now the bag kept between runs (equip and discard on the
-        // title screen). An old save's bag becomes the kept bag as it is: bad entries dropped, the rest cut to the stash size.
-        if (s && (s.v === 2 || s.v === 3) && s.gear && s.gear.equipped) {
-          var B = G.BAL, ok = function (it) { return it && typeof it === 'object' && SLOTS.indexOf(it.slot) >= 0 && it.stats && typeof it.rarity === 'number'; };
-          s.gear.bag = (Array.isArray(s.gear.bag) ? s.gear.bag : []).filter(ok).slice(0, B ? B.loot.stashSize : 30);
-          SLOTS.forEach(function (k) { if (!(k in s.gear.equipped) || !ok(s.gear.equipped[k])) s.gear.equipped[k] = null; });
-          s.v = 3;
-          if (!s.gear.nextId) s.gear.nextId = 1;
-          var top = 0;
-          s.gear.bag.concat(SLOTS.map(function (k) { return s.gear.equipped[k]; })).forEach(function (it) { if (it && it.id >= top) top = it.id + 1; });
-          if (s.gear.nextId < top) s.gear.nextId = top;
+        var s = JSON.parse(raw), d = G.newSave(), B = G.BAL;
+        var ok = function (it) { return it && typeof it === 'object' && SLOTS.indexOf(it.slot) >= 0 && it.stats && typeof it.rarity === 'number'; };
+        if (s && s.v === 4 && s.gears && typeof s.gears === 'object') {
+          Object.keys(s.gears).forEach(function (id) {       // v4: sanitize each class's gear
+            var g = s.gears[id], n = G.newGear();
+            if (!B.classes[id] || !g || typeof g !== 'object') { delete s.gears[id]; return; }
+            n.bag = (Array.isArray(g.bag) ? g.bag : []).filter(ok);
+            SLOTS.forEach(function (k) { n.equipped[k] = g.equipped && ok(g.equipped[k]) ? g.equipped[k] : null; });
+            n.nextId = g.nextId > 0 ? g.nextId : 1;
+            s.gears[id] = n;
+          });
           s.settings = Object.assign(d.settings, s.settings || {});
           s.stats = Object.assign(d.stats, s.stats || {});
           return s;
+        }
+        // v2 / v3 -> v4 (per-class gear): the one shared gear set (worn items + kept bag) goes whole to the class that was selected
+        // in that save (settings.cls, default mage); the other classes start empty. Nothing is dropped except entries that are not
+        // items (an old bag over the stash size stays whole: banking waits until there is room). A worn weapon the selected class cannot use is moved into its bag (over the stash size if need be) so no item is lost.
+        if (s && (s.v === 2 || s.v === 3) && s.gear && s.gear.equipped) {
+          var cls = G.classDef(B, s.settings && s.settings.cls).id, g0 = G.newGear(), old = s.gear;
+          g0.bag = (Array.isArray(old.bag) ? old.bag : []).filter(ok);
+          SLOTS.forEach(function (k) {
+            var it = old.equipped[k];
+            if (!ok(it)) return;
+            if (G.canEquip(it, B, cls)) g0.equipped[k] = it; else g0.bag.push(it);
+          });
+          var top = old.nextId > 0 ? old.nextId : 1;
+          g0.bag.concat(SLOTS.map(function (k) { return g0.equipped[k]; })).forEach(function (it) { if (it && it.id >= top) top = it.id + 1; });
+          g0.nextId = top;
+          d.gears[cls] = g0;
+          d.settings = Object.assign(d.settings, s.settings || {});
+          d.stats = Object.assign(d.stats, s.stats || {});
+          return d;
         }
       }
     } catch (e) { /* corrupt or unavailable storage: start fresh */ }
@@ -3661,7 +3714,7 @@
       help.forEach(function (line, i) { if (y + i * 10 < V.H - 12) UI.centerX(L.text(0, y + i * 10, line, 'ui_dim'), cx); });
       this.refresh();
     },
-    gearScore: function () { return G.gearScore(G.save.gear); },
+    gearScore: function () { return G.gearScore(G.gearOf(G.save, G.cls)); },
     setTier: function (t) {
       G.tier = Math.max(0, Math.min(G.BAL.run.tierGear.length - 1, t));
       this.refresh();
@@ -3743,7 +3796,7 @@
       G.debug = P.get('debug') !== '0' && P.get('bot') !== '1';    // ?debug=0 hides the debug button
       this.speed = P.has('speed') ? parseFloat(P.get('speed')) : G.cheats.speed;
       G.manualLevel = P.get('manual') === '1';      // QA: level-up cards are clicked by the test, not auto-picked
-      this.sim = new G.Sim({ seed: G.runSeed, tier: G.tier, gear: G.save.gear, events: true, cheats: G.cheats, testRoom: !!G.testRoom, cls: G.cls });
+      this.sim = new G.Sim({ seed: G.runSeed, tier: G.tier, gear: G.gearOf(G.save, G.cls), events: true, cheats: G.cheats, testRoom: !!G.testRoom, cls: G.cls });
       var C = this.cls = this.sim.cls;
       this.controls = new G.Controls(this);
       this.fx = new G.FX(this);
@@ -4340,7 +4393,8 @@
       else if (e.t === 'levelup') this.openLevel();
       else if (e.t === 'famTier' && e.tier > e.prev) this.say(this.game_.sim.B.families[e.fam].name + ' bonus ' + (e.tier === 2 ? 4 : 2) + '!', 'ui_good');
       else if (e.t === 'choice') this.openChoice();
-      else if (e.t === 'dead' || e.t === 'won' || e.t === 'left') { this.endT = 50; if (e.t !== 'dead') G.storeSave(G.save); }      // the bag was banked: save it now
+      else if (e.t === 'dead' || e.t === 'won' || e.t === 'left') { this.endT = 50; G.storeSave(G.save); }      // the bag was banked (or, on death, the worn gear kept): save it now
+      else if (e.t === 'equip') G.storeSave(G.save);
       else if (e.t === 'room') { this.last = {}; G.storeSave(G.save); }
     },
 
@@ -4704,7 +4758,7 @@
     else if (c === 'abilities') P.openAbilities(scene);
   };
   function sim() { return G.gameScene && G.screen !== 'title' ? G.gameScene.sim : null; }
-  function gear() { var s = sim(); return s ? s.gear : G.save.gear; }
+  function gear() { var s = sim(); return s ? s.gear : G.gearOf(G.save, G.cls); }
   function fmt(v, d) { return d ? v.toFixed(d) : '' + Math.round(v); }
   function statText(k, v) { var lab = G.STAT_LABEL[k]; return '+' + (k === 'regen' ? v.toFixed(1) : v) + lab[1] + ' ' + lab[0]; }
 
@@ -4773,7 +4827,7 @@
     if (G.screen !== 'title') G.screen = 'inventory';
     if (!keepSel) P.sel = null;
     var pw = wide ? Math.min(V.W - 8, 340) : Math.min(V.W - 8, 264), ph = wide ? Math.min(V.H - 8, 200) : Math.min(V.H - 8, 340);
-    var L = P.L = UI.modal(scene, pw, ph, s ? 'GEAR (FIXED IN A RUN)' : 'EQUIPMENT');
+    var L = P.L = UI.modal(scene, pw, ph, s ? 'GEAR' : 'EQUIPMENT');
     var x0 = L.x, y0 = L.y;
     L.button(x0 + pw - 22, y0 + 3, 18, 16, '', function () { P.close(); }, { icon: 'i_close', name: 'inv_close' });
     L.button(x0 + pw - 44, y0 + 3, 18, 16, '', function () { P.openSettings(scene, 'inventory'); }, { icon: 'i_gear', name: 'inv_settings' });
@@ -4789,7 +4843,7 @@
     function act() {
       var sl = P.sel;
       if (!sl) return;
-      if (s) return;                  // inside a run the gear is fixed: equip and discard happen between runs
+      if (s) { if (sl.kind === 'sbag' && s.equipFromSealed(sl.key)) { P.sel = null; P.openInventory(scene, true); } return; }   // in a run: equip from the sealed bag only
       if (sl.kind === 'bag') G.equipFromBag(g, sl.key, B, cls); else G.unequip(g, sl.key, B);
       P.sel = null; G.storeSave(G.save); P.openInventory(scene, true);
     }
@@ -4825,13 +4879,11 @@
     // bag
     var bx = wide ? x0 + 82 : x0 + 8, by = wide ? y0 + 20 : dy + 72;
     var cols = wide ? 5 : Math.max(5, Math.min(10, Math.floor((pw - 14) / 22))), rowsN = s ? 2 : Math.ceil(B.loot.stashSize / cols), i;
-    if (s) {      // in a run: the bag is sealed, only its count and best rarity show
-      var bi = G.bestRarity(s.bag);
-      L.text(bx, by, 'SEALED BAG', 'ui_dim');
-      L.text(bx, by + 11, s.bag.length + (s.bag.length === 1 ? ' item' : ' items'), 'ui_text');
-      if (bi >= 0) L.text(bx, by + 21, 'Best: ' + UI.RARITY_NAME[bi], UI.RARITY[bi]);
-      L.text(bx, by + 33, 'Opens after the run.', 'ui_dim').setMaxWidth(wide ? cols * 22 : pw - 16);
-      rowsN = 2;
+    if (s) {      // in a run: the sealed bag of this run, shown as a grid
+      var sb = B.loot.bagSize, bi = G.bestRarity(s.bag);
+      L.text(bx, by, 'SEALED BAG OF THIS RUN ' + s.bag.length + '/' + sb, 'ui_dim').setMaxWidth(wide ? cols * 22 : pw - 16);
+      for (i = 0; i < sb; i++) cell(bx + (i % cols) * 22, by + 11 + Math.floor(i / cols) * 22, s.bag[i], null, { kind: 'sbag', key: i }, 'sbag_' + i);
+      rowsN = Math.ceil(sb / cols);
     } else {
       L.text(bx, by, 'BAG ' + g.bag.length + '/' + B.loot.stashSize, 'ui_dim');
       for (i = 0; i < B.loot.stashSize; i++) cell(bx + (i % cols) * 22, by + 11 + Math.floor(i / cols) * 22, g.bag[i], null, { kind: 'bag', key: i }, 'bag_' + i);
@@ -4840,10 +4892,10 @@
     // item details
     var ix = wide ? bx + cols * 22 + 6 : x0 + 8, iy = wide ? y0 + 20 : by + 11 + rowsN * 22 + 4, iw = x0 + pw - 8 - ix, ih = y0 + ph - 6 - iy;
     L.panel(ix, iy, iw, ih, 'inset', 1);
-    var sl = P.sel, item = sl ? (sl.kind === 'bag' ? g.bag[sl.key] : g.equipped[sl.key]) : null;
+    var sl = P.sel, isBag = sl && (sl.kind === 'bag' || sl.kind === 'sbag'), item = sl ? (sl.kind === 'bag' ? g.bag[sl.key] : sl.kind === 'sbag' ? s.bag[sl.key] : g.equipped[sl.key]) : null;
     if (!item) {
       P.sel = null;
-      L.text(ix + 5, iy + 5, s ? 'Tap a slot for its stats.' : (wide ? 'Tap an item to see its stats. Tap it again to equip.' : 'Tap an item for its stats. Tap again to equip.'), 'ui_dim').setMaxWidth(iw - 10);
+      L.text(ix + 5, iy + 5, s ? 'Tap an item for its stats. Tap it again to equip.' : (wide ? 'Tap an item to see its stats. Tap it again to equip.' : 'Tap an item for its stats. Tap again to equip.'), 'ui_dim').setMaxWidth(iw - 10);
     } else {
       var col = UI.RARITY[item.rarity], ty = iy + 5;
       var nm = L.text(ix + 5, ty, item.name, col).setMaxWidth(iw - 10); ty += nm.height + 3;
@@ -4852,20 +4904,26 @@
       if (foreign) { L.text(ix + 5, ty, foreign + ' weapon', 'ui_warn'); ty += 10; }
       L.text(ix + 5, ty, 'Item level ' + item.ilvl, 'ui_dim'); ty += 12;
       // each stat, and the change against what is equipped in that slot
-      var cur = sl.kind === 'bag' ? g.equipped[item.slot] : null;
+      var cur = isBag ? g.equipped[item.slot] : null;
       G.STAT_ORDER.forEach(function (st) {
         var v = item.stats[st], c = cur ? cur.stats[st] || 0 : 0;
-        if (v == null && !(sl.kind === 'bag' && c)) return;
+        if (v == null && !(isBag && c)) return;
         if (ty > iy + ih - 34) return;
         var line = L.text(ix + 5, ty, v != null ? statText(st, v) : G.STAT_LABEL[st][0], v != null ? 'ui_text' : 'ui_dim');
-        if (sl.kind === 'bag' && cur) {
+        if (isBag && cur) {
           var d = Math.round(((v || 0) - c) * 10) / 10;
           if (d) { var dt = L.text(0, ty, (d > 0 ? '+' : '') + d, d > 0 ? 'ui_good' : 'ui_bad'); dt.x = ix + iw - 5 - dt.width; if (dt.x < line.x + line.width + 3) dt.setVisible(false); }
         }
         ty += 10;
       });
       var bw = Math.floor((iw - 14) / 2), byy = iy + ih - 22;
-      if (s) { /* gear is fixed inside a run: no buttons */ }
+      if (s) {      // in a run: equip from the sealed bag (own-class weapons), or drop from it
+        if (sl.kind === 'sbag') {
+          var better2 = !cur || G.itemValue(item, B) > G.itemValue(cur, B);
+          L.button(ix + 5, byy, bw, 18, 'EQUIP', act, { name: 'equip', color: better2 ? 'ui_good' : 'ui_text' }).setEnabled(!foreign);
+          L.button(ix + 9 + bw, byy, bw, 18, 'DROP', function () { s.dropSealed(sl.key); P.sel = null; P.openInventory(scene, true); }, { name: 'drop' });
+        }
+      }
       else if (sl.kind === 'bag') {
         var better = !cur || G.itemValue(item, B) > G.itemValue(cur, B);
         L.button(ix + 5, byy, bw, 18, 'EQUIP', act, { name: 'equip', color: better ? 'ui_good' : 'ui_text' }).setEnabled(!foreign);

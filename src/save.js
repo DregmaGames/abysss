@@ -3,30 +3,58 @@
   var KEY = 'riftscar.save.v2';
   var SLOTS = ['helmet', 'armor', 'gloves', 'boots', 'belt', 'weapon', 'shield'];
   G.SLOTS = SLOTS;
-  G.newSave = function () {
+  // One gear set per class: { equipped: {slot: item|null}, bag: [kept items], nextId }. Created on first use for any class id.
+  G.newGear = function () {
     var eq = {};
     SLOTS.forEach(function (s) { eq[s] = null; });
-    return { v: 3, gear: { equipped: eq, bag: [], nextId: 1 }, settings: { zoom: 0, shake: 100 }, stats: { runs: 0, wins: 0, best: 0 } };
+    return { equipped: eq, bag: [], nextId: 1 };
+  };
+  G.newSave = function () {
+    return { v: 4, gears: {}, settings: { zoom: 0, shake: 100 }, stats: { runs: 0, wins: 0, best: 0 } };
+  };
+  // the gear (worn items and kept bag) of a class; the sim takes this object as its `gear` option
+  G.gearOf = function (save, clsId) {
+    var id = G.classDef(G.BAL, clsId).id;
+    if (!save.gears[id]) save.gears[id] = G.newGear();
+    return save.gears[id];
   };
   G.loadSave = function () {
     try {
       var raw = globalThis.localStorage && localStorage.getItem(KEY);
       if (raw) {
-        var s = JSON.parse(raw), d = G.newSave();
-        // v2 -> v3 (step 6): gear.bag used to fill during runs; it is now the bag kept between runs (equip and discard on the
-        // title screen). An old save's bag becomes the kept bag as it is: bad entries dropped, the rest cut to the stash size.
-        if (s && (s.v === 2 || s.v === 3) && s.gear && s.gear.equipped) {
-          var B = G.BAL, ok = function (it) { return it && typeof it === 'object' && SLOTS.indexOf(it.slot) >= 0 && it.stats && typeof it.rarity === 'number'; };
-          s.gear.bag = (Array.isArray(s.gear.bag) ? s.gear.bag : []).filter(ok).slice(0, B ? B.loot.stashSize : 30);
-          SLOTS.forEach(function (k) { if (!(k in s.gear.equipped) || !ok(s.gear.equipped[k])) s.gear.equipped[k] = null; });
-          s.v = 3;
-          if (!s.gear.nextId) s.gear.nextId = 1;
-          var top = 0;
-          s.gear.bag.concat(SLOTS.map(function (k) { return s.gear.equipped[k]; })).forEach(function (it) { if (it && it.id >= top) top = it.id + 1; });
-          if (s.gear.nextId < top) s.gear.nextId = top;
+        var s = JSON.parse(raw), d = G.newSave(), B = G.BAL;
+        var ok = function (it) { return it && typeof it === 'object' && SLOTS.indexOf(it.slot) >= 0 && it.stats && typeof it.rarity === 'number'; };
+        if (s && s.v === 4 && s.gears && typeof s.gears === 'object') {
+          Object.keys(s.gears).forEach(function (id) {       // v4: sanitize each class's gear
+            var g = s.gears[id], n = G.newGear();
+            if (!B.classes[id] || !g || typeof g !== 'object') { delete s.gears[id]; return; }
+            n.bag = (Array.isArray(g.bag) ? g.bag : []).filter(ok);
+            SLOTS.forEach(function (k) { n.equipped[k] = g.equipped && ok(g.equipped[k]) ? g.equipped[k] : null; });
+            n.nextId = g.nextId > 0 ? g.nextId : 1;
+            s.gears[id] = n;
+          });
           s.settings = Object.assign(d.settings, s.settings || {});
           s.stats = Object.assign(d.stats, s.stats || {});
           return s;
+        }
+        // v2 / v3 -> v4 (per-class gear): the one shared gear set (worn items + kept bag) goes whole to the class that was selected
+        // in that save (settings.cls, default mage); the other classes start empty. Nothing is dropped except entries that are not
+        // items (an old bag over the stash size stays whole: banking waits until there is room). A worn weapon the selected class cannot use is moved into its bag (over the stash size if need be) so no item is lost.
+        if (s && (s.v === 2 || s.v === 3) && s.gear && s.gear.equipped) {
+          var cls = G.classDef(B, s.settings && s.settings.cls).id, g0 = G.newGear(), old = s.gear;
+          g0.bag = (Array.isArray(old.bag) ? old.bag : []).filter(ok);
+          SLOTS.forEach(function (k) {
+            var it = old.equipped[k];
+            if (!ok(it)) return;
+            if (G.canEquip(it, B, cls)) g0.equipped[k] = it; else g0.bag.push(it);
+          });
+          var top = old.nextId > 0 ? old.nextId : 1;
+          g0.bag.concat(SLOTS.map(function (k) { return g0.equipped[k]; })).forEach(function (it) { if (it && it.id >= top) top = it.id + 1; });
+          g0.nextId = top;
+          d.gears[cls] = g0;
+          d.settings = Object.assign(d.settings, s.settings || {});
+          d.stats = Object.assign(d.stats, s.stats || {});
+          return d;
         }
       }
     } catch (e) { /* corrupt or unavailable storage: start fresh */ }

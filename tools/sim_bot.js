@@ -59,7 +59,7 @@ function main() {
   let gear = null;
   const t0 = Date.now();
   if (args.career) {
-    gear = G.newSave().gear;
+    gear = G.newGear();
     const cp = G.BAL.bot.career, cls = G.classDef(G.BAL, args.cls).id;
     let target = cp.startRoom;
     for (let i = 0; i < args.career; i++) {

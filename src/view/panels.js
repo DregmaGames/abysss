@@ -26,7 +26,7 @@
     else if (c === 'abilities') P.openAbilities(scene);
   };
   function sim() { return G.gameScene && G.screen !== 'title' ? G.gameScene.sim : null; }
-  function gear() { var s = sim(); return s ? s.gear : G.save.gear; }
+  function gear() { var s = sim(); return s ? s.gear : G.gearOf(G.save, G.cls); }
   function fmt(v, d) { return d ? v.toFixed(d) : '' + Math.round(v); }
   function statText(k, v) { var lab = G.STAT_LABEL[k]; return '+' + (k === 'regen' ? v.toFixed(1) : v) + lab[1] + ' ' + lab[0]; }
 
@@ -95,7 +95,7 @@
     if (G.screen !== 'title') G.screen = 'inventory';
     if (!keepSel) P.sel = null;
     var pw = wide ? Math.min(V.W - 8, 340) : Math.min(V.W - 8, 264), ph = wide ? Math.min(V.H - 8, 200) : Math.min(V.H - 8, 340);
-    var L = P.L = UI.modal(scene, pw, ph, s ? 'GEAR (FIXED IN A RUN)' : 'EQUIPMENT');
+    var L = P.L = UI.modal(scene, pw, ph, s ? 'GEAR' : 'EQUIPMENT');
     var x0 = L.x, y0 = L.y;
     L.button(x0 + pw - 22, y0 + 3, 18, 16, '', function () { P.close(); }, { icon: 'i_close', name: 'inv_close' });
     L.button(x0 + pw - 44, y0 + 3, 18, 16, '', function () { P.openSettings(scene, 'inventory'); }, { icon: 'i_gear', name: 'inv_settings' });
@@ -111,7 +111,7 @@
     function act() {
       var sl = P.sel;
       if (!sl) return;
-      if (s) return;                  // inside a run the gear is fixed: equip and discard happen between runs
+      if (s) { if (sl.kind === 'sbag' && s.equipFromSealed(sl.key)) { P.sel = null; P.openInventory(scene, true); } return; }   // in a run: equip from the sealed bag only
       if (sl.kind === 'bag') G.equipFromBag(g, sl.key, B, cls); else G.unequip(g, sl.key, B);
       P.sel = null; G.storeSave(G.save); P.openInventory(scene, true);
     }
@@ -147,13 +147,11 @@
     // bag
     var bx = wide ? x0 + 82 : x0 + 8, by = wide ? y0 + 20 : dy + 72;
     var cols = wide ? 5 : Math.max(5, Math.min(10, Math.floor((pw - 14) / 22))), rowsN = s ? 2 : Math.ceil(B.loot.stashSize / cols), i;
-    if (s) {      // in a run: the bag is sealed, only its count and best rarity show
-      var bi = G.bestRarity(s.bag);
-      L.text(bx, by, 'SEALED BAG', 'ui_dim');
-      L.text(bx, by + 11, s.bag.length + (s.bag.length === 1 ? ' item' : ' items'), 'ui_text');
-      if (bi >= 0) L.text(bx, by + 21, 'Best: ' + UI.RARITY_NAME[bi], UI.RARITY[bi]);
-      L.text(bx, by + 33, 'Opens after the run.', 'ui_dim').setMaxWidth(wide ? cols * 22 : pw - 16);
-      rowsN = 2;
+    if (s) {      // in a run: the sealed bag of this run, shown as a grid
+      var sb = B.loot.bagSize, bi = G.bestRarity(s.bag);
+      L.text(bx, by, 'SEALED BAG OF THIS RUN ' + s.bag.length + '/' + sb, 'ui_dim').setMaxWidth(wide ? cols * 22 : pw - 16);
+      for (i = 0; i < sb; i++) cell(bx + (i % cols) * 22, by + 11 + Math.floor(i / cols) * 22, s.bag[i], null, { kind: 'sbag', key: i }, 'sbag_' + i);
+      rowsN = Math.ceil(sb / cols);
     } else {
       L.text(bx, by, 'BAG ' + g.bag.length + '/' + B.loot.stashSize, 'ui_dim');
       for (i = 0; i < B.loot.stashSize; i++) cell(bx + (i % cols) * 22, by + 11 + Math.floor(i / cols) * 22, g.bag[i], null, { kind: 'bag', key: i }, 'bag_' + i);
@@ -162,10 +160,10 @@
     // item details
     var ix = wide ? bx + cols * 22 + 6 : x0 + 8, iy = wide ? y0 + 20 : by + 11 + rowsN * 22 + 4, iw = x0 + pw - 8 - ix, ih = y0 + ph - 6 - iy;
     L.panel(ix, iy, iw, ih, 'inset', 1);
-    var sl = P.sel, item = sl ? (sl.kind === 'bag' ? g.bag[sl.key] : g.equipped[sl.key]) : null;
+    var sl = P.sel, isBag = sl && (sl.kind === 'bag' || sl.kind === 'sbag'), item = sl ? (sl.kind === 'bag' ? g.bag[sl.key] : sl.kind === 'sbag' ? s.bag[sl.key] : g.equipped[sl.key]) : null;
     if (!item) {
       P.sel = null;
-      L.text(ix + 5, iy + 5, s ? 'Tap a slot for its stats.' : (wide ? 'Tap an item to see its stats. Tap it again to equip.' : 'Tap an item for its stats. Tap again to equip.'), 'ui_dim').setMaxWidth(iw - 10);
+      L.text(ix + 5, iy + 5, s ? 'Tap an item for its stats. Tap it again to equip.' : (wide ? 'Tap an item to see its stats. Tap it again to equip.' : 'Tap an item for its stats. Tap again to equip.'), 'ui_dim').setMaxWidth(iw - 10);
     } else {
       var col = UI.RARITY[item.rarity], ty = iy + 5;
       var nm = L.text(ix + 5, ty, item.name, col).setMaxWidth(iw - 10); ty += nm.height + 3;
@@ -174,20 +172,26 @@
       if (foreign) { L.text(ix + 5, ty, foreign + ' weapon', 'ui_warn'); ty += 10; }
       L.text(ix + 5, ty, 'Item level ' + item.ilvl, 'ui_dim'); ty += 12;
       // each stat, and the change against what is equipped in that slot
-      var cur = sl.kind === 'bag' ? g.equipped[item.slot] : null;
+      var cur = isBag ? g.equipped[item.slot] : null;
       G.STAT_ORDER.forEach(function (st) {
         var v = item.stats[st], c = cur ? cur.stats[st] || 0 : 0;
-        if (v == null && !(sl.kind === 'bag' && c)) return;
+        if (v == null && !(isBag && c)) return;
         if (ty > iy + ih - 34) return;
         var line = L.text(ix + 5, ty, v != null ? statText(st, v) : G.STAT_LABEL[st][0], v != null ? 'ui_text' : 'ui_dim');
-        if (sl.kind === 'bag' && cur) {
+        if (isBag && cur) {
           var d = Math.round(((v || 0) - c) * 10) / 10;
           if (d) { var dt = L.text(0, ty, (d > 0 ? '+' : '') + d, d > 0 ? 'ui_good' : 'ui_bad'); dt.x = ix + iw - 5 - dt.width; if (dt.x < line.x + line.width + 3) dt.setVisible(false); }
         }
         ty += 10;
       });
       var bw = Math.floor((iw - 14) / 2), byy = iy + ih - 22;
-      if (s) { /* gear is fixed inside a run: no buttons */ }
+      if (s) {      // in a run: equip from the sealed bag (own-class weapons), or drop from it
+        if (sl.kind === 'sbag') {
+          var better2 = !cur || G.itemValue(item, B) > G.itemValue(cur, B);
+          L.button(ix + 5, byy, bw, 18, 'EQUIP', act, { name: 'equip', color: better2 ? 'ui_good' : 'ui_text' }).setEnabled(!foreign);
+          L.button(ix + 9 + bw, byy, bw, 18, 'DROP', function () { s.dropSealed(sl.key); P.sel = null; P.openInventory(scene, true); }, { name: 'drop' });
+        }
+      }
       else if (sl.kind === 'bag') {
         var better = !cur || G.itemValue(item, B) > G.itemValue(cur, B);
         L.button(ix + 5, byy, bw, 18, 'EQUIP', act, { name: 'equip', color: better ? 'ui_good' : 'ui_text' }).setEnabled(!foreign);
