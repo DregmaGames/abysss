@@ -408,7 +408,7 @@
         this.emit({ t: 'pickup', kind: 'item', item: dr.item });
       } else if (this.tick - this.msgTick > 120) {
         this.msgTick = this.tick;
-        this.emit({ t: 'msg', text: 'Bag is full' });
+        this.emit({ t: 'msg', text: 'msg.bagFull' });
       }
     }
   };

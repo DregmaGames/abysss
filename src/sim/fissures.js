@@ -261,10 +261,11 @@
 
   S.objective = function () {
     var fp = this.fissureProgress();
-    if (this.phase === 'fissures') return 'Seal the fissures';
-    if (this.phase === 'super') return this.room.boss ? 'Slay the Rift Tyrant' : 'Close the super fissure';
-    if (this.phase === 'chest') return 'Open the chest';
-    return this.room.boss ? 'Leave through the gate' : 'Take the exit';
+    // a key, not text: the view translates it (G.t); the sim stays language-free
+    if (this.phase === 'fissures') return 'obj.fissures';
+    if (this.phase === 'super') return this.room.boss ? 'obj.boss' : 'obj.super';
+    if (this.phase === 'chest') return 'obj.chest';
+    return this.room.boss ? 'obj.gate' : 'obj.exit';
   };
 
   // where the current objective is (for the off-screen pointer); null while the fight is on top of you

@@ -154,25 +154,25 @@
       if (G.Panels.isOpen()) G.Panels.close(true);
       this.dropStick();
       G.screen = 'merchant'; G.paused = true;
-      var mw = Math.min(V.W - 8, 240), mh = 124, m = this.merchL = UI.modal(this, mw, mh, 'MERCHANT'), x0 = m.x + 8, inner = mw - 16, mer = sim.merchant;
+      var mw = Math.min(V.W - 8, 240), mh = 124, m = this.merchL = UI.modal(this, mw, mh, G.t('merch.title')), x0 = m.x + 8, inner = mw - 16, mer = sim.merchant;
       m.button(m.x + mw - 22, m.y + 3, 18, 16, '', function () { self.closeMerchant(); }, { icon: 'i_close', name: 'merch_x' });
       m.image(x0 + 6, m.y + 29, 'i_gold');
-      var gt = m.text(x0 + 14, m.y + 25, 'Run gold: ' + sim.gold, 'gold');
+      var gt = m.text(x0 + 14, m.y + 25, G.t('merch.gold', { n: sim.gold }), 'gold');
       m.text(x0 + inner, m.y + 25, '', 'ui_dim');
-      var rows = [['scroll', 'Scroll of Identification', 'i_scroll', 'Reveals an item', 'merch_scroll'], ['potion', 'Healing potion', 'i_potion', 'Heals ' + Math.round(MS.potion.heal * 100) + '% HP', 'merch_potion']];
+      var rows = [['scroll', G.t('merch.scroll'), 'i_scroll', G.t('merch.scrollDesc'), 'merch_scroll'], ['potion', G.t('merch.potion'), 'i_potion', G.t('merch.potionDesc', { n: Math.round(MS.potion.heal * 100) }), 'merch_potion']];
       rows.forEach(function (r, i) {
         var y = m.y + 38 + i * 30, d = MS[r[0]], left = mer.stock[r[0]];
         m.panel(x0, y, inner, 27, 'inset', 1);
         m.image(x0 + 12, y + 13, r[2]);
         m.text(x0 + 24, y + 4, r[1], 'ui_text');
-        m.text(x0 + 24, y + 15, r[3] + ' - ' + left + ' left', 'ui_dim');
+        m.text(x0 + 24, y + 15, G.t('merch.left', { desc: r[3], n: left }), 'ui_dim');
         var can = left > 0 && sim.gold >= d.price, b = m.button(x0 + inner - 38, y + 4, 34, 19, d.price + 'g', function () {
-          if (sim.merchantBuy(r[0])) { self.say(r[0] === 'scroll' ? 'Scroll bought (sealed)' : 'You feel better', r[0] === 'scroll' ? 'gold' : 'ui_good'); self.openMerchant(); }
+          if (sim.merchantBuy(r[0])) { self.say(G.t(r[0] === 'scroll' ? 'toast.scrollBought' : 'toast.potion'), r[0] === 'scroll' ? 'gold' : 'ui_good'); self.openMerchant(); }
         }, { name: r[4], color: can ? 'ui_warn' : 'ui_dim' });
         b.setEnabled(can);
       });
       void gt;
-      m.button(x0, m.y + mh - 24, inner, 18, 'CLOSE', function () { self.closeMerchant(); }, { name: 'merch_close' });
+      m.button(x0, m.y + mh - 24, inner, 18, G.t('merch.close'), function () { self.closeMerchant(); }, { name: 'merch_close' });
     },
     closeMerchant: function () {
       var sim = this.game_.sim;
@@ -200,11 +200,11 @@
 
     onEvent: function (e) {
       if (e.t === 'pickup') {
-        if (e.kind === 'scroll') this.say('Scroll of Identification', 'gold');
-        else if (!e.item) this.say('Ability tome', 'tome2');      // gear goes into the sealed bag: the counter shows it
-      } else if (e.t === 'msg') this.say(e.text, 'ui_bad');
+        if (e.kind === 'scroll') this.say(G.t('toast.scroll'), 'gold');
+        else if (!e.item) this.say(G.t('toast.tome'), 'tome2');      // gear goes into the sealed bag: the counter shows it
+      } else if (e.t === 'msg') this.say(G.t(e.text), 'ui_bad');
       else if (e.t === 'levelup') this.openLevel();
-      else if (e.t === 'famTier' && e.tier > e.prev) this.say(this.game_.sim.B.families[e.fam].name + ' bonus ' + (e.tier === 2 ? 4 : 2) + '!', 'ui_good');
+      else if (e.t === 'famTier' && e.tier > e.prev) this.say(G.t('toast.famBonus', { fam: G.famName(e.fam), n: e.tier === 2 ? 4 : 2 }), 'ui_good');
       else if (e.t === 'choice') this.openChoice();
       else if (e.t === 'dead' || e.t === 'won' || e.t === 'left') { this.endT = 50; var sm = this.game_.sim; if (sm.testRoom < 0) G.restockShop(sm.gear, sm.B, sm.clsId); G.storeSave(G.save); }      // the bag was banked (or, on death, the worn gear kept): save it now
       else if (e.t === 'equip' || e.t === 'identify') G.storeSave(G.save);
@@ -225,29 +225,29 @@
       var n = sim.doors.length, row = V.W >= 300, gap = 6, mw = row ? Math.min(V.W - 8, 330) : Math.min(V.W - 8, 264), inner = mw - 16;
       var cw = row ? Math.floor((inner - gap * (n - 1)) / n) : inner, ch = 0, lines = [];
       for (i = 0; i < n; i++) {      // measure the cards: tallest one sets the height
-        var fx = G.doorEffects(B, sim.doors[i]), h = 24, tmp = UI.text(this, 0, 0, fx.join('\n'), 'ui_text').setMaxWidth(cw - 10);
+        var fx = G.doorLines(B, sim.doors[i]), h = 24, tmp = UI.text(this, 0, 0, fx.join('\n'), 'ui_text').setMaxWidth(cw - 10);
         h += tmp.height + 4; tmp.destroy(); lines.push(fx); ch = Math.max(ch, h);
       }
       var cardsH = row ? ch : n * ch + (n - 1) * 4, mh = 20 + 22 + cardsH + 8 + 20 + (row ? 14 : 24);
-      var m = this.choiceL = UI.modal(this, mw, mh, 'ROOM ' + (sim.roomIndex + 1) + ' CLEARED'), x0 = m.x + 8, y = m.y + 18;
+      var m = this.choiceL = UI.modal(this, mw, mh, G.t('choice.title', { n: sim.roomIndex + 1 })), x0 = m.x + 8, y = m.y + 18;
       var best = G.bestRarity(sim.bag), cnt = sim.bag.length;
-      m.text(x0, y + 1, 'Sealed bag: ' + cnt + (cnt === 1 ? ' item' : ' items'), 'ui_text');
-      if (best >= 0) { var bt = m.text(0, y + 1, 'best: ' + UI.RARITY_NAME[best], UI.RARITY[best]); bt.x = x0 + inner - bt.width; }
+      m.text(x0, y + 1, G.t('choice.bag', { items: G.plural('items', cnt) }), 'ui_text');
+      if (best >= 0) { var bt = m.text(0, y + 1, G.t('choice.best', { r: G.rarityName(best) }), UI.RARITY[best]); bt.x = x0 + inner - bt.width; }
       y += 14;
       for (i = 0; i < n; i++) {
         (function (k) {
           var id = sim.doors[k], def = B.doors.mods[id], cx = row ? x0 + k * (cw + gap) : x0, cy = row ? y : y + k * (ch + 4);
           var card = m.button(cx, cy, cw, ch, '', function () { self.pickDoor(k); }, { name: 'door_' + k });
           void card;
-          m.text(cx + 5, cy + 4, def.name, 'ui_warn');
+          m.text(cx + 5, cy + 4, G.t('door.' + id), 'ui_warn');
           var kt = m.text(0, cy + 4, '' + (k + 1), 'ui_dim'); kt.x = cx + cw - 5 - kt.width;
           var t = m.text(cx + 5, cy + 15, lines[k].join('\n'), 'ui_text').setMaxWidth(cw - 10);
-          m.text(cx + 5, cy + 15 + t.height + 3, '+' + Math.round(def.loot * 100) + '% loot', 'ui_good');
+          m.text(cx + 5, cy + 15 + t.height + 3, G.t('choice.loot', { n: Math.round(def.loot * 100) }), 'ui_good');
         })(i);
       }
       y += cardsH + 8;
-      m.button(x0, y, inner, 18, 'LEAVE WITH THE BAG', function () { self.pickDoor(n); }, { name: 'leave', color: 'ui_good' });
-      m.text(x0, y + 22, 'Leaving or winning keeps the bag. Dying loses it.', 'ui_dim').setMaxWidth(inner);
+      m.button(x0, y, inner, 18, G.t('choice.leave'), function () { self.pickDoor(n); }, { name: 'leave', color: 'ui_good' });
+      m.text(x0, y + 22, G.t('choice.note'), 'ui_dim').setMaxWidth(inner);
     },
     // i < number of doors: take that door; i === doors.length (the 3rd key with two doors): leave
     pickDoor: function (i) {
@@ -295,7 +295,7 @@
       var picking = this.pickCard >= 0;
       var cw = row ? Math.min(150, Math.floor((V.W - 24 - gap * (n - 1)) / n)) : Math.min(V.W - 24, 254);
       var mw = row ? n * cw + (n - 1) * gap + 16 : cw + 16, inner = mw - 16;
-      var title = sim.choiceTome ? 'ABILITY TOME' : 'LEVEL ' + p.level;
+      var title = sim.choiceTome ? G.t('lvl.tome') : G.t('lvl.level', { n: p.level });
       var FAMS = Object.keys(B.families).filter(function (f) { return counts[f]; });
 
       // one text, or only its size when `measure` (a throwaway object)
@@ -316,12 +316,12 @@
       // the bonus a family reaches when its count goes from `a` to `b` (text or null)
       function bonusText(fam, a, b) {
         var t1 = G.famTier(a, B), t2 = G.famTier(b, B), F = B.families[fam];
-        if (t2 > t1) return (t2 === 2 ? F.t4.desc : F.t2.desc);
+        if (t2 > t1) return G.t('fam.' + fam + (t2 === 2 ? '.t4' : '.t2'));
         return null;
       }
       // a card: returns its height. x/y: top-left.
       function card(m, measure, i, cx, cy) {
-        var id = sim.choices[i], own = p.abil[id] || 0, info = G.abilityInfo(id, B, own + 1, sim.clsId), F = B.families[info.fam];
+        var id = sim.choices[i], own = p.abil[id] || 0, info = G.abilityText(id, B, own + 1, sim.clsId), F = B.families[info.fam];
         var after = (counts[info.fam] || 0) + (own ? 0 : 1), x0 = cx + 5, wt = cw - 10, y = cy + 4, t, need = sim.needsSlot(i);
         if (!measure) {
           m.image(cx + 11, cy + 10, 'fam_' + info.fam);
@@ -329,10 +329,10 @@
           T(m, false, '' + (i + 1), cx + cw - 8, cy + 4, 'ui_dim');
         }
         y = cy + 17;
-        var kind = info.type === 'active' ? 'ACTIVE' : 'PASSIVE';
+        var kind = G.t(info.type === 'active' ? 'lvl.active' : 'lvl.passive');
         t = T(m, measure, kind, x0, y, 'ui_text');
         if (!measure) T(m, false, info.famName, x0 + t.width + 6, y, F.text);
-        if (!measure) { var rt = T(m, false, own ? 'Rank ' + info.rank + '/' + info.max : 'NEW', 0, y, own ? 'ui_dim' : 'ui_good'); rt.x = cx + cw - 5 - rt.width; }
+        if (!measure) { var rt = T(m, false, own ? G.t('lvl.rank', { r: info.rank, m: info.max }) : G.t('lvl.new'), 0, y, own ? 'ui_dim' : 'ui_good'); rt.x = cx + cw - 5 - rt.width; }
         y += 11;
         t = T(m, measure, info.desc, x0, y, 'ui_text', wt);
         y += t.height + 4;
@@ -343,13 +343,13 @@
         y += 10;
         var bt = bonusText(info.fam, counts[info.fam] || 0, after);
         if (bt) { t = T(m, measure, bt, x0, y, 'ui_good', wt); y += t.height + 2; }
-        if (need) { T(m, measure, 'Replaces a slot', x0, y, 'ui_warn'); y += 10; }
+        if (need) { T(m, measure, G.t('lvl.replaces'), x0, y, 'ui_warn'); y += 10; }
         return y + 3 - cy;
       }
       // the slots and the families the player owns: returns its height
       function strip(m, measure, x0, y0) {
         var y = y0, bw = Math.floor((inner - 8) / 3), j;
-        T(m, measure, 'ACTIVE SLOTS', x0, y, 'ui_dim'); y += 10;
+        T(m, measure, G.t('lvl.slots'), x0, y, 'ui_dim'); y += 10;
         for (j = 0; j < 3; j++) {
           var sx = x0 + j * (bw + 4), id = p.slots[j];
           if (!measure) {
@@ -357,14 +357,14 @@
             if (id) {
               var d = B.abilities[id];
               m.image(sx + 9, y + 11, 'fam_' + d.fam);
-              T(m, false, d.name, sx + 18, y + 3, G.ABILITY_COLOR[d.rarity], bw - 20);
-              T(m, false, 'Rank ' + p.abil[id] + '/' + d.max, sx + 18, y + 12, 'ui_dim');
-            } else { m.image(sx + 9, y + 11, 'slot').setAlpha(0.5); T(m, false, 'Empty', sx + 18, y + 7, 'ui_dim'); }
+              T(m, false, G.t('ab.' + id + '.name'), sx + 18, y + 3, G.ABILITY_COLOR[d.rarity], bw - 20);
+              T(m, false, G.t('lvl.rank', { r: p.abil[id], m: d.max }), sx + 18, y + 12, 'ui_dim');
+            } else { m.image(sx + 9, y + 11, 'slot').setAlpha(0.5); T(m, false, G.t('lvl.empty'), sx + 18, y + 7, 'ui_dim'); }
           }
         }
         y += 26;
         if (FAMS.length) {
-          T(m, measure, 'FAMILIES', x0, y, 'ui_dim'); y += 10;
+          T(m, measure, G.t('lvl.families'), x0, y, 'ui_dim'); y += 10;
           var per = Math.max(1, Math.floor(inner / 56));
           FAMS.forEach(function (f, j) {
             var fx = x0 + (j % per) * 56, fy = y + Math.floor(j / per) * 13;
@@ -384,7 +384,7 @@
         m = this.level = UI.modal(this, mw, mh, null);
         x0 = m.x + 8;
         UI.centerX(m.text(0, m.y + 7, title, 'ui_warn', true), V.W / 2);
-        UI.centerX(m.text(0, m.y + 26, 'Choose one', 'ui_dim'), V.W / 2);
+        UI.centerX(m.text(0, m.y + 26, G.t('lvl.choose'), 'ui_dim'), V.W / 2);
         sim.choices.forEach(function (id, i) {
           var cx = row ? x0 + i * (cw + gap) : x0, cy = row ? m.y + 40 : m.y + 40 + i * (ch + gap);
           var bg = m.panel(cx, cy, cw, ch, 'btn', 1);
@@ -403,18 +403,18 @@
         mh = 36 + 24 + 3 * (sbh + 4) + 26 + 8;
         m = this.level = UI.modal(this, mw, mh, null);
         x0 = m.x + 8;
-        UI.centerX(m.text(0, m.y + 7, 'Replace which active?', 'ui_warn', true), V.W / 2);
+        UI.centerX(m.text(0, m.y + 7, G.t('lvl.replaceWhich'), 'ui_warn', true), V.W / 2);
         m.image(x0 + 6, m.y + 31, 'fam_' + cd.fam);
-        m.text(x0 + 16, m.y + 27, cd.name, G.ABILITY_COLOR[cd.rarity]);
-        var nt = m.text(0, m.y + 27, 'NEW', 'ui_good'); nt.x = x0 + inner - nt.width;
-        m.text(x0, m.y + 40, 'It replaces one of your actives. The old one loses all its ranks.', 'ui_dim').setMaxWidth(inner);
+        m.text(x0 + 16, m.y + 27, G.t('ab.' + cid + '.name'), G.ABILITY_COLOR[cd.rarity]);
+        var nt = m.text(0, m.y + 27, G.t('lvl.new'), 'ui_good'); nt.x = x0 + inner - nt.width;
+        m.text(x0, m.y + 40, G.t('lvl.replaceNote'), 'ui_dim').setMaxWidth(inner);
         for (k = 0; k < 3; k++) {
           (function (k) {
             var id = p.slots[k], d = B.abilities[id], sy = m.y + 62 + k * (sbh + 4);
             var bg = m.panel(x0, sy, inner, sbh, 'btn', 1);
             m.image(x0 + 11, sy + 11, 'fam_' + d.fam);
-            m.text(x0 + 22, sy + 5, d.name, G.ABILITY_COLOR[d.rarity]);
-            m.text(x0 + 22, sy + 16, 'Rank ' + p.abil[id] + '/' + d.max + '  ' + B.families[d.fam].name, 'ui_dim');
+            m.text(x0 + 22, sy + 5, G.t('ab.' + id + '.name'), G.ABILITY_COLOR[d.rarity]);
+            m.text(x0 + 22, sy + 16, G.t('lvl.rank', { r: p.abil[id], m: d.max }) + '  ' + G.famName(d.fam), 'ui_dim');
             m.text(x0 + inner - 12, sy + 5, '' + (k + 1), 'ui_dim');
             // a family drops a tier when this slot goes (net of the new active's own family)
             var net = Object.assign({}, counts); net[d.fam]--; net[cd.fam] = (net[cd.fam] || 0) + 1;
@@ -422,8 +422,8 @@
             Object.keys(B.families).forEach(function (f) {
               var a = G.famTier(counts[f] || 0, B), b = G.famTier(net[f] || 0, B);
               if (b < a && !loss) {
-                var bn = a === 2 ? B.families[f].t4.desc.split(':')[0] : B.families[f].t2.desc;
-                loss = B.families[f].name + ' ' + (counts[f] || 0) + ' -> ' + (net[f] || 0) + ': loses ' + bn;
+                var bn = a === 2 ? G.t('fam.' + f + '.t4').split(':')[0] : G.t('fam.' + f + '.t2');
+                loss = G.t('lvl.loses', { fam: G.famName(f), a: counts[f] || 0, b: net[f] || 0, bn: bn });
               }
             });
             if (loss) m.text(x0 + 6, sy + 27, loss, 'ui_bad').setMaxWidth(inner - 12);
@@ -435,7 +435,7 @@
           })(k);
         }
         var by = m.y + 62 + 3 * (sbh + 4);
-        m.button(x0, by, inner, 18, 'BACK', function () { self.pickCard = -1; self.openLevel(); }, { name: 'slot_back' });
+        m.button(x0, by, inner, 18, G.t('lvl.back'), function () { self.pickCard = -1; self.openLevel(); }, { name: 'slot_back' });
       }
     },
 
@@ -467,7 +467,7 @@
       }
       var sk = p.slots.map(function (id) { return id ? id + p.abil[id] : '-'; }).join(',') + '|' + G.view.W + 'x' + G.view.H;
       if (L.slots !== sk) { L.slots = sk; this.drawSlots(); }
-      if (L.lv !== p.level) { L.lv = p.level; this.lvText.setText('LV ' + p.level); }
+      if (L.lv !== p.level) { L.lv = p.level; this.lvText.setText(G.t('hud.level', { n: p.level })); }
       var xp = Math.round(44 * Math.min(1, p.exp / p.expNext));
       if (L.xp !== xp) { L.xp = xp; this.xpFill.setDisplaySize(Math.max(0.01, xp), 3); }
 
@@ -479,13 +479,13 @@
         this.invBadge.setVisible(sim.bag.length > 0).setText('' + sim.bag.length).setTint(UI.hex(bb >= 0 ? UI.RARITY[bb] : 'ui_dim'));
         this.invBadge.x = G.view.W - X - 4 - this.invBadge.width;
       }
-      var fp = sim.fissureProgress(), obj = sim.objective();
+      var fp = sim.fissureProgress(), obj = G.t(sim.objective());
       var okey = obj + '|' + fp.states.join(',') + '|' + sim.phase + '|' + sim.roomIndex + '|' + sim.loops + '|' + sim.mod;
       if (L.obj !== okey) {
         L.obj = okey;
         this.objText.setText(obj);
         var showBar = sim.phase === 'super', n = fp.total + 1, pipsW = fp.total * 8 + 10, rowW = showBar ? 72 : pipsW;
-        var room = sim.testRoom >= 0 ? 'Test #' + (sim.loops + 1) : 'Room ' + (sim.roomIndex + 1) + '/' + sim.B.run.rooms + (sim.mod ? ' ' + sim.B.doors.mods[sim.mod].name : '');
+        var room = sim.testRoom >= 0 ? G.t('hud.test', { n: sim.loops + 1 }) : G.t('hud.room', { n: sim.roomIndex + 1, m: sim.B.run.rooms }) + (sim.mod ? ' ' + G.t('door.' + sim.mod) : '');
         this.roomText.setText(room);
         var w = Math.min(O.w, Math.max(this.objText.width, rowW + this.roomText.width + 8) + 14), x0 = O.x + Math.round((O.w - w) / 2);
         // centre on the screen when the free area allows it

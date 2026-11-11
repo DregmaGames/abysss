@@ -1495,8 +1495,53 @@ DESCENDERS = {
 }
 
 
+# Spanish letters (step 8b): accented vowels, n with tilde, u with diaeresis, inverted ! and ?.
+# Lowercase accents sit in the two empty rows above the x-height; capitals get extra rows ABOVE row 0
+# (the glyph is taller and its yOffset moves up by that many pixels, see EXTRA_ABOVE).
+ACCENTED = {'á': ('a', 'acute'), 'é': ('e', 'acute'), 'í': ('i', 'acute'), 'ó': ('o', 'acute'), 'ú': ('u', 'acute'),
+            'ü': ('u', 'diaer'), 'ñ': ('n', 'tilde'),
+            'Á': ('A', 'acute'), 'É': ('E', 'acute'), 'Í': ('I', 'acute'), 'Ó': ('O', 'acute'), 'Ú': ('U', 'acute'),
+            'Ü': ('U', 'diaer'), 'Ñ': ('N', 'tilde')}
+FLIPPED = {'¡': '!', '¿': '?'}
+EXTRA_CHARS = list(ACCENTED) + list(FLIPPED)
+EXTRA_ABOVE = {}      # code -> rows the glyph rises above row 0 (filled by glyph())
+
+
+def _accent_rows(kind, w, caps):
+    c = w // 2
+    def row(*xs):
+        return ''.join('1' if i in xs else '0' for i in range(w))
+    if kind == 'acute':
+        return [row(c + 1), row(c)] if w > 2 else [row(c), row(c - 1 if c else 0)]
+    if kind == 'diaer':
+        return [row(c - 1, c + 1)]
+    return [row(1, 2, 4), row(0, 3)] if w >= 5 else [row(c), row(c)]       # tilde
+
+
+def accented(ch):
+    base, kind = ACCENTED[ch]
+    rows = glyph(ord(base))
+    w = max(len(r) for r in rows)
+    rows = [r.ljust(w, '0') for r in rows]
+    caps = base.isupper()
+    acc = _accent_rows(kind, w, caps)
+    if caps:
+        EXTRA_ABOVE[ord(ch)] = len(acc)
+        return acc + rows
+    if kind == 'diaer':
+        rows[0] = acc[0]                      # dots in row 0, one empty row above the x-height
+        return rows
+    EXTRA_ABOVE[ord(ch)] = 1                  # acute / tilde: rows -1 and 0, row 1 stays empty
+    return [acc[0], acc[1]] + rows[1:]
+
+
 def glyph(code):
     """Trimmed 1-bit glyph as a list of rows (strings of 0/1), proportional width."""
+    if chr(code) in ACCENTED:
+        return accented(chr(code))
+    if chr(code) in FLIPPED:
+        rows = glyph(ord(FLIPPED[chr(code)]))
+        return rows[:7][::-1] if len(rows) == 7 else rows[::-1]
     cols = FONT5X7[(code - 32) * 5:(code - 32) * 5 + 5]
     if code == 32:
         return ['000'] * 7
@@ -1534,7 +1579,7 @@ def font():
     cells, meta = [], {}
     for key, big in (('font', False), ('fontbig', True)):
         chars = {}
-        for code in range(32, 127):
+        for code in list(range(32, 127)) + [ord(c) for c in EXTRA_CHARS]:
             g = glyph(code)
             if big:
                 g = scale2x(g)
@@ -1560,7 +1605,8 @@ def font():
     for key, code, im, x, y in place:
         sheet.paste(im, (x, y))
         # [x, y, w, h, xoffset, yoffset, xadvance]; glyphs overlap by their outline column
-        meta[key]['chars'][str(code)] = [x, y, im.width, im.height, -1, -1, im.width - 1]
+        up = EXTRA_ABOVE.get(code, 0) * (2 if key == 'fontbig' else 1)
+        meta[key]['chars'][str(code)] = [x, y, im.width, im.height, -1, -1 - up, im.width - 1]
     meta['w'], meta['h'] = W, H
     sheet.save(os.path.join(OUT, 'font.png'))
     with open(os.path.join(OUT, 'font.json'), 'w') as f:

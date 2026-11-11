@@ -36,9 +36,9 @@
       if (V.W >= 204) L.image(cx, y + 15, 'logo');
       else UI.centerX(L.text(0, y + 6, 'RIFTSCAR', 'em3', true), cx);
       y += 36;
-      UI.centerX(L.text(0, y, 'Seal the rifts. Keep what you find.', 'ui_dim'), cx);
+      var tag = L.text(0, y, G.t('title.tag'), 'ui_dim').setMaxWidth(V.W - 12); UI.centerX(tag, cx); if (tag.height > 10) y += tag.height - 8;
       y += tall ? 26 : 16;
-      this.btnStart = L.button(cx - 64, y, 128, 24, 'ENTER THE CITY', function () { self.start(); }, { name: 'start', color: 'ui_warn' });
+      this.btnStart = L.button(cx - 64, y, 128, 24, G.t('title.enter'), function () { self.start(); }, { name: 'start', color: 'ui_warn' });
       y += tall ? 30 : 26;
       // class picker: cycles through BAL.classes (one class today)
       L.button(cx - 64, y, 22, 20, '', function () { self.setClass(-1); }, { icon: 'arrow_l', name: 'cls_l' });
@@ -47,15 +47,17 @@
       y += tall ? 26 : 22;
       this.gearInfo = L.text(0, y, '', 'ui_dim');
       y += tall ? 22 : 15;
-      this.seedText = L.text(0, y + 5, '', 'ui_dim');
-      this.btnSeed = L.button(cx + 10, y, 54, 18, 'REROLL', function () { G.runSeed = Math.floor(Math.random() * 1000000); self.refresh(); }, { name: 'reroll' });
+      this.seedText = L.text(0, y + 5, G.t('title.seed', { n: 999999 }), 'ui_dim');
+      var rt = G.t('title.reroll'), rw = Math.max(54, rt.length * 6 + 10), seedW = this.seedText.width, rowX = Math.round(cx - (seedW + 8 + rw) / 2);
+      this.seedX = rowX;
+      this.btnSeed = L.button(rowX + seedW + 8, y, rw, 18, rt, function () { G.runSeed = Math.floor(Math.random() * 1000000); self.refresh(); }, { name: 'reroll' });
       y += tall ? 34 : 24;
-      L.button(cx - 30, y, 60, 20, 'SETTINGS', function () { if (!G.Panels.isOpen()) G.Panels.openSettings(self); }, { name: 'title_settings' });
+      L.button(cx - 30, y, 60, 20, G.t('title.settings'), function () { if (!G.Panels.isOpen()) G.Panels.openSettings(self); }, { name: 'title_settings' });
       y += tall ? 28 : 24;
       // practice: one room with the crack network, restarted on every clear (also ?scene=game&room=test)
-      L.button(cx - 76, y, 152, 20, 'TEST ROOM (PRACTICE)', function () { if (self.input.activePointer.wasTouch) G.touch = true; self.start(true); }, { name: 'title_test', color: 'ui_good' });
+      L.button(cx - 76, y, 152, 20, G.t('title.test'), function () { if (self.input.activePointer.wasTouch) G.touch = true; self.start(true); }, { name: 'title_test', color: 'ui_good' });
       y += tall ? 28 : 25;
-      var sk = G.classDef(G.BAL, G.cls).skill.name.toLowerCase(), help = G.touch ? ['Drag to move.  Buttons: dodge, ' + sk + '.'] : (V.W >= 300 ? ['WASD move    SPACE dodge    Q ' + sk + '    I inventory'] : ['WASD move   SPACE dodge', 'Q ' + sk + '   I inventory']);
+      var sk = G.skillLabel(G.cls).toLowerCase(), sp = { skill: sk }, help = G.touch ? [G.t('title.helpTouch', sp)] : (V.W >= 300 ? [G.t('title.helpKeys', sp)] : [G.t('title.helpKeys1', sp), G.t('title.helpKeys2', sp)]);
       help.forEach(function (line, i) { if (y + i * 10 < V.H - 12) UI.centerX(L.text(0, y + i * 10, line, 'ui_dim'), cx); });
       this.refresh();
     },
@@ -67,13 +69,13 @@
       this.refresh();
     },
     refresh: function () {
-      this.clsText.setText(G.classDef(G.BAL, G.cls).name.toUpperCase()).setTint(UI.hex('ui_text'));
+      this.clsText.setText(G.classLabel(G.cls).toUpperCase()).setTint(UI.hex('ui_text'));
       UI.centerX(this.clsText, Math.round(G.view.W / 2));
       var gs = this.gearScore(), cx = Math.round(G.view.W / 2);
-      this.gearInfo.setText('Gear score ' + gs + '   Monsters x' + (1 + G.BAL.run.gearK * gs).toFixed(2));
+      this.gearInfo.setText(G.t('title.gear', { gs: gs, k: (1 + G.BAL.run.gearK * gs).toFixed(2) }));
       UI.centerX(this.gearInfo, cx);
-      this.seedText.setText('Seed ' + G.runSeed);
-      this.seedText.x = cx - 64;
+      this.seedText.setText(G.t('title.seed', { n: G.runSeed }));
+      this.seedText.x = this.seedX;
     },
     start: function (test) {
       if (G.Panels.isOpen()) return;

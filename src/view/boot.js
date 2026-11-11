@@ -14,6 +14,7 @@
         G.save = G.loadSave();
         if (G.params.get('fresh') === '1') G.save = G.newSave();
         if (G.params.has('zoom')) G.save.settings.zoom = parseInt(G.params.get('zoom'), 10) || 0;
+        G.setLang(G.detectLang(G.save.settings.lang, G.params.get('lang')));      // ?lang=en|es (QA) > saved choice > browser language
         G.touch = G.params.get('touch') === '1';
         G.testRoom = G.params.get('room') === 'test';     // ?scene=game&room=test, or the TEST ROOM button
         G.applyView();

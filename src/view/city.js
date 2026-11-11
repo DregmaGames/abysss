@@ -9,9 +9,9 @@
 
   // the layout, in px. A stall's (x, y) is the bottom centre of its sprite; the owner stands in front of the counter.
   var SPOTS = [
-    { id: 'smith', x: 100, y: 88, frame: 'stall_smith', npc: 'npc_smith', label: 'BLACKSMITH', color: 'ui_warn' },
-    { id: 'trainer', x: 208, y: 88, frame: 'stall_trainer', npc: 'npc_trainer', label: 'TRAINER', color: 'ui_good' },
-    { id: 'montoto', x: 316, y: 88, frame: 'stall_montoto', npc: 'npc_montoto', label: G.montotoText('name'), color: 'tome2' }
+    { id: 'smith', x: 100, y: 88, frame: 'stall_smith', npc: 'npc_smith', label: 'city.smith', color: 'ui_warn' },
+    { id: 'trainer', x: 208, y: 88, frame: 'stall_trainer', npc: 'npc_trainer', label: 'city.trainer', color: 'ui_good' },
+    { id: 'montoto', x: 316, y: 88, frame: 'stall_montoto', npc: 'npc_montoto', label: 'mon.name', color: 'tome2' }
   ];
   var PLOT = { x: 100, y: 186, w: 48, h: 32 };         // the Mage quarter: a fenced empty plot with a sign
   var SIGN = { x: 144, y: 184 };
@@ -48,7 +48,7 @@
       this.buildWorld();
       this.player = this.add.image(0, 0, 'atlas', C.sprite.frames + '_0').setOrigin(0.42, 1);
       this.shadow = this.add.image(0, 0, 'atlas', 'shadow_s').setDepth(-100);
-      this.tag = UI.text(this, 0, 0, 'TALK', 'ui_warn').setDepth(7500).setVisible(false);
+      this.tag = UI.text(this, 0, 0, G.t('city.talk'), 'ui_warn').setDepth(7500).setVisible(false);
       this.cameras.main.setBackgroundColor(UI.hex('void'));
       this.applyView();
       this.game.events.on('viewchange', this.applyView, this);
@@ -58,7 +58,7 @@
       G.ready = true;
     },
 
-    applyView: function () { this.cameras.main.setZoom(G.view.S); this.follow(true); },
+    applyView: function () { this.cameras.main.setZoom(G.view.S); this.relabel(); this.follow(true); },
 
     // ---------------------------------------------------------------- the world
     buildWorld: function () {
@@ -74,7 +74,7 @@
       SPOTS.forEach(function (s) {
         var empty = s.id === 'montoto' && !self.rescued, o = { s: s, empty: empty, front: { x: s.x, y: s.y + 14 } };
         o.stall = self.add.image(s.x, s.y, 'atlas', empty ? 'stall_empty' : s.frame).setOrigin(0.5, 1).setDepth(s.y);
-        self.label(empty ? 'EMPTY STALL' : s.label, empty ? 'ui_dim' : s.color, s.x, s.y - 52);
+        self.label(empty ? 'city.emptyStall' : s.label, empty ? 'ui_dim' : s.color, s.x, s.y - 52);
         if (!empty) {
           o.npc = self.add.image(s.x, s.y + 12, 'atlas', s.npc + '_0').setOrigin(0.5, 1).setDepth(s.y + 12);
           o.shadow = self.add.image(s.x, s.y + 11, 'atlas', 'shadow_s').setDepth(-100);
@@ -87,26 +87,31 @@
       });
       // the Mage quarter: nothing built yet
       this.add.image(PLOT.x, PLOT.y, 'atlas', 'plot_fence').setOrigin(0.5, 1).setDepth(PLOT.y);
-      this.label('MAGE QUARTER', 'ui_dim', PLOT.x, PLOT.y - PLOT.h - 11);
+      this.label('city.mageQuarter', 'ui_dim', PLOT.x, PLOT.y - PLOT.h - 11);
       this.sign = this.add.image(SIGN.x, SIGN.y, 'atlas', 'c_sign').setOrigin(0.5, 1).setDepth(SIGN.y).setInteractive({ useHandCursor: true });
-      this.sign.on('pointerdown', function () { self.say('Mage quarter: nothing built here yet.', 'ui_dim'); });
+      this.sign.on('pointerdown', function () { self.say(G.t('city.mageSign'), 'ui_dim'); });
       this.plotOwner = { s: { id: 'plot' }, front: { x: SIGN.x - 6, y: SIGN.y + 6 } };
       CRATES.forEach(function (c) { self.add.image(c[0], c[1], 'atlas', 'c_crate').setOrigin(0.5, 1).setDepth(c[1]); });
       // the portal
       this.portal = this.add.image(PORTAL.x, PORTAL.y, 'atlas', 'portal_0').setOrigin(0.5, 1).setDepth(PORTAL.y - 20);
       this.add.image(PORTAL.x, PORTAL.y - 16, 'atlas', 'glow').setDepth(-640).setBlendMode(Phaser.BlendModes.ADD).setTint(UI.hex('rg2')).setAlpha(0.25);
-      this.label('THE RIFT', 'ui_good', PORTAL.x, PORTAL.y - 58);
+      this.label('city.rift', 'ui_good', PORTAL.x, PORTAL.y - 58);
     },
 
     say: function (text, color) { if (G.cityHud) G.cityHud.say(text, color); },
 
     // a world label centred on cx: kept fully inside the visible part of the city (clamped to the camera each frame), so a narrow portrait screen never cuts one
-    label: function (text, color, cx, y) {
-      var t = UI.text(this, 0, 0, text, color).setDepth(6000);
+    label: function (key, color, cx, y) {
+      var t = UI.text(this, 0, 0, G.t(key), color).setDepth(6000);
       this.labels = this.labels || [];
-      this.labels.push({ t: t, cx: cx, y: y });
+      this.labels.push({ t: t, cx: cx, y: y, key: key });
       this.placeLabels();
       return t;
+    },
+    relabel: function () {      // the language changed: world labels and the TALK tag get the new text
+      (this.labels || []).forEach(function (b) { b.t.setText(G.t(b.key)); });
+      if (this.tag) this.tag.setText(G.t('city.talk'));
+      this.placeLabels();
     },
     placeLabels: function () {
       var wv = this.cameras.main.worldView, l = wv.x + 3, r = wv.x + wv.width - 3;
@@ -119,7 +124,7 @@
     // a tap on a stall or its owner: talk if the hero is in reach
     tap: function (o) {
       if (G.paused || this.entering) return;
-      if (this.inReach(o)) this.talk(o); else this.say('Walk closer', 'ui_dim');
+      if (this.inReach(o)) this.talk(o); else this.say(G.t('city.closer'), 'ui_dim');
     },
     inReach: function (o) { var dx = this.px - o.front.x, dy = this.py - o.front.y; return dx * dx + dy * dy <= REACH * REACH; },
     nearest: function () {
@@ -142,10 +147,10 @@
       else if (id === 'montoto') {
         if (o.empty) this.say(G.montotoText('emptyStall'), 'ui_warn');
         else G.Panels.openMontoto(hud, false);
-      } else this.say('Mage quarter: nothing built here yet.', 'ui_dim');
+      } else this.say(G.t('city.mageSign'), 'ui_dim');
     },
     // the label and what the button says for the thing in reach
-    nearLabel: function (o) { return !o ? null : o.s.id === 'plot' ? 'READ' : o.empty ? 'LOOK' : 'TALK'; },
+    nearLabel: function (o) { return !o ? null : G.t(o.s.id === 'plot' ? 'city.read' : o.empty ? 'city.look' : 'city.talk'); },
 
     // ---------------------------------------------------------------- movement
     blocked: function (x, y) {
@@ -282,17 +287,17 @@
       vg._dz = -50; L.add(vg);
       // class, gold and scrolls (top-left)
       L.panel(X, Y, 96, 27, 'plate');
-      L.text(X + 5, Y + 4, G.classDef(G.BAL, G.cls).name.toUpperCase(), 'ui_warn');
+      L.text(X + 5, Y + 4, G.classLabel(G.cls).toUpperCase(), 'ui_warn');
       L.image(X + 8, Y + 19, 'i_gold');
       this.goldText = L.text(X + 15, Y + 16, '', 'gold');
       L.image(X + 56, Y + 19, 'i_scroll');
       this.scrollText = L.text(X + 63, Y + 16, '', 'ui_text');
       // buttons (top-right): inventory, settings, title
       L.button(V.W - X - 26, Y, 26, 26, '', function () { self.toggleInventory(); }, { icon: 'i_bag', name: 'inv' });
-      L.button(V.W - X - 26, Y + 29, 26, 14, 'SET', function () { if (!G.Panels.isOpen()) { self.dropStick(); G.Panels.openSettings(self); } }, { name: 'city_set' });
-      L.button(V.W - X - 26, Y + 46, 26, 14, 'END', function () { if (!G.Panels.isOpen()) { G.Panels.close(true); self.scene.stop('city'); self.scene.stop('cityhud'); self.scene.start('title'); } }, { name: 'city_title' });
+      L.button(V.W - X - 26, Y + 29, 26, 14, G.t('city.set'), function () { if (!G.Panels.isOpen()) { self.dropStick(); G.Panels.openSettings(self); } }, { name: 'city_set' });
+      L.button(V.W - X - 26, Y + 46, 26, 14, G.t('city.end'), function () { if (!G.Panels.isOpen()) { G.Panels.close(true); self.scene.stop('city'); self.scene.stop('cityhud'); self.scene.start('title'); } }, { name: 'city_title' });
       // the talk button: shown when a stall is in reach (a tap on the stall does the same)
-      this.talkBtn = L.button(Math.round(V.W / 2 - 30), V.H - 30, 60, 22, 'TALK', function () { if (G.city && G.city.near && !G.paused) G.city.talk(G.city.near); }, { name: 'city_talk', color: 'ui_warn' });
+      this.talkBtn = L.button(Math.round(V.W / 2 - 33), V.H - 30, 66, 22, G.t('city.talk'), function () { if (G.city && G.city.near && !G.paused) G.city.talk(G.city.near); }, { name: 'city_talk', color: 'ui_warn' });
       this.talkBtn.setVisible(false);
       this.toast = L.text(0, V.H - 44, '').setVisible(false);
       this.toast._dz = 4; this.toast.setDepth(L.depth + 4);

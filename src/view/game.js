@@ -46,12 +46,12 @@
       // the merchant (step 7): idle sprite, a TRADE tag in reach, tap to open his panel
       this.merch = this.add.image(0, 0, 'atlas', 'merchant_0').setOrigin(0.5, 1).setVisible(false);
       this.merchShadow = this.add.image(0, 0, 'atlas', 'shadow_s').setDepth(-100).setVisible(false);
-      this.tradeTag = UI.text(this, 0, 0, 'TRADE', 'ui_warn').setDepth(7500).setVisible(false);
+      this.tradeTag = UI.text(this, 0, 0, G.t('game.trade'), 'ui_warn').setDepth(7500).setVisible(false);
       this.merch.setInteractive({ useHandCursor: true });
       this.merch.on('pointerdown', function () { if (!G.paused && self.sim.canTalk() && G.hud) G.hud.openMerchant(); });
       // Don Montoto's cage (step 8): tap it in reach to free him once the room is clear
       this.cageImg = this.add.image(0, 0, 'atlas', 'cage_0').setOrigin(0.5, 1).setVisible(false);
-      this.cageTag = UI.text(this, 0, 0, G.montotoText('freeHim'), 'ui_warn').setDepth(7500).setVisible(false);
+      this.cageTag = UI.text(this, 0, 0, G.t('mon.freeHim'), 'ui_warn').setDepth(7500).setVisible(false);
       this.cageImg.setInteractive({ useHandCursor: true });
       this.cageImg.on('pointerdown', function () { if (!G.paused) self.sim.freeCaged(); });
       this.goldAcc = 0; this.goldT = 0;
@@ -200,7 +200,7 @@
             fx.burst(e.x, e.y, 'em4', 4, 40, 0.25);
             this.roomView.bump(e.x, e.y, this.sim.tick);
             this.bumpT = 6; this.bumpX = -e.dx; this.bumpY = -e.dy;
-            if (this.blockN++ % 4 === 0) fx.number(this.sim.player.x, this.sim.player.y - 22, 'DODGE TO CROSS', 'ui_warn');
+            if (this.blockN++ % 4 === 0) fx.number(this.sim.player.x, this.sim.player.y - 22, G.t('game.dodgeToCross'), 'ui_warn');
             break;
           case 'windup': s = this.maps.monsters.get(e.id); if (s) s.wind = Math.round(e.dur * 60); break;
           case 'puff': fx.burst(e.x, e.y, 'ui_dim', 3, 30, 0.2); break;
@@ -215,8 +215,8 @@
           case 'chest': fx.burst(e.x, e.y, 'gold', 30, 110, 0.7); fx.ring(e.x, e.y, 3, 30, 0.4, 'gold'); break;
           case 'drop': fx.burst(e.x, e.y, UI.RARITY[e.rarity], 8, 50, 0.5); break;
           case 'pickup': fx.burst(this.sim.player.x, this.sim.player.y, e.item ? UI.RARITY[e.item.rarity] : (e.kind === 'scroll' ? 'gold' : 'tome2'), 10, 60, 0.4); break;
-          case 'cagelocked': if (G.hud) G.hud.say(G.montotoText('clearFirst'), 'ui_warn'); break;
-          case 'rescue': fx.burst(e.x, e.y - 4, 'tome2', 24, 90, 0.7); fx.ring(e.x, e.y, 3, 26, 0.4, 'gold'); fx.number(e.x, e.y - 26, G.montotoText('freed'), 'gold'); G.storeSave(G.save); break;
+          case 'cagelocked': if (G.hud) G.hud.say(G.t('mon.clearFirst'), 'ui_warn'); break;
+          case 'rescue': fx.burst(e.x, e.y - 4, 'tome2', 24, 90, 0.7); fx.ring(e.x, e.y, 3, 26, 0.4, 'gold'); fx.number(e.x, e.y - 26, G.t('mon.freed'), 'gold'); G.storeSave(G.save); break;
           case 'room': this.buildRoom(); this.cameras.main.fadeIn(300, 7, 6, 11); break;
           case 'dead': fx.shake(1); fx.burst(this.sim.player.x, this.sim.player.y, this.cls.sprite.glow, 36, 120, 0.9); break;
         }
@@ -313,14 +313,14 @@
         this.merch.setPosition(mc.x, mc.y + 6).setDepth(mc.y + 6).setFrame('merchant_' + ((tick >> 4) % 3));
         this.merchShadow.setPosition(mc.x, mc.y + 5);
         var near = sim.canTalk();
-        this.tradeTag.setVisible(near).setPosition(Math.round(mc.x - this.tradeTag.width / 2), Math.round(mc.y - 26 - ((tick >> 4) & 1)));
+        this.tradeTag.setText(G.t('game.trade')).setVisible(near).setPosition(Math.round(mc.x - this.tradeTag.width / 2), Math.round(mc.y - 26 - ((tick >> 4) & 1)));
       } else this.tradeTag.setVisible(false);
       // the cage
       var cg = sim.cage;
       this.cageImg.setVisible(!!cg);
       if (cg) {
         this.cageImg.setPosition(cg.x, cg.y + 8).setDepth(cg.y + 8).setFrame('cage_' + ((tick >> 5) & 1));
-        this.cageTag.setText(sim.roomClear() ? G.montotoText('freeHim') : G.montotoText('locked')).setVisible(sim.cageNear()).setPosition(Math.round(cg.x - this.cageTag.width / 2), Math.round(cg.y - 22 - ((tick >> 4) & 1)));
+        this.cageTag.setText(sim.roomClear() ? G.t('mon.freeHim') : G.t('mon.locked')).setVisible(sim.cageNear()).setPosition(Math.round(cg.x - this.cageTag.width / 2), Math.round(cg.y - 22 - ((tick >> 4) & 1)));
       } else this.cageTag.setVisible(false);
       // gold: one floating label per 0.2 s (the rest is summed)
       if (this.goldAcc > 0 && --this.goldT <= 0) { this.fx.number(this.goldX, this.goldY - 14, '+' + this.goldAcc, 'gold'); this.goldAcc = 0; this.goldT = 12; }
@@ -481,7 +481,7 @@
       out.sim = { state: sim.state, room: sim.roomIndex, phase: sim.phase, tick: sim.tick, hp: Math.round(p.hp), maxHp: p.maxHp, level: p.level,
         gold: sim.gold, scrolls: sim.scrolls, merchant: !!sim.merchant, canTalk: sim.canTalk(), cage: sim.cage ? { x: sim.cage.x, y: sim.cage.y } : null, canFree: sim.canFree(), roomClear: sim.roomClear(), cageAt: sim.cageAt, kills: sim.kills, rooms: sim.roomsCleared, stuck: +sim.stuckSeconds().toFixed(1), worstStuck: +gs.worstStuck.toFixed(1),
         monsters: sim.monsters.length, bag: sim.bag.length, kept: sim.gear.bag.length, mod: sim.mod, doors: sim.doors.slice(), result: sim.result, gearScore: G.gearScore(sim.gear), hash: sim.room.hash,
-        objective: sim.objective(), test: sim.testRoom >= 0, loops: sim.loops, touch: !!G.touch, fissures: sim.fissures.map(function (f) { return f.state; }), x: Math.round(p.x), y: Math.round(p.y) };
+        objective: sim.objective(), objectiveText: G.t(sim.objective()), test: sim.testRoom >= 0, loops: sim.loops, touch: !!G.touch, fissures: sim.fissures.map(function (f) { return f.state; }), x: Math.round(p.x), y: Math.round(p.y) };
     }
     return out;
   };

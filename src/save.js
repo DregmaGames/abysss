@@ -10,7 +10,7 @@
     return { equipped: eq, bag: [], nextId: 1, scrolls: 0, gold: 0, ranks: {}, shop: null, city: { montoto: false, story: 0 } };
   };
   G.newSave = function () {
-    return { v: 8, gears: {}, settings: { zoom: 0, shake: 100 }, stats: { runs: 0, wins: 0, best: 0 } };
+    return { v: 8, gears: {}, settings: { zoom: 0, shake: 100, lang: null }, stats: { runs: 0, wins: 0, best: 0 } };
   };
   // the gear (worn items and kept bag) of a class; the sim takes this object as its `gear` option
   G.gearOf = function (save, clsId) {
@@ -48,6 +48,7 @@
           });
           s.v = 8;
           s.settings = Object.assign(d.settings, s.settings || {});
+          if (s.settings.lang !== 'en' && s.settings.lang !== 'es') s.settings.lang = null;      // null: follow the browser language
           s.stats = Object.assign(d.stats, s.stats || {});
           return s;
         }

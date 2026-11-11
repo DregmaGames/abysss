@@ -10,7 +10,6 @@
     hex: function (key) { return parseInt(G_ASSETS.palette[key].slice(1), 16); },
     rgb: function (key) { var v = UI.hex(key); return [(v >> 16) & 255, (v >> 8) & 255, v & 255]; },
     RARITY: ['r_common', 'r_magic', 'r_rare', 'r_epic', 'r_legend'],
-    RARITY_NAME: ['Common', 'Magic', 'Rare', 'Epic', 'Legendary'],
     // every (text colour, background) pair the HUD and panels use; checked by tools/contrast.js
     TEXT_PAIRS: [['ui_text', 'ui_bg'], ['ui_dim', 'ui_bg'], ['ui_warn', 'ui_bg'], ['ui_good', 'ui_bg'], ['ui_bad', 'ui_bg'],
       ['r_common', 'ui_bg'], ['r_magic', 'ui_bg'], ['r_rare', 'ui_bg'], ['r_epic', 'ui_bg'], ['r_legend', 'ui_bg'],
@@ -27,8 +26,9 @@
   G.computeView = function (w, h, zoom) {
     var min = Math.min(w, h), base = Math.max(1, Math.round(min / 240));
     var maxS = Math.max(base, Math.floor(min / 180));
-    var S = Math.min(maxS, base + (zoom || 0));
-    return { S: S, W: Math.ceil(w / S), H: Math.ceil(h / S), portrait: h > w, base: base, steps: maxS - base + 1 };
+    var lo = Math.max(1, base - 2);                        // the zoom slider also goes below the default on big screens
+    var S = Math.max(lo, Math.min(maxS, base + (zoom || 0)));
+    return { S: S, W: Math.ceil(w / S), H: Math.ceil(h / S), portrait: h > w, base: base, lo: lo, steps: maxS - lo + 1 };
   };
 
   UI.registerFonts = function (scene) {
@@ -124,31 +124,42 @@
     return L;
   };
 
-  // Slider with discrete steps. onChange(index) fires on tap, drag and arrow buttons.
-  UI.slider = function (L, x, y, w, steps, index, onChange, name) {
-    var scene = L.scene, s = { index: index };
+  // Slider with discrete steps. onChange(index) fires live (tap, drag, set); onCommit(index) once when the gesture ends (pointer up)
+  // or on set(k, true): use it for changes that rebuild the screen (zoom, language), so a drag is never cut by a rebuild.
+  // Tapping anywhere on the track picks the nearest step; dragging keeps working when the pointer leaves the track (mouse and touch).
+  UI.slider = function (L, x, y, w, steps, index, onChange, name, onCommit) {
+    var scene = L.scene, s = { index: index }, i;
     L.bar(x, y + 6, w, 3, 'ui_bg2');
     var fill = L.bar(x, y + 6, 1, 3, 'ui_hi', 1.2);
-    var ticks = [], i;
-    for (i = 0; i < steps; i++) ticks.push(L.bar(Math.round(x + (steps === 1 ? 0 : i * (w - 1) / (steps - 1))), y + 4, 1, 7, 'ui_line', 1.1));
+    function tickX(k) { return Math.round(x + (steps === 1 ? 0 : k * (w - 1) / (steps - 1))); }
+    for (i = 0; i < steps; i++) L.bar(tickX(i), y + 4, 1, 7, 'ui_dim', 1.1);
     var knob = L.image(x, y + 7, 'knob', 3);
-    var zone = L.add(scene.add.zone(x - 6, y - 3, w + 12, 20).setOrigin(0, 0));
+    var zone = L.add(scene.add.zone(x - 8, y - 5, w + 16, 22).setOrigin(0, 0));
     zone._dz = 4; zone.setDepth(L.depth + 4);
     zone.setInteractive({ useHandCursor: true });
-    function place() {
-      var kx = Math.round(x + (steps === 1 ? 0 : s.index * (w - 1) / (steps - 1)));
-      knob.x = kx; fill.setDisplaySize(Math.max(0.01, kx - x), 3);
-    }
-    function fromPointer(p) {
+    function place() { var kx = tickX(s.index); knob.x = kx; fill.setDisplaySize(Math.max(0.01, kx - x), 3); }
+    function stepAt(p) {
       var ax = p.x / G.view.S, k = steps === 1 ? 0 : Math.round((ax - x) / (w - 1) * (steps - 1));
-      k = Math.max(0, Math.min(steps - 1, k));
-      if (k !== s.index) { s.index = k; place(); onChange(k); }
+      return Math.max(0, Math.min(steps - 1, k));
     }
-    zone.on('pointerdown', fromPointer);
-    zone.on('pointermove', function (p) { if (p.isDown) fromPointer(p); });
-    s.set = function (k) { k = Math.max(0, Math.min(steps - 1, k)); if (k !== s.index) { s.index = k; place(); onChange(k); } };
+    function move(p) { var k = stepAt(p); if (k !== s.index) { s.index = k; place(); onChange(k); } }
+    zone.on('pointerdown', function (p) {
+      move(p);
+      var id = p.id;
+      function mv(q) { if (q.id === id && zone.active) move(q); }
+      function up(q) {
+        if (q.id !== id) return;
+        scene.input.off('pointermove', mv); scene.input.off('pointerup', up); scene.input.off('pointerupoutside', up);
+        if (zone.active && onCommit) onCommit(s.index);
+      }
+      scene.input.on('pointermove', mv); scene.input.on('pointerup', up); scene.input.on('pointerupoutside', up);
+    });
+    s.set = function (k, commit) {
+      k = Math.max(0, Math.min(steps - 1, k));
+      if (k !== s.index) { s.index = k; place(); onChange(k); if (commit && onCommit) onCommit(k); }
+    };
     place();
-    if (name) for (i = 0; i < steps; i++) UI.hit(name + '_' + i, x + (steps === 1 ? 0 : i * (w - 1) / (steps - 1)) - 1, y + 6, 2, 2);
+    if (name) for (i = 0; i < steps; i++) UI.hit(name + '_' + i, tickX(i) - 1, y + 6, 2, 2);
     return s;
   };
 

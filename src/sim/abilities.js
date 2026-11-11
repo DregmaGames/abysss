@@ -58,14 +58,19 @@
 
   function num(v) { return v === Math.floor(v) ? '' + v : (Math.round(v * 10) / 10).toFixed(1); }
 
-  // card data for an ability at the rank the player would have after taking it
-  G.abilityInfo = function (id, B, rank, clsId, wtype) {
-    var d = B.abilities[id], R = G.resolveAbility(B, id, Math.max(1, rank), wtype), F = B.families[d.fam];
-    var desc = d.desc.replace(/\{(s|\d+)\.(\w+)(%?)\}/g, function (all, src, key, pct) {
+  // fills a description template: {s.key} = stat at the shown rank, {i.key} = field of fx[i], {i.key%} = that x 100
+  G.fillDesc = function (tpl, R) {
+    return tpl.replace(/\{(s|\d+)\.(\w+)(%?)\}/g, function (all, src, key, pct) {
       var v = src === 's' ? R.stats[key] : (R.fx[+src] || {})[key];
       if (v === undefined) return '?';
       return pct ? num(Math.round(v * 100)) : num(v);
     });
+  };
+
+  // card data for an ability at the rank the player would have after taking it
+  G.abilityInfo = function (id, B, rank, clsId, wtype) {
+    var d = B.abilities[id], R = G.resolveAbility(B, id, Math.max(1, rank), wtype), F = B.families[d.fam];
+    var desc = G.fillDesc(d.desc, R);
     return { id: id, name: d.name, fam: d.fam, famName: F.name, type: d.type, rarity: d.rarity, max: d.max, rank: rank, desc: desc };
   };
   G.famInfo = function (fam, B) { var F = B.families[fam]; return { name: F.name, icon: F.icon, text: F.text, t2: F.t2, t4: F.t4 }; };
