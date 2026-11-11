@@ -42,7 +42,7 @@
     L.button(x0 + pw - 22, y0 + 3, 18, 16, '', function () { P.close(); }, { icon: 'i_close', name: 'inv_close' });
     L.button(x0 + pw - 44, y0 + 3, 18, 16, '', function () { P.openSettings(scene, 'inventory'); }, { icon: 'i_gear', name: 'inv_settings' });
 
-    var passives = s ? s.player.passives : {}, cls = s ? s.clsId : G.cls;
+    var passives = s ? (s.useAbil ? s.player.abil : s.player.passives) : {}, cls = s ? s.clsId : G.cls;
     var stats = G.computeStats(B, g, passives, cls), base = G.computeStats(B, { equipped: {} }, passives, cls);
     function select(sel) {
       // tapping the selected thing again acts on it (equip / unequip)
@@ -175,7 +175,7 @@
     var V = G.view, s = sim(), C = G.cheats, gs = G.gameScene;
     if (!s) return;
     P.current = 'debug'; P.scene = scene; G.paused = true; G.screen = 'debug';
-    var pw = Math.min(V.W - 8, 204), rows = 6, ph = 30 + rows * 21 + 6;
+    var pw = Math.min(V.W - 8, 204), rows = 7, ph = 30 + rows * 21 + 6;
     var L = P.L = UI.modal(scene, pw, ph, 'DEBUG'), x0 = L.x, y0 = L.y, bw = Math.floor((pw - 22) / 2);
     L.button(x0 + pw - 22, y0 + 3, 18, 16, '', function () { P.close(); }, { icon: 'i_close', name: 'dbg_close' });
     function reopen() { P.openDebug(scene); }
@@ -194,6 +194,7 @@
         : ['NEXT ROOM', act(function () { s.cheatRoom(s.roomIndex + 1); }), 'dbg_next'],
       ['BOSS ROOM', act(function () { s.cheatRoom(s.B.run.rooms - 1); }), 'dbg_boss'],
       ['GIVE LOOT', act(function () { s.cheatLoot(); }), 'dbg_loot'],
+      ['ABILITIES', act(function () { s.cheatAbilities(s.defaultActives()); }), 'dbg_abil'],
       ['RESUME', function () { P.close(); }, 'dbg_resume']
     ];
     B.forEach(function (b, i) {

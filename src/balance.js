@@ -29,10 +29,12 @@
     //   dodge:  dist px, time s, iframes s, cd s (optional knock px and hit = share of dmg: shoves what the dodge touches).   skill: the active button (kind 'pulse' only, for now).
     //   sprite: atlas frame prefix (<frames>_0..2), glow and dash tints (palette keys), attack frame.
     //   passives: the level-up pool, in roll order (the order is part of the run: changing it changes runs).
+    //   abilitySystem: true = level-ups roll from BAL.abilities (docs/specs/abilities.md) instead of `passives` (batch A: mage only).
     //   bot: QA bot hints. keep: multiplier on its keep-away distances; pick: passive preference.
     classes: {
       mage: {
         name: 'Mage',
+        abilitySystem: true,   // uses the new ability system (BAL.abilities, pool = the group `group || id` + shared); others still use `passives`
         base: { r: 5, hp: 100, speed: 78, dmg: 10, atkInterval: 0.5, range: 112, crit: 0.05, critMult: 1.8 },
         attack: { kind: 'bolt', firstCd: 0.4, speed: 250, r: 3, sideDmg: 0.6, spread: 0.22, life: 1.2, knock: 34, knockElite: 14, frame: 'bolt', glow: 'orb' },
         dodge: { dist: 54, time: 0.16, iframes: 0.34, cd: 1.6 },
@@ -196,8 +198,8 @@
     tomeRareBoost: 2.5,               // ability tomes weight rare/epic passives higher
 
     // ---------------------------------------------------------------- abilities (step 5)
-    // The ability system: docs/specs/abilities.md. NOT READ BY THE SIM YET: the old `passives` table above
-    // stays in use until the implementation session switches over and then removes it.
+    // The ability system: docs/specs/abilities.md. Batch A: read by the sim for classes with `abilitySystem`
+    // (the mage); the old `passives` table above still serves the warrior and the archer until batch B.
     // Numbers: a plain number is the same at every rank; an array has one value per rank (length = max),
     // the value is the total at that rank (not an increment). Shares (dmg, dps, pct, slow) are fractions.
     // Damage shares are of `base`: the triggering hit's damage for on: hit / strike / crit, else the
@@ -284,10 +286,10 @@
                      fx: [{ k: 'zone', on: 'strike', chance: [0.25, 0.3, 0.35], at: 'target', r: [30, 34, 38], t: 3, dps: [0.4, 0.55, 0.7], apply: { chill: { slow: 0.3, t: 1 } } }] },
       mg_chain:    { grp: 'mage', fam: 'storm', type: 'active', rarity: 0, w: 10, max: 3, name: 'Chain Lightning',
                      desc: 'Bolts arc to {0.jumps} more enemies: {0.dmg%}%, less per jump',
-                     fx: [{ k: 'chain', on: 'strike', jumps: [2, 3, 4], r: 60, dmg: [0.6, 0.7, 0.8], fall: 0.85 }] },
+                     fx: [{ k: 'chain', on: 'strike', jumps: [2, 3, 4], r: 90, dmg: [0.9, 1.05, 1.2], fall: 0.85 }] },   // tuned in batch A: r 60 -> 90, dmg x1.5
       mg_twin:     { grp: 'mage', fam: 'storm', type: 'active', rarity: 1, w: 6, max: 3, name: 'Twin Cast',
                      desc: '{0.chance%}% chance to cast again at once ({0.dmg%}% damage)',
-                     fx: [{ k: 'echo', on: 'attack', chance: [0.2, 0.3, 0.4], delay: 0.12, dmg: 0.8 }] },
+                     fx: [{ k: 'echo', on: 'attack', chance: [0.3, 0.45, 0.6], delay: 0.12, dmg: 1.0 }] },   // tuned in batch A: chance x1.5, dmg 0.8 -> 1.0
       mg_ball:     { grp: 'mage', fam: 'storm', type: 'active', rarity: 2, w: 3, max: 3, name: 'Ball Lightning',
                      desc: 'Each attack adds an orbiting spark (max {0.max}, {0.life} s): {0.dmg%}% on touch',
                      fx: [{ k: 'orbit', on: 'attack', max: [2, 3, 4], life: 4, ring: 22, spin: 4, dmg: [0.35, 0.4, 0.45], hitEvery: 0.5 }] },

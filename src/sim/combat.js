@@ -6,7 +6,7 @@
 
   // -------------------------------------------------------------- player kit
   // Auto-attack the nearest monster in range and in sight, the class's way (see BAL.classes).
-  S.autoAttack = function () {
+  S.findTarget = function () {
     var p = this.player, s = this.stats, best = null, bd = s.range, i, m;
     for (i = 0; i < this.monsters.length; i++) {
       m = this.monsters[i];
@@ -14,23 +14,30 @@
       var d = dist(m, p) - m.r;
       if (d < bd && this.los(p.x, p.y, m.x, m.y)) { bd = d; best = m; }
     }
+    return best;
+  };
+  S.autoAttack = function () {
+    var p = this.player, s = this.stats, best = this.findTarget();
     if (!best) return;
     if (Math.abs(best.x - p.x) > 2) p.face = best.x > p.x ? 1 : -1;
     if (this.cls.attack.kind === 'arc') this.swing(best); else this.shootBolts(best);
+    if (this.useAbil) this.runAttackFx(best);
     p.atkCd = s.atkInterval;
   };
 
   // projectile: one bolt at the target, plus `multi` side bolts on each side
-  S.shootBolts = function (best) {
-    var p = this.player, s = this.stats, C = this.cls, A = C.attack, i;
+  // ctx (abilities): { echo, dmgMul } for an echo attack
+  S.shootBolts = function (best, ctx) {
+    var p = this.player, s = this.stats, C = this.cls, A = C.attack, i, mul = ctx ? ctx.dmgMul : 1;
     var a = G.M.atan2(best.y - p.y, best.x - p.x), life = s.range / A.speed * A.life;
     for (i = -s.multi; i <= s.multi; i++) {
       var ang = a + i * A.spread, crit = this.rngCombat.chance(s.crit);
-      var dmg = s.dmg * (i === 0 ? 1 : A.sideDmg) * (crit ? C.base.critMult : 1);
+      var dmg = s.dmg * (i === 0 ? 1 : A.sideDmg) * (crit ? s.critMult : 1);
+      if (ctx) dmg *= mul;
       this.bolts.push({ id: this.nextId++, x: p.x, y: p.y - 2, vx: G.M.cos(ang) * A.speed, vy: G.M.sin(ang) * A.speed,
-        r: A.r, dmg: dmg, crit: crit, life: life, pierce: s.pierce, knock: A.knock, knockElite: A.knockElite, hit: {} });
+        r: A.r, dmg: dmg, crit: crit, life: life, pierce: s.pierce, knock: A.knock, knockElite: A.knockElite, hit: {}, atk: true, main: i === 0 });
     }
-    this.emit({ t: 'cast', x: p.x, y: p.y });
+    if (!ctx) this.emit({ t: 'cast', x: p.x, y: p.y });
   };
 
   // melee: one swing toward the target that hits every monster within reach (s.range + its radius)
@@ -39,7 +46,7 @@
     var p = this.player, s = this.stats, C = this.cls, A = C.attack, i;
     var dx = best.x - p.x, dy = best.y - p.y, l = Math.sqrt(dx * dx + dy * dy) || 1, ux = dx / l, uy = dy / l;
     var W = G.weaponOf(C, this.gear), arc = W ? W.arc : A.arc, kn = W ? W.knock : A.knock, kne = W ? W.knockElite : A.knockElite;
-    var cosHalf = G.M.cos(arc / 2), crit = this.rngCombat.chance(s.crit), dmg = s.dmg * (crit ? C.base.critMult : 1);
+    var cosHalf = G.M.cos(arc / 2), crit = this.rngCombat.chance(s.crit), dmg = s.dmg * (crit ? s.critMult : 1);
     this.emit({ t: 'swing', x: p.x, y: p.y, a: G.M.atan2(uy, ux), arc: arc, r: s.range, crit: crit, w: W ? W.id : null });
     for (i = this.monsters.length - 1; i >= 0; i--) {
       var m = this.monsters[i];
@@ -63,7 +70,7 @@
       var k = m.def.boss ? 0 : (m.def.elite ? 0.4 : 1);
       m.kx += p.dashX * D.knock * k; m.ky += p.dashY * D.knock * k;
       this.emit({ t: 'bump', x: m.x, y: m.y });
-      if (D.hit) this.damageMonster(m, this.stats.dmg * D.hit, false);
+      if (D.hit) this.damageMonster(m, this.stats.dmg * D.hit, false, 'dash');
     }
   };
 
@@ -81,7 +88,7 @@
     for (i = 0; i < K.count; i++) {
       var ang = i / K.count * 6.2832;
       this.bolts.push({ id: this.nextId++, x: p.x, y: p.y - 2, vx: G.M.cos(ang) * K.speed, vy: G.M.sin(ang) * K.speed,
-        r: A.r, dmg: s.pulseDmg, crit: false, life: K.range / K.speed, pierce: K.pierce, knock: K.knock, knockElite: K.knock * 0.4, hit: {} });
+        r: A.r, dmg: s.pulseDmg, crit: false, life: K.range / K.speed, pierce: K.pierce, knock: K.knock, knockElite: K.knock * 0.4, hit: {}, src: 'skill' });
     }
   };
 
@@ -94,7 +101,7 @@
       if (m.dead || d - m.r > R) continue;
       var k = m.def.boss ? 0.15 : (m.def.elite ? 0.5 : 1), l = d || 1;
       m.kx += (m.x - p.x) / l * K.knock * k; m.ky += (m.y - p.y) / l * K.knock * k;
-      this.damageMonster(m, s.pulseDmg, false);
+      this.damageMonster(m, s.pulseDmg, false, 'skill');
     }
     for (i = this.shots.length - 1; i >= 0; i--) {      // the pulse also clears enemy shots
       if (dist(this.shots[i], p) < R) { this.emit({ t: 'puff', x: this.shots[i].x, y: this.shots[i].y }); this.shots.splice(i, 1); }
@@ -107,7 +114,7 @@
     if (this.boxHits(x, y, def.r)) { var f = this.fissures[fid]; x = f.x; y = f.y; }
     var m = { id: this.nextId++, type: type, def: def, x: x, y: y, r: def.r, hp: Math.round(def.hp * th), maxHp: Math.round(def.hp * th),
       dmg: def.dmg * th, mul: th, fid: fid, hitCd: 0.5, kx: 0, ky: 0, st: 'chase', t: 0, cd: 0.6 + this.rngCombat.next() * 1.2,
-      cd2: def.summonEvery || 0, wind: 0, lx: 0, ly: 0, face: 1, los: true, emerge: 0.35, age: 0, atk: 0, px: x, py: y, bump: 0, detour: 0, walkLos: false, side: this.rngCombat.chance(0.5) ? 1 : -1 };
+      cd2: def.summonEvery || 0, wind: 0, lx: 0, ly: 0, face: 1, los: true, emerge: 0.35, age: 0, atk: 0, px: x, py: y, bump: 0, detour: 0, walkLos: false, fx: null, slowMul: 1, side: this.rngCombat.chance(0.5) ? 1 : -1 };
     if (def.boss) { m.t = 1.6; }
     m.walk = !def.fly && !def.boss;      // walkers go around open cracks; bats fly over, the boss ignores them
     this.monsters.push(m);
@@ -116,16 +123,24 @@
     return m;
   };
 
-  S.damageMonster = function (m, dmg, crit) {
+  // src: atk | fx | kfx | dot | skill | dash (what dealt it; kills by 'kfx' do not fire `kill` effects)
+  S.damageMonster = function (m, dmg, crit, src) {
     if (m.dead) return;
+    var s = this.stats;
+    if (m.fx) {       // damage taken: marked, chilled (abilities; 1 when absent)
+      if (m.fx.mark) dmg *= 1 + m.fx.mark.pct;
+      if (m.fx.chill && s.chilledMult !== 1) dmg *= s.chilledMult;
+    }
+    if (s.eliteMult !== 1 && (m.def.elite || m.def.boss)) dmg *= s.eliteMult;
+    if (s.lowHpMult !== 1 && this.player.hp < this.player.maxHp * this.B.abilityRules.lowHp) dmg *= s.lowHpMult;
     dmg = Math.max(1, Math.round(dmg));
     this.fissures[m.fid].dealt += Math.min(dmg, m.hp);
     m.hp -= dmg;
-    this.emit({ t: 'hit', id: m.id, x: m.x, y: m.y - m.r, dmg: dmg, crit: crit });
-    if (m.hp <= 0) this.kill(m);
+    this.emit({ t: 'hit', id: m.id, x: m.x, y: m.y - m.r, dmg: dmg, crit: crit, src: src || 'atk' });
+    if (m.hp <= 0) this.kill(m, src);
   };
 
-  S.kill = function (m) {
+  S.kill = function (m, src) {
     var L = this.B.loot, def = m.def, rng = this.rngRoom, i;
     m.dead = true;
     this.kills++;
@@ -140,6 +155,7 @@
     if (rng.chance(gearP)) this.spawnItem(m.x, m.y, def.boss ? L.luck.boss : (def.elite ? L.luck.elite : L.luck.kill));
     if (!def.boss && rng.chance(L.killTome)) this.spawnDrop('tome', m.x, m.y, null);
     if (this.stats.leech) this.heal(this.stats.leech);
+    if (this.useAbil && src !== 'kfx' && this.fxOn.kill.length) this.runFx('kill', m, this.stats.dmg, null);
   };
 
   S.spawnOrb = function (kind, x, y, v) {
@@ -179,6 +195,7 @@
       if (m.dead) continue;
       m.age += dt;
       if (m.hitCd > 0) m.hitCd -= dt;
+      if (m.fx) { this.tickStatus(m, dt); if (m.dead) continue; }
       if (m.kx || m.ky) {
         this.move(m, m.kx * dt, m.ky * dt);
         m.kx *= 0.86; m.ky *= 0.86;
@@ -189,7 +206,7 @@
         m.los = this.los(m.x, m.y, p.x, p.y);
         m.walkLos = m.los && !(m.walk && this.crackLit > 0 && this.crackOnLine(m.x, m.y, p.x, p.y, m.r));
       }
-      var dx = p.x - m.x, dy = p.y - m.y, d = Math.sqrt(dx * dx + dy * dy) || 0.001, def = m.def, dir, sp = def.speed;
+      var dx = p.x - m.x, dy = p.y - m.y, d = Math.sqrt(dx * dx + dy * dy) || 0.001, def = m.def, dir, sp = def.speed * m.slowMul;
       if (Math.abs(dx) > 2) m.face = dx > 0 ? 1 : -1;
       var frenzy = m.age > 75 && !def.boss;      // failsafe: nothing may hide forever
       if (frenzy) sp *= 1.6;
@@ -235,7 +252,7 @@
           m.t -= dt;
           if (m.t <= 0) { m.st = 'lunge'; m.t = def.lungeTime; }
         } else if (m.st === 'lunge') {
-          this.move(m, m.lx * def.lungeSpeed * dt, m.ly * def.lungeSpeed * dt);
+          this.move(m, m.lx * def.lungeSpeed * m.slowMul * dt, m.ly * def.lungeSpeed * m.slowMul * dt);
           m.t -= dt;
           if (m.t <= 0) { m.st = 'chase'; m.cd = def.lungeCd; }
         } else {
@@ -287,7 +304,8 @@
         b.hit[m.id] = 1;
         var l = Math.sqrt(b.vx * b.vx + b.vy * b.vy), k = m.def.boss ? 0 : (m.def.elite ? b.knockElite : b.knock);
         m.kx += b.vx / l * k; m.ky += b.vy / l * k;
-        this.damageMonster(m, b.dmg, b.crit);
+        this.damageMonster(m, b.dmg, b.crit, b.src || 'atk');
+        if (b.atk && this.useAbil) this.onAttackHit(b, m, b.dmg, b.crit);
         if (b.pierce > 0) b.pierce--; else gone = true;
       }
       if (gone) this.bolts.splice(i, 1);

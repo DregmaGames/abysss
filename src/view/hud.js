@@ -11,7 +11,7 @@
       var self = this;
       G.hud = this;
       this.game_ = G.gameScene;
-      this.L = null; this.level = null; this.toastT = 0; this.toastMsg = null;
+      this.L = null; this.level = null; this.toastT = 0; this.toastMsg = null; this.pickCard = -1; this.SL = null;
       this.botWait = 0; this.endT = -1; this.stickId = null;
       this.build();
       this.game.events.on('viewchange', this.onView, this);
@@ -20,7 +20,10 @@
       kb.on('keydown-I', function () { self.toggleInventory(); });
       kb.on('keydown-F2', function (e) { if (e && e.preventDefault) e.preventDefault(); self.toggleDebug(); });
       kb.on('keydown-TAB', function (e) { e.preventDefault(); self.toggleInventory(); });
-      kb.on('keydown-ESC', function () { if (G.Panels.isOpen()) G.Panels.close(); else if (!self.level) G.Panels.openSettings(self); });
+      kb.on('keydown-ESC', function () {
+        if (self.level && self.pickCard >= 0) { self.pickCard = -1; self.openLevel(); }      // slot picker: back to the cards
+        else if (G.Panels.isOpen()) G.Panels.close(); else if (!self.level) G.Panels.openSettings(self);
+      });
       ['ONE', 'TWO', 'THREE'].forEach(function (k, i) { kb.on('keydown-' + k, function () { self.pickLevel(i); }); });
 
       // touch: a floating stick on the left 60 % of the screen
@@ -67,6 +70,7 @@
       var self = this, V = G.view, X = UI.PAD, Y = UI.PAD;
       UI.camera(this);
       if (this.L) this.L.destroy();
+      if (this.SL) { this.SL.destroy(); this.SL = null; }
       var L = this.L = UI.layer(this, 100);
       this.last = {};
       var vg = this.add.image(0, 0, UI.vignette(this)).setOrigin(0, 0);
@@ -155,6 +159,7 @@
         else this.say('Ability tome', 'tome2');
       } else if (e.t === 'msg') this.say(e.text, 'ui_bad');
       else if (e.t === 'levelup') this.openLevel();
+      else if (e.t === 'famTier' && e.tier > e.prev) this.say(this.game_.sim.B.families[e.fam].name + ' bonus ' + (e.tier === 2 ? 4 : 2) + '!', 'ui_good');
       else if (e.t === 'dead' || e.t === 'won') this.endT = 50;
       else if (e.t === 'room') { this.last = {}; G.storeSave(G.save); }
     },
@@ -166,6 +171,7 @@
       if (sim.state !== 'levelup') { this.level = null; return; }
       if (G.Panels.isOpen()) G.Panels.close();
       this.dropStick();
+      if (sim.useAbil) { this.openAbilityLevel(); this.botWait = this.game_.speed > 4 ? 1 : 30; G.screen = 'levelup'; return; }
       var n = sim.choices.length, row = V.W >= 300, gap = 6;
       var cw = row ? Math.min(108, Math.floor((V.W - 24 - gap * (n - 1)) / n)) : Math.min(V.W - 24, 230), ch = row ? 88 : 46;
       var mw = row ? n * cw + (n - 1) * gap + 16 : cw + 16, mh = row ? 40 + ch + 8 : 40 + n * (ch + gap) + 4;
@@ -199,10 +205,195 @@
     },
     pickLevel: function (i) {
       var sim = this.game_.sim;
-      if (!this.level || sim.state !== 'levelup' || !sim.choices[i]) return;
+      if (!this.level || sim.state !== 'levelup') return;
+      if (sim.useAbil) {
+        if (this.pickCard >= 0) { if (i < 3) this.applyAbility(this.pickCard, i); return; }     // slot picker: i is the slot
+        if (!sim.choices[i]) return;
+        if (sim.needsSlot(i)) { this.pickCard = i; this.openLevel(); return; }                 // open the slot picker
+        this.applyAbility(i, 0);
+        return;
+      }
+      if (!sim.choices[i]) return;
       this.level.destroy(); this.level = null;
       G.screen = 'game';
       sim.choosePassive(i);            // may emit another 'levelup', handled next frame
+    },
+    applyAbility: function (i, slot) {
+      var sim = this.game_.sim;
+      if (!this.level || sim.state !== 'levelup' || !sim.choices[i]) return;
+      this.level.destroy(); this.level = null; this.pickCard = -1;
+      G.screen = 'game';
+      sim.chooseAbility(i, slot);      // may emit another 'levelup', handled next frame
+    },
+
+    // ability level-up (spec section 9): cards with family and bonus progress, the slots, the families,
+    // and the slot picker when a new active needs a slot
+    openAbilityLevel: function () {
+      var sim = this.game_.sim, self = this, B = sim.B, V = G.view, p = sim.player, i, k;
+      var n = sim.choices.length, row = V.W >= 300, gap = 6, counts = G.familyCounts(p.abil, B);
+      if (this.pickCard >= 0 && !sim.needsSlot(this.pickCard)) this.pickCard = -1;
+      var picking = this.pickCard >= 0;
+      var cw = row ? Math.min(150, Math.floor((V.W - 24 - gap * (n - 1)) / n)) : Math.min(V.W - 24, 254);
+      var mw = row ? n * cw + (n - 1) * gap + 16 : cw + 16, inner = mw - 16;
+      var title = sim.choiceTome ? 'ABILITY TOME' : 'LEVEL ' + p.level;
+      var FAMS = Object.keys(B.families).filter(function (f) { return counts[f]; });
+
+      // one text, or only its size when `measure` (a throwaway object)
+      function T(m, measure, str, x, y, color, maxW) {
+        var t = UI.text(self, x, y, str, color);
+        if (maxW) t.setMaxWidth(maxW);
+        if (measure) { var r = { width: t.width, height: t.height }; t.destroy(); return r; }
+        t._dz = 2; m.add(t);
+        return t;
+      }
+      function pips(m, x, y, count, fam) {
+        for (var j = 0; j < 4; j++) {
+          var thr = j === 1 || j === 3;
+          m.bar(x + j * 9, y, 7, 7, thr ? 'ui_warn' : 'ui_line', 2);
+          m.bar(x + j * 9 + 1, y + 1, 5, 5, j < count ? B.families[fam].icon : 'ui_bg', 2.2);
+        }
+      }
+      // the bonus a family reaches when its count goes from `a` to `b` (text or null)
+      function bonusText(fam, a, b) {
+        var t1 = G.famTier(a, B), t2 = G.famTier(b, B), F = B.families[fam];
+        if (t2 > t1) return (t2 === 2 ? F.t4.desc : F.t2.desc);
+        return null;
+      }
+      // a card: returns its height. x/y: top-left.
+      function card(m, measure, i, cx, cy) {
+        var id = sim.choices[i], own = p.abil[id] || 0, info = G.abilityInfo(id, B, own + 1, sim.clsId), F = B.families[info.fam];
+        var after = (counts[info.fam] || 0) + (own ? 0 : 1), x0 = cx + 5, wt = cw - 10, y = cy + 4, t, need = sim.needsSlot(i);
+        if (!measure) {
+          m.image(cx + 11, cy + 10, 'fam_' + info.fam);
+          T(m, false, info.name, cx + 20, cy + 4, G.ABILITY_COLOR[info.rarity], cw - 36);
+          T(m, false, '' + (i + 1), cx + cw - 8, cy + 4, 'ui_dim');
+        }
+        y = cy + 17;
+        var kind = info.type === 'active' ? 'ACTIVE' : 'PASSIVE';
+        t = T(m, measure, kind, x0, y, 'ui_text');
+        if (!measure) T(m, false, info.famName, x0 + t.width + 6, y, F.text);
+        if (!measure) { var rt = T(m, false, own ? 'Rank ' + info.rank + '/' + info.max : 'NEW', 0, y, own ? 'ui_dim' : 'ui_good'); rt.x = cx + cw - 5 - rt.width; }
+        y += 11;
+        t = T(m, measure, info.desc, x0, y, 'ui_text', wt);
+        y += t.height + 4;
+        if (!measure) {
+          pips(m, x0, y, after, info.fam);
+          T(m, false, after + '/4', x0 + 38, y, 'ui_dim');
+        }
+        y += 10;
+        var bt = bonusText(info.fam, counts[info.fam] || 0, after);
+        if (bt) { t = T(m, measure, bt, x0, y, 'ui_good', wt); y += t.height + 2; }
+        if (need) { T(m, measure, 'Replaces a slot', x0, y, 'ui_warn'); y += 10; }
+        return y + 3 - cy;
+      }
+      // the slots and the families the player owns: returns its height
+      function strip(m, measure, x0, y0) {
+        var y = y0, bw = Math.floor((inner - 8) / 3), j;
+        T(m, measure, 'ACTIVE SLOTS', x0, y, 'ui_dim'); y += 10;
+        for (j = 0; j < 3; j++) {
+          var sx = x0 + j * (bw + 4), id = p.slots[j];
+          if (!measure) {
+            m.panel(sx, y, bw, 22, 'inset', 1);
+            if (id) {
+              var d = B.abilities[id];
+              m.image(sx + 9, y + 11, 'fam_' + d.fam);
+              T(m, false, d.name, sx + 18, y + 3, G.ABILITY_COLOR[d.rarity], bw - 20);
+              T(m, false, 'Rank ' + p.abil[id] + '/' + d.max, sx + 18, y + 12, 'ui_dim');
+            } else { m.image(sx + 9, y + 11, 'slot').setAlpha(0.5); T(m, false, 'Empty', sx + 18, y + 7, 'ui_dim'); }
+          }
+        }
+        y += 26;
+        if (FAMS.length) {
+          T(m, measure, 'FAMILIES', x0, y, 'ui_dim'); y += 10;
+          var per = Math.max(1, Math.floor(inner / 56));
+          FAMS.forEach(function (f, j) {
+            var fx = x0 + (j % per) * 56, fy = y + Math.floor(j / per) * 13;
+            if (!measure) { m.image(fx + 6, fy + 6, 'fam_' + f); pips(m, fx + 14, fy + 1, counts[f], f); }
+          });
+          y += Math.ceil(FAMS.length / per) * 13;
+        }
+        return y - y0;
+      }
+
+      var m, mh, x0;
+      if (!picking) {
+        var ch = 0;
+        for (i = 0; i < n; i++) ch = Math.max(ch, card(null, true, i, 0, 0));
+        var sh = strip(null, true, 0, 0);
+        mh = 40 + (row ? ch : n * (ch + gap) - gap) + 8 + sh + 6;
+        m = this.level = UI.modal(this, mw, mh, null);
+        x0 = m.x + 8;
+        UI.centerX(m.text(0, m.y + 7, title, 'ui_warn', true), V.W / 2);
+        UI.centerX(m.text(0, m.y + 26, 'Choose one', 'ui_dim'), V.W / 2);
+        sim.choices.forEach(function (id, i) {
+          var cx = row ? x0 + i * (cw + gap) : x0, cy = row ? m.y + 40 : m.y + 40 + i * (ch + gap);
+          var bg = m.panel(cx, cy, cw, ch, 'btn', 1);
+          card(m, false, i, cx, cy);
+          bg.setInteractive({ useHandCursor: true });
+          bg.on('pointerover', function () { bg.setFrame('btn_hot'); });
+          bg.on('pointerout', function () { bg.setFrame('btn'); });
+          bg.on('pointerdown', function () { self.pickLevel(i); });
+          UI.hit('card_' + i, cx, cy, cw, ch);
+        });
+        strip(m, false, x0, m.y + 40 + (row ? ch : n * (ch + gap) - gap) + 8);
+      } else {
+        // slot picker: which active does the new one replace?
+        var cid = sim.choices[this.pickCard], cd = B.abilities[cid];
+        var sbh = 44;
+        mh = 36 + 24 + 3 * (sbh + 4) + 26 + 8;
+        m = this.level = UI.modal(this, mw, mh, null);
+        x0 = m.x + 8;
+        UI.centerX(m.text(0, m.y + 7, 'Replace which active?', 'ui_warn', true), V.W / 2);
+        m.image(x0 + 6, m.y + 31, 'fam_' + cd.fam);
+        m.text(x0 + 16, m.y + 27, cd.name, G.ABILITY_COLOR[cd.rarity]);
+        var nt = m.text(0, m.y + 27, 'NEW', 'ui_good'); nt.x = x0 + inner - nt.width;
+        m.text(x0, m.y + 40, 'It replaces one of your actives. The old one loses all its ranks.', 'ui_dim').setMaxWidth(inner);
+        for (k = 0; k < 3; k++) {
+          (function (k) {
+            var id = p.slots[k], d = B.abilities[id], sy = m.y + 62 + k * (sbh + 4);
+            var bg = m.panel(x0, sy, inner, sbh, 'btn', 1);
+            m.image(x0 + 11, sy + 11, 'fam_' + d.fam);
+            m.text(x0 + 22, sy + 5, d.name, G.ABILITY_COLOR[d.rarity]);
+            m.text(x0 + 22, sy + 16, 'Rank ' + p.abil[id] + '/' + d.max + '  ' + B.families[d.fam].name, 'ui_dim');
+            m.text(x0 + inner - 12, sy + 5, '' + (k + 1), 'ui_dim');
+            // a family drops a tier when this slot goes (net of the new active's own family)
+            var net = Object.assign({}, counts); net[d.fam]--; net[cd.fam] = (net[cd.fam] || 0) + 1;
+            var loss = null;
+            Object.keys(B.families).forEach(function (f) {
+              var a = G.famTier(counts[f] || 0, B), b = G.famTier(net[f] || 0, B);
+              if (b < a && !loss) {
+                var bn = a === 2 ? B.families[f].t4.desc.split(':')[0] : B.families[f].t2.desc;
+                loss = B.families[f].name + ' ' + (counts[f] || 0) + ' -> ' + (net[f] || 0) + ': loses ' + bn;
+              }
+            });
+            if (loss) m.text(x0 + 6, sy + 27, loss, 'ui_bad').setMaxWidth(inner - 12);
+            bg.setInteractive({ useHandCursor: true });
+            bg.on('pointerover', function () { bg.setFrame('btn_hot'); });
+            bg.on('pointerout', function () { bg.setFrame('btn'); });
+            bg.on('pointerdown', function () { self.pickLevel(k); });
+            UI.hit('slot_' + k, x0, sy, inner, sbh);
+          })(k);
+        }
+        var by = m.y + 62 + 3 * (sbh + 4);
+        m.button(x0, by, inner, 18, 'BACK', function () { self.pickCard = -1; self.openLevel(); }, { name: 'slot_back' });
+      }
+    },
+
+    // the 3 active slots in play: small family icons with rank pips, bottom centre
+    drawSlots: function () {
+      if (this.SL) this.SL.destroy();
+      this.SL = null;
+      var sim = this.game_.sim;
+      if (!sim.useAbil) return;
+      var V = G.view, B = sim.B, p = sim.player, SL = this.SL = UI.layer(this, 100), x0 = Math.round((V.W - 57) / 2), y0 = V.H - 24, j, r;
+      for (j = 0; j < 3; j++) {
+        var id = p.slots[j], x = x0 + j * 20;
+        SL.panel(x, y0, 17, 17, 'plate');
+        if (!id) continue;
+        var d = B.abilities[id];
+        SL.image(x + 8.5, y0 + 8.5, 'fam_' + d.fam);
+        for (r = 0; r < d.max; r++) SL.bar(x + 1 + r * 5, y0 + 18, 4, 2, r < p.abil[id] ? B.families[d.fam].icon : 'ui_line', 2);
+      }
     },
 
     // --------------------------------------------------------------- refresh
@@ -214,6 +405,10 @@
         this.hpFill.setDisplaySize(Math.max(0.01, Math.round(66 * Math.max(0, p.hp) / p.maxHp)), 9);
         this.hpText.setText(key);
         UI.centerX(this.hpText, X + 15 + 33);
+      }
+      if (sim.useAbil) {
+        var sk = p.slots.map(function (id) { return id ? id + p.abil[id] : '-'; }).join(',') + '|' + G.view.W + 'x' + G.view.H;
+        if (L.slots !== sk) { L.slots = sk; this.drawSlots(); }
       }
       if (L.lv !== p.level) { L.lv = p.level; this.lvText.setText('LV ' + p.level); }
       var xp = Math.round(44 * Math.min(1, p.exp / p.expNext));
@@ -273,7 +468,9 @@
         if (this.toastT === 0) this.toast.setVisible(false);
       }
       if (sim.state === 'levelup' && !this.level) this.openLevel();
-      if (this.level && gs.bot && !G.manualLevel && --this.botWait <= 0) this.pickLevel(gs.bot.pickPassive());
+      if (this.level && gs.bot && !G.manualLevel && --this.botWait <= 0) {
+        if (sim.useAbil) { var pk = gs.bot.pickAbility(); this.applyAbility(pk.i, pk.slot); } else this.pickLevel(gs.bot.pickPassive());
+      }
       if (this.endT > 0 && --this.endT === 0) G.Panels.openResult(this, sim.state);
     }
   });

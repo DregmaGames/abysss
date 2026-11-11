@@ -17,7 +17,10 @@
       ['ui_text', 'ui_bg2'], ['ui_dim', 'ui_bg2'], ['ui_warn', 'ui_bg2'], ['ui_good', 'ui_bg2'], ['ui_bad', 'ui_bg2'],
       ['r_common', 'ui_bg2'], ['r_magic', 'ui_bg2'], ['r_rare', 'ui_bg2'], ['r_epic', 'ui_bg2'], ['r_legend', 'ui_bg2'],
       ['ui_text', 'wb1'], ['ui_text', 'outline'], ['ui_dim', 'outline'], ['ui_warn', 'outline'], ['ui_bad', 'outline'],
-      ['ui_good', 'outline'], ['ui_text', 'hp_d'], ['ui_text', 'hp']]
+      ['ui_good', 'outline'], ['ui_text', 'hp_d'], ['ui_text', 'hp'],
+      // family names on cards and panels (BAL.families.<id>.text)
+      ['em3', 'ui_bg'], ['orb', 'ui_bg'], ['gold', 'ui_bg'], ['iron3', 'ui_bg'], ['rg3', 'ui_bg'],
+      ['em3', 'ui_bg2'], ['orb', 'ui_bg2'], ['gold', 'ui_bg2'], ['r_epic', 'ui_bg2'], ['iron3', 'ui_bg2'], ['rg3', 'ui_bg2']]
   };
 
   // Pixel scale and art-pixel viewport for a canvas of w x h CSS pixels.

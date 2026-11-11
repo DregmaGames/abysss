@@ -11,11 +11,26 @@ Design decisions live in the plan doc (the user has it); this file is what an ag
 - User feedback on step 2 (2026-11-11): played the test room and approved it; crossing cracks with
   the dodge feels good.
 - Step 4 (warrior, four weapon types) on branch `step-4-warrior`. Step 4b (archer) on `step-4b-archer`, built on it. Classes are data: `docs/classes.md`.
-- Step 5 (abilities and families) on branch `step-5-abilities`: spec written (`docs/specs/abilities.md`), data tables
-  in `src/balance.js` (`abilityRules`, `families`, `abilities`, `builds`; not read by the sim yet). Implementation pending
-  (Sonnet, new session). Data-only change: `sim_bot --seeds 1-10 --json` identical before/after for all three classes
-  (mage 3 wins 2,6,7; warrior 3 wins 7,9,10; archer 3 wins 2,6,7); determinism passes.
+- Step 5 (abilities and families) on branch `step-5-abilities`: spec `docs/specs/abilities.md` (with "Implementation notes (batch A)"),
+  data in `src/balance.js` (`abilityRules`, `families`, `abilities`, `builds`). **Batch A done**: offers (1 of 3, offer roll), 3 active slots
+  with the replace choice, ranks, families with bonuses at 2 and 4, monster statuses, the mage group fully playable (class flag
+  `abilitySystem`), level-up screen, bot builds. Warrior and archer still run the old passives (batch B: their groups, the remaining
+  kinds `bounce wave whirl fan buff leech execute`, removing the old passive code).
 - `main` is the working base. One branch per step: `step-N-<slug>`.
+
+## Last measured (2026-11-11, step 5 batch A: mage abilities)
+
+- Node bot seeds 1-10, mage builds (`--build <id>`): pyro 4 wins (1,3,7,9), avg win 457 s, avg level 16.4, Fire reached 4 in 8 runs;
+  storm 3 wins (2,4,9), avg win 406 s, level 18.6, Storm 4 in 9 runs; frost 2 wins (2,3), avg win 538 s, level 18.9, Frost 4 in 7 runs.
+  No softlocks, no timeouts, worst stuck 16 s. Storm was 0 of 10 before tuning: `mg_chain` r 60 -> 90 and dmg x1.5, `mg_twin`
+  chance x1.5 and dmg 0.8 -> 1.0 (pyro and frost were 4 and 3 untouched).
+- Warrior and archer `sim_bot --seeds 1-10 --json` identical before and after (3 wins each: 7,9,10 and 2,6,7).
+- Determinism passes; it now also plays the 3 mage builds seed 3 twice (identical) with the inexact Math functions throwing.
+- Browser bot `qa/bot.js --seeds 3,4,5` mage (default build pyro): 1 win (3), 0 errors, 0 softlocks, all match Node.
+  Touch (540x960, taps) and keyboard (1-3, Esc) checked on the card and slot picker; `/tmp/step5a_landscape.png` and
+  `/tmp/step5a_portrait.png` (cards with a "Replaces a slot" card), plus the picker with `Fire 4 -> 3: loses Pyre`.
+- Not run: `qa/screens.js`, `qa/session.js`, `qa/test_room.js`, the warrior and archer in the browser, 3 builds in the browser bot
+  (only the default). Archer and warrior builds do not exist yet.
 
 ## Last measured (2026-11-11, step 4b: archer)
 
@@ -117,8 +132,9 @@ Sim (no Phaser, deterministic, runs in Node):
 - `src/sim/fissures.js`: the crack network (`setupFissures`, `networkKill`, `darkenSeg`,
   `spawnFromCluster`, `crackHits`, `crackOnLine`), super fissure, chest, exit, objective.
 - `src/sim/combat.js`: auto-attack (`shootBolts` or `swing`, event `swing`), `castSkill` -> pulse, monster AI, `steer`, projectiles, pickups, kills.
-- `src/sim/boss.js`, `src/sim/items.js`, `src/sim/passives.js`, `src/save.js`.
-- `src/qa/bot.js`: the bot (`G.Bot`, `G.botRun`); `crossDir` dodges across cracks.
+- `src/sim/boss.js`, `src/sim/items.js`, `src/sim/passives.js` (old passives: warrior and archer until batch B), `src/save.js`.
+- `src/sim/abilities.js`: pool, offers, family tiers, stats, card info. `src/sim/effects.js`: statuses, triggers, effect kinds, orbit, zones, echoes.
+- `src/qa/bot.js`: the bot (`G.Bot(sim, buildId)`, `G.botRun`); `crossDir` dodges across cracks; `pickAbility` follows a build.
 - Test room: `Sim({ testRoom: true })` loads `B.run.testRoom`; `restartTestRoom` reloads it on clear.
   Sim events for the view: `blocked` (mage pushes into an open crack), `dodge.cross`, `land.cross`.
 
@@ -131,11 +147,11 @@ View (Phaser):
 
 Tools:
 - `tools/build.py` builds `dist/riftscar.html`. `tools/determinism.js`. `tools/sim_bot.js`
-  (`--seeds`, `--class id`, `--json`, `--set path=value`, `--career N`). `tools/contrast.js`.
+  (`--seeds`, `--class id`, `--build id`, `--json`, `--set path=value`, `--career N`). `tools/contrast.js`.
 - `qa/bot.js`, `qa/screens.js`, `qa/session.js`, `qa/test_room.js`, `qa/lib.js`: headless Chromium checks.
 - `tools/check_secrets.py`, `tools/clean_url.py`, `tools/hooks/`, `.claude/hooks/guard.py`.
 
-URL parameters: `seed`, `tier`, `class`, `speed`, `bot=1`, `manual=1`, `touch=1`, `fresh=1`, `scene`,
+URL parameters: `seed`, `tier`, `class`, `build`, `speed`, `bot=1`, `manual=1`, `touch=1`, `fresh=1`, `scene`,
 `room=test`, `debug=0`.
 
 ## Planned later

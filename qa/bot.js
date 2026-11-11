@@ -3,7 +3,7 @@
 // level-up cards, inventory auto-equip), fast-forwarded. For every seed it records the result,
 // rooms cleared, console/page errors and the worst "no progress" time (softlock if > 400 s).
 // Each browser run is also compared with the same seed in the Node sim: they must match exactly.
-//   node qa/bot.js [--class mage|warrior] [--seeds 3,4,8,1,2,5] [--speed 12] [--size landscape|portrait] [--parallel 3]
+//   node qa/bot.js [--class mage|warrior] [--build id] [--seeds 3,4,8,1,2,5] [--speed 12] [--size landscape|portrait] [--parallel 3]
 // Exit code 0 only if: no errors, no softlocks, sim matches Node, and at least one run clears all rooms.
 'use strict';
 const { execFileSync } = require('child_process');
@@ -24,7 +24,7 @@ function args() {
 }
 
 async function runSeed(browser, seed, a) {
-  const page = await Q.open(browser, `?scene=game&seed=${seed}&fresh=1&bot=1&class=${a.class}&speed=${a.speed}`, a.size);
+  const page = await Q.open(browser, `?scene=game&seed=${seed}&fresh=1&bot=1&class=${a.class}${a.build ? '&build=' + a.build : ''}&speed=${a.speed}`, a.size);
   const t0 = Date.now();
   let st, softlock = false;
   for (;;) {
@@ -56,7 +56,7 @@ async function runSeed(browser, seed, a) {
   // the same seeds in the Node sim: the browser game must reproduce them exactly
   let node = {};
   try {
-    const raw = execFileSync('node', [path.join(Q.ROOT, 'tools', 'sim_bot.js'), '--seeds', a.list.join(','), '--class', a.class, '--json'], { encoding: 'utf8', maxBuffer: 1 << 26, stdio: ['ignore', 'pipe', 'ignore'] });
+    const raw = execFileSync('node', [path.join(Q.ROOT, 'tools', 'sim_bot.js'), '--seeds', a.list.join(','), '--class', a.class].concat(a.build ? ['--build', a.build] : [], ['--json']), { encoding: 'utf8', maxBuffer: 1 << 26, stdio: ['ignore', 'pipe', 'ignore'] });
     JSON.parse(raw).runs.forEach(r => { node[r.seed] = r; });
   } catch (e) { if (e.stdout) JSON.parse(e.stdout).runs.forEach(r => { node[r.seed] = r; }); }
 

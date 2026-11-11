@@ -27,11 +27,13 @@
       this.controls = new G.Controls(this);
       this.fx = new G.FX(this);
       this.fx.quiet = this.speed > 4;
-      this.bot = P.get('bot') === '1' && G.Bot ? new G.Bot(this.sim) : null;
+      this.bot = P.get('bot') === '1' && G.Bot ? new G.Bot(this.sim, P.get('build')) : null;   // ?build=<id>: the bot's ability build
       this.maps = { monsters: new Map(), bolts: new Map(), shots: new Map(), orbs: new Map(), drops: new Map() };
       this.acc = 0; this.frame = 0; this.ended = false; this.worstStuck = 0;
       this.groundG = this.add.graphics().setDepth(-700);     // cooldown rings, telegraphs
       this.hpG = this.add.graphics().setDepth(7000);         // monster health bars, above every sprite
+      this.fxG = this.add.graphics().setDepth(7995);         // ability effects: chain lightning, orbiting bodies
+      this.chains = [];
       this.arcG = this.add.graphics().setDepth(7990);         // the hop arc of a dodge across a crack
       this.hop = null; this.arc = []; this.bumpT = 0; this.bumpX = 0; this.bumpY = 0; this.blockN = 0;
       this.player = this.add.image(0, 0, 'atlas', C.sprite.frames + '_0').setOrigin(0.42, 1);
@@ -118,6 +120,7 @@
         e = ev[i];
         switch (e.t) {
           case 'hit':
+            if (e.src === 'dot') { s = this.maps.monsters.get(e.id); if (s) fx.spark(e.x, e.y + 2, 'em3', 0.2); break; }   // dot ticks: no number, no flash
             s = this.maps.monsters.get(e.id);
             if (s && !(s.flashCd > 0)) { s.flash = s.big ? 2 : 3; s.flashCd = s.big ? 16 : 7; }
             fx.number(e.x, e.y - (s ? s.height - 8 : 0), (e.crit ? e.dmg + '!' : '' + e.dmg), e.crit ? 'ui_warn' : 'ui_text');
@@ -144,6 +147,14 @@
             fx.burst(e.x, e.y, pf[1], 16, 150, 0.3);
             fx.shake(this.cls.attack.kind === 'arc' ? 0.5 : 0.3);
             break;
+          case 'burst':
+            var bc = e.fam ? G.BAL.families[e.fam].icon : 'orb';
+            fx.ring(e.x, e.y, 3, e.r, 0.26, bc); fx.ring(e.x, e.y, 1, e.r * 0.6, 0.3, 'white', 0.8);
+            fx.burst(e.x, e.y, bc, 8, 90, 0.3);
+            fx.shake(0.12);
+            break;
+          case 'chain': this.chains.push({ pts: e.pts, life: 7, c: e.fam ? G.BAL.families[e.fam].icon : 'gold' }); fx.burst(e.pts[2], e.pts[3], 'gold', 3, 40, 0.2); break;
+          case 'echo': fx.burst(e.x, e.y, 'tome2', 5, 50, 0.25); break;
           case 'volley':
             var vf = this.cls.sprite.fx;
             fx.ring(e.x, e.y, 4, e.r * 0.7, 0.3, vf[0]); fx.ring(e.x, e.y, 2, e.r * 0.45, 0.34, vf[1]);
@@ -247,6 +258,10 @@
         else if (s.wind > 0) { s.wind--; if ((s.wind >> 2) % 2) s.setTint(0xffb040); else s.clearTint(); }
         else if (m.emerge > 0) s.setTint(UI.hex('rg3'));
         else if (m.enraged) s.setTint(0xffb080);
+        else if (m.fx && (m.fx.chill || m.fx.burn || m.fx.poison || m.fx.bleed || m.fx.mark)) {
+          // status tint: chill blue, burn orange, poison green, bleed red, mark white (the strongest first)
+          s.setTint(UI.hex(m.fx.chill ? 'mb3' : m.fx.burn ? 'em3' : m.fx.poison ? 'rg3' : m.fx.bleed ? 'blood' : 'ui_text'));
+        }
         else s.clearTint();
       });
       this.drawHealthBars();
@@ -281,6 +296,45 @@
       this.door.setFrame(sim.exit.open ? 'door_open' : 'door_closed');
       this.doorGlow.setAlpha(sim.exit.open ? 0.35 + ((tick >> 3) % 3) * 0.04 : 0);
       this.drawGround(tick);
+      this.drawEffects(tick);
+    },
+
+    // ability effects each frame: chain lightning (a few frames), orbiting bodies, ground zones
+    drawEffects: function (tick) {
+      var g = this.fxG, sim = this.sim, B = sim.B, i, j, k;
+      g.clear();
+      for (i = this.chains.length - 1; i >= 0; i--) {
+        var c = this.chains[i], pts = c.pts;
+        if (--c.life <= 0) { this.chains.splice(i, 1); continue; }
+        for (j = 0; j + 3 < pts.length; j += 2) {
+          var x0 = pts[j], y0 = pts[j + 1] - 4, x1 = pts[j + 2], y1 = pts[j + 3] - 4, n = Math.max(1, Math.ceil(Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0))));
+          for (k = 0; k <= n; k++) {
+            var jit = k > 0 && k < n ? ((k * 7 + j + tick) % 3) - 1 : 0;
+            g.fillStyle(UI.hex(k % 3 ? c.c : 'white'), 1);
+            g.fillRect(Math.round(x0 + (x1 - x0) * k / n), Math.round(y0 + (y1 - y0) * k / n) + jit, 1, 1);
+          }
+        }
+      }
+      for (i = 0; i < sim.orbiters.length; i++) {
+        var o = sim.orbiters[i], key = o.key, fam = key.indexOf('fam:') === 0 ? key.slice(4, key.indexOf('/')) : B.abilities[key.slice(0, key.indexOf('/'))].fam;
+        if (!o.x) continue;
+        var ox = Math.round(o.x), oy = Math.round(o.y - 4), col = B.families[fam].icon;
+        g.fillStyle(UI.hex(col), 0.5); g.fillRect(ox - 2, oy - 2, 5, 5);
+        g.fillStyle(UI.hex(col), 1); g.fillRect(ox - 1, oy - 1, 3, 3);
+        g.fillStyle(UI.hex('white'), 1); g.fillRect(ox, oy, 1, 1);
+      }
+      var zg = this.groundG;
+      for (i = 0; i < sim.zones.length; i++) {
+        var z = sim.zones[i], zc = UI.hex(B.families[z.fam].icon), zr = Math.round(z.r), pulse = (tick >> 4) % 2, zx = Math.round(z.x), zy = Math.round(z.y);
+        var ring = G.ellipsePixels(zr, Math.max(1, Math.round(zr * 0.75)));
+        zg.fillStyle(zc, 0.8);
+        for (j = 0; j < ring.length; j += 2) zg.fillRect(zx + ring[j], zy + ring[j + 1], 1, 1);
+        zg.fillStyle(zc, 0.28);
+        for (var yy = -zr; yy <= zr; yy += 3) for (var xx = -zr; xx <= zr; xx += 3) {
+          var ey = yy / 0.75;
+          if (xx * xx + ey * ey <= zr * zr && ((xx + yy) / 3 + pulse) % 2 === 0) zg.fillRect(zx + xx, zy + yy, 2, 2);
+        }
+      }
     },
 
     // a health bar over every hurt monster (the boss always): 1 px dark frame, 2 px tall fill, as wide as the monster

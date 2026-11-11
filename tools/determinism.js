@@ -8,7 +8,7 @@
 'use strict';
 const fs = require('fs'), path = require('path'), vm = require('vm');
 const ROOT = path.dirname(__dirname);
-const SIM = ['balance.js', 'rng.js', 'mapgen.js', 'sim/items.js', 'sim/passives.js', 'sim/core.js', 'sim/combat.js', 'sim/fissures.js', 'sim/boss.js', 'qa/bot.js', 'save.js'];
+const SIM = ['balance.js', 'rng.js', 'mapgen.js', 'sim/items.js', 'sim/passives.js', 'sim/abilities.js', 'sim/core.js', 'sim/effects.js', 'sim/combat.js', 'sim/fissures.js', 'sim/boss.js', 'qa/bot.js', 'save.js'];
 const INEXACT = ['sin', 'cos', 'tan', 'asin', 'acos', 'atan', 'atan2', 'sinh', 'cosh', 'tanh', 'asinh', 'acosh', 'atanh',
   'exp', 'expm1', 'log', 'log1p', 'log2', 'log10', 'pow', 'cbrt', 'hypot'];
 const StrictMath = {};
@@ -33,4 +33,14 @@ console.log(`${checked} rooms generated twice: ${bad} mismatches; ${hashes.size}
 const r1 = G.botRun(3), r2 = G2.botRun(3);
 const same = JSON.stringify(r1) === JSON.stringify(r2);
 console.log(`bot run seed 3 twice: ${same ? 'identical' : 'DIFFERENT'} (${r1.result}, ${r1.rooms} rooms, level ${r1.level}, ${r1.kills} kills, ${r1.seconds} s)`);
-process.exit(bad || !same || hashes.size !== checked ? 1 : 0);
+// the ability system: each named build of the mage played twice (a seed-3 run), with the inexact Math functions throwing
+let abilBad = 0;
+for (const cls of Object.keys(G.BAL.builds)) {
+  if (!G.BAL.classes[cls].abilitySystem) continue;      // classes still on the old passives have no builds to play yet
+  for (const build of Object.keys(G.BAL.builds[cls])) {
+    const a = G.botRun(3, { cls, build }), b = G2.botRun(3, { cls, build }), ok = JSON.stringify(a) === JSON.stringify(b);
+    if (!ok) abilBad++;
+    console.log(`bot run ${cls}/${build} seed 3 twice: ${ok ? 'identical' : 'DIFFERENT'} (${a.result}, ${a.rooms} rooms, level ${a.level}, ${a.kills} kills, ${a.seconds} s)`);
+  }
+}
+process.exit(bad || abilBad || !same || hashes.size !== checked ? 1 : 0);

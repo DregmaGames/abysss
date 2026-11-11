@@ -1,14 +1,15 @@
 #!/usr/bin/env node
 // Bulk bot runs of the sim under Node (same sim + bot code the browser runs, no rendering).
-//   node tools/sim_bot.js [--seeds 1-200] [--tier 0] [--class mage] [--career N] [--json] [--set path=value ...]
+//   node tools/sim_bot.js [--seeds 1-200] [--tier 0] [--class mage] [--build id] [--career N] [--json] [--set path=value ...]
 // Reports win rate, deaths per room, softlocks, and the seeds used.
 // --career N: play N consecutive runs keeping gear (always the highest unlocked tier).
 // --class id: play this class (BAL.classes; default BAL.defaultClass).
+// --build id: the bot's named ability build (BAL.builds.<class>.<id>; default: the class's first). Classes with the ability system only.
 // --set classes.mage.base.hp=120: override a balance number for this invocation (for tuning experiments).
 'use strict';
 const fs = require('fs'), path = require('path'), vm = require('vm');
 const ROOT = path.dirname(__dirname);
-const SIM = ['balance.js', 'rng.js', 'mapgen.js', 'sim/items.js', 'sim/passives.js', 'sim/core.js', 'sim/combat.js',
+const SIM = ['balance.js', 'rng.js', 'mapgen.js', 'sim/items.js', 'sim/passives.js', 'sim/abilities.js', 'sim/core.js', 'sim/effects.js', 'sim/combat.js',
   'sim/fissures.js', 'sim/boss.js', 'qa/bot.js', 'save.js'];
 
 function load() {
@@ -20,12 +21,13 @@ function load() {
 }
 
 function parseArgs(argv) {
-  const a = { seeds: '1-100', tier: 0, cls: null, career: 0, json: false, set: [] };
+  const a = { seeds: '1-100', tier: 0, cls: null, build: null, career: 0, json: false, set: [] };
   for (let i = 2; i < argv.length; i++) {
     const k = argv[i];
     if (k === '--seeds') a.seeds = argv[++i];
     else if (k === '--tier') a.tier = +argv[++i];
     else if (k === '--class') a.cls = argv[++i];
+    else if (k === '--build') a.build = argv[++i];
     else if (k === '--career') a.career = +argv[++i];
     else if (k === '--json') a.json = true;
     else if (k === '--set') a.set.push(argv[++i]);
@@ -59,12 +61,12 @@ function main() {
       const gs = G.gearScore(gear);
       let tier = 0;
       G.BAL.run.tierGear.forEach((need, t) => { if (gs >= need) tier = t; });
-      const r = G.botRun(seeds[i % seeds.length], { tier, gear, cls: args.cls });
+      const r = G.botRun(seeds[i % seeds.length], { tier, gear, cls: args.cls, build: args.build });
       r.tier = tier; r.gearBefore = gs;
       res.push(r);
     }
   } else {
-    for (const s of seeds) res.push(G.botRun(s, { tier: args.tier, cls: args.cls }));
+    for (const s of seeds) res.push(G.botRun(s, { tier: args.tier, cls: args.cls, build: args.build }));
   }
   const wins = res.filter(r => r.result === 'win').length;
   const soft = res.filter(r => r.result === 'softlock'), tout = res.filter(r => r.result === 'timeout');
@@ -77,6 +79,12 @@ function main() {
     worstStuck: Math.max(...res.map(r => r.worstStuck)), winSeeds: res.filter(r => r.result === 'win').map(r => r.seed),
     wallSeconds: +((Date.now() - t0) / 1000).toFixed(1)
   };
+  if (res.length && res[0].build) {      // ability-system classes: what the build came to
+    const wr = res.filter(r => r.result === 'win'), fam = G.BAL.builds[res[0].cls][res[0].build].fams[0];
+    summary.build = res[0].build;
+    summary.avgWinSeconds = wr.length ? Math.round(wr.reduce((t, r) => t + r.seconds, 0) / wr.length) : null;
+    summary.mainFamily4 = res.filter(r => (r.fams[fam] || 0) >= 4).length;
+  }
   if (args.json) console.log(JSON.stringify({ summary, runs: res }));
   else {
     console.log(summary);

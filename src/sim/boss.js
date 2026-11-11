@@ -9,7 +9,7 @@
     m.t -= dt;
     switch (m.st) {
       case 'chase':
-        this.move(m, dx / d * D.speed * (enr ? 1.25 : 1) * dt, dy / d * D.speed * (enr ? 1.25 : 1) * dt);
+        this.move(m, dx / d * D.speed * (enr ? 1.25 : 1) * m.slowMul * dt, dy / d * D.speed * (enr ? 1.25 : 1) * m.slowMul * dt);
         if (m.t <= 0) {
           m.st = CYCLE[m.atk % CYCLE.length]; m.atk++;
           if (m.st === 'slam') {
@@ -46,7 +46,7 @@
         if (m.t <= 0) { m.st = 'charge'; m.t = D.chargeTime; }
         break;
       case 'charge':
-        this.move(m, m.lx * D.chargeSpeed * dt, m.ly * D.chargeSpeed * dt);
+        this.move(m, m.lx * D.chargeSpeed * m.slowMul * dt, m.ly * D.chargeSpeed * m.slowMul * dt);
         if (m.t <= 0) { m.st = 'chase'; m.t = D.chaseTime * rate; }
         break;
       default:   // slam, summon: stand still until the timer runs out

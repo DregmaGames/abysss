@@ -22,8 +22,14 @@
     this.player = { x: 0, y: 0, r: C.base.r, hp: C.base.hp, maxHp: C.base.hp, fx: 0, fy: -1, face: 1, moving: false,
       atkCd: C.attack.firstCd, dodgeCd: 0, dashT: 0, dashX: 0, dashY: 0, iframes: 0, pulseCd: 0,
       level: 1, exp: 0, expNext: this.expFor(1), passives: {}, pending: 0, tomes: 0, walk: true,
+      abil: {}, slots: [null, null, null], every: {}, buffs: {},
       crackBlock: false, blockTick: -999, dashOver: false };
     this.stats = {};
+    // ability system (classes with `abilitySystem`): offer pool, effect state (src/sim/effects.js)
+    this.useAbil = !!C.abilitySystem;
+    this.pool = this.useAbil ? G.abilityPool(B, C.id) : null;
+    this.orbiters = []; this.orbitAng = {}; this.zones = []; this.echoes = [];
+    this.fxOn = { hit: [], crit: [], strike: [], attack: [], kill: [] }; this.orbitDefs = {}; this.orbitKeys = [];
     this.recalc();
     this.player.hp = this.stats.maxHp;
     this.testRoom = opts.testRoom ? B.run.testRoom : -1;   // test room: one room, restarted on clear
@@ -56,15 +62,17 @@
   G.classIds = function (B) { return Object.keys(B.classes); };
 
   // derived stats = class base + gear + passives (pure; also used by the inventory screen outside a run)
+  // `passives`: the old { id: level } map, or for a class with `abilitySystem` the player's `abil` map
   G.computeStats = function (B, gear, passives, cls) {
-    var C = G.classDef(B, cls), P = C.base, cap = B.items.cap, g = G.gearStats(gear, B, cls), p = G.passiveSums(passives || {}, B), s = {};
+    var C = G.classDef(B, cls), P = C.base, cap = B.items.cap, g = G.gearStats(gear, B, cls), s = {}, W0 = G.weaponOf(C, gear);
+    var p = C.abilitySystem ? G.abilityStats(passives || {}, B, W0 && W0.id) : G.passiveSums(passives || {}, B);
     function v(k) { return (g[k] || 0) + (p[k] || 0); }
     s.maxHp = Math.round(P.hp + v('hp'));
     s.dmg = P.dmg * (1 + v('dmgPct') / 100);
     s.atkInterval = P.atkInterval / (1 + v('atkPct') / 100);
     s.speed = P.speed * (1 + Math.min(cap.movePct, v('movePct')) / 100);
     s.range = P.range * (1 + v('rangePct') / 100);
-    var W = G.weaponOf(C, gear);      // melee weapon type: damage, speed and reach
+    var W = W0;      // melee weapon type: damage, speed and reach
     if (W) { s.dmg *= W.dmg; s.atkInterval *= W.atk; s.range += W.reach; }
     s.crit = Math.min(cap.crit, P.crit * 100 + v('crit')) / 100;
     s.armor = v('armor');
@@ -74,14 +82,21 @@
     s.regen = v('regen');
     s.expMult = 1 + v('expPct') / 100;
     s.pierce = (P.pierce || 0) + (p.pierce || 0); s.multi = p.multi || 0; s.leech = p.leech || 0;
+    // ability multipliers (1 when the stat is absent: classes on the old passives are unchanged)
+    s.critMult = P.critMult + (p.critDmg || 0) / 100;
+    s.dotMult = 1 + (p.dotPct || 0) / 100; s.chillMult = 1 + (p.chillPct || 0) / 100; s.chilledMult = 1 + (p.chilledPct || 0) / 100;
+    s.durMult = 1 + (p.durPct || 0) / 100; s.procMult = 1 + (p.procPct || 0) / 100; s.fxMult = 1 + (p.fxPct || 0) / 100;
+    s.areaMult = 1 + (p.areaPct || 0) / 100; s.eliteMult = 1 + (p.elitePct || 0) / 100; s.lowHpMult = 1 + (p.lowHpPct || 0) / 100;
+    s.arcMult = 1 + (p.arcPct || 0) / 100; s.knockMult = 1 + (p.knockPct || 0) / 100;
     return s;
   };
   // called whenever gear or passives change: stats apply immediately
   S.recalc = function () {
-    var oldMax = this.stats.maxHp || 0, s = this.stats = G.computeStats(this.B, this.gear, this.player.passives, this.clsId), pl = this.player;
+    var oldMax = this.stats.maxHp || 0, s = this.stats = G.computeStats(this.B, this.gear, this.useAbil ? this.player.abil : this.player.passives, this.clsId), pl = this.player;
     pl.maxHp = s.maxHp;
     if (oldMax && s.maxHp > oldMax) pl.hp += s.maxHp - oldMax;
     if (pl.hp > s.maxHp) pl.hp = s.maxHp;
+    if (this.useAbil) this.compileFx();
   };
 
   S.loadRoom = function (index) {
@@ -93,6 +108,8 @@
     this.player.x = room.start.x; this.player.y = room.start.y;
     this.player.dashT = 0;
     this.monsters = []; this.shots = []; this.bolts = []; this.orbs = []; this.drops = []; this.teles = [];
+    this.zones = []; this.echoes = [];
+    this.orbiters = this.orbiters.filter(function (o) { return o.perm; });
     this.setupFissures(room);           // src/sim/fissures.js
     this.phase = 'fissures';             // fissures | super | chest | exit
     this.roomTick = this.tick; this.spawnCd = F.firstDelay;
@@ -249,7 +266,7 @@
   };
   S.openLevelUp = function (tome) {
     var p = this.player;
-    this.choices = G.rollPassives(this.rngLevel, p.passives, this.B, tome, this.cls.passives);
+    this.choices = this.useAbil ? G.rollAbilities(this.rngLevel, p, this.B, this.pool, tome) : G.rollPassives(this.rngLevel, p.passives, this.B, tome, this.cls.passives);
     this.choiceTome = tome;
     if (!this.choices.length) {           // everything maxed: heal instead
       if (tome) p.tomes--; else p.pending--;
@@ -260,6 +277,7 @@
     this.emit({ t: 'levelup', tome: tome });
   };
   S.choosePassive = function (i) {
+    if (this.useAbil) return this.chooseAbility(i, 0);
     if (this.state !== 'levelup' || !this.choices[i]) return false;
     var p = this.player, id = this.choices[i];
     p.passives[id] = (p.passives[id] || 0) + 1;
@@ -271,6 +289,65 @@
     if (p.pending > 0) this.openLevelUp(false);
     else if (p.tomes > 0) this.openLevelUp(true);
     return true;
+  };
+
+  // ability system: is card i a new active while all slots are taken (the player must pick a slot to replace)?
+  S.needsSlot = function (i) {
+    var id = this.choices[i], p = this.player;
+    if (!id || this.B.abilities[id].type !== 'active' || p.abil[id]) return false;
+    return p.slots.indexOf(null) < 0;
+  };
+  // Take card i. A new active goes into the first free slot, or replaces `slot` (0-2) and loses all its ranks.
+  // Returns false (wrong state or card), 'slot' (a slot is needed and `slot` is not 0-2; nothing changes) or true.
+  S.chooseAbility = function (i, slot) {
+    if (this.state !== 'levelup' || !this.choices[i]) return false;
+    var p = this.player, B = this.B, id = this.choices[i], d = B.abilities[id], replaced = null, at = -1;
+    if (this.needsSlot(i) && !(slot === 0 || slot === 1 || slot === 2)) return 'slot';
+    var before = G.familyCounts(p.abil, B), k;
+    if (d.type === 'active') {
+      at = p.slots.indexOf(id);
+      if (at < 0) {
+        at = p.slots.indexOf(null);
+        if (at < 0) {
+          at = slot; replaced = p.slots[at];
+          delete p.abil[replaced];
+          for (k in p.every) if (k.indexOf(replaced + '/') === 0) delete p.every[k];
+        }
+        p.slots[at] = id;
+      }
+    }
+    p.abil[id] = (p.abil[id] || 0) + 1;
+    if (this.choiceTome) p.tomes--; else { p.pending--; this.heal(p.maxHp * B.player.levelHeal); }
+    this.recalc();
+    this.state = 'play';
+    this.choices = [];
+    this.emit({ t: 'ability', id: id, rank: p.abil[id], slot: at, replaced: replaced });
+    var after = G.familyCounts(p.abil, B);
+    Object.keys(B.families).forEach(function (fam) {
+      var a = G.famTier(after[fam] || 0, B), b = G.famTier(before[fam] || 0, B);
+      if (a !== b) this.emit({ t: 'famTier', fam: fam, tier: a, prev: b });
+    }, this);
+    if (p.pending > 0) this.openLevelUp(false);
+    else if (p.tomes > 0) this.openLevelUp(true);
+    return true;
+  };
+  // debug panel: the actives of the class's default bot build (up to the slot count)
+  S.defaultActives = function () {
+    var b = this.B.builds && this.B.builds[this.clsId], B = this.B, out = [];
+    if (!this.useAbil || !b) return out;
+    b[Object.keys(b)[0]].order.forEach(function (id) { if (B.abilities[id].type === 'active' && out.length < B.abilityRules.slots) out.push(id); });
+    return out;
+  };
+  // debug: set the listed abilities to rank 1 (actives into free slots, replacing nothing)
+  S.cheatAbilities = function (ids) {
+    var p = this.player, B = this.B;
+    ids.forEach(function (id) {
+      var d = B.abilities[id];
+      if (!d || p.abil[id]) return;
+      if (d.type === 'active') { var at = p.slots.indexOf(null); if (at < 0) return; p.slots[at] = id; }
+      p.abil[id] = 1;
+    });
+    this.recalc();
   };
 
   // ---------------------------------------------------------------- inventory
@@ -338,6 +415,7 @@
     var dt = this.B.DT;
     this.tick++;
     this.updatePlayer(dt);
+    if (this.useAbil) this.updateEffects(dt);
     this.updateFlow();
     this.updateFissures(dt);
     this.updateMonsters(dt);

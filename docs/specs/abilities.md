@@ -509,3 +509,45 @@ Never 100, 200 or 400 seeds.
       nothing off screen.
 - [ ] `docs/STATUS.md`: what was tested, the numbers per build, what is still rough. `docs/classes.md` updated.
 - [ ] One commit, English message; `python3 tools/check_secrets.py` before it.
+
+
+## Implementation notes (batch A)
+
+Batch A = rules, offers, slots, families, statuses, the mage group and the shared pool. Choices made where the
+spec was open (simplest reading):
+
+- **Switch**: a class has the new system when its entry has `abilitySystem: true` (the mage only). The warrior and
+  archer still run `passives` / `rollPassives` / `passiveSums` and play exactly as before (their `sim_bot --seeds 1-10
+  --json` is identical before and after). `G.computeStats` takes `player.abil` as its third argument for a class
+  with the flag, `player.passives` otherwise. `choosePassive(i)` is `chooseAbility(i, 0)` for the new system.
+  The old tables and files go in batch B.
+- **Effects implemented**: `dot` (burn, poison, bleed), `chill`, `mark`, `chain`, `burst`, `split`, `echo`, `orbit`
+  (attack and permanent), `zone`, `heal`; all triggers (`hit`, `crit`, `strike`, `attack`, `kill`, `always`), `if`,
+  `every`, `chance`, and every stat key of section 5 (`lowHpPct`, `arcPct`, `knockPct`, `elitePct`... are computed;
+  the ones only the warrior and archer use are not exercised yet). **Not implemented (batch B)**: `bounce`, `wave`,
+  `whirl`, `fan`, `buff`, `leech`, `execute`; they are ignored if present. Warrior swings do not fire `hit` / `strike`
+  yet; `swing` only uses `s.critMult`.
+- `castPulse` was not factored into `S.areaHit` (a second loop was written), so the pulse and the warrior's numbers
+  cannot change. The two can be merged in batch B.
+- `familyMult` applies when the player owns at least one ability of the family, the offered one included.
+- `attack` effects run right after the shot or swing (not before); `every` counters count normal attacks only.
+- `chain` from the hero (`on: attack`, Storm Overcharge): the attack's target is the first hit, then the nearest
+  unhit monsters; `jumps` counts all enemies hit. From a hit, strike or kill target: `jumps` enemies beyond the target.
+- `burst` `apply` and `zone` `apply`: `dps` shares use the parent effect's base (the triggering hit, or `s.dmg`).
+  A zone made by a `kill` effect deals `kfx` damage (its kills do not fire `kill` effects again).
+- Dots tick together: one `dot` hit per monster per `dotTick` with the sum of burn, poison and bleed.
+- Status events: a monster tint (chill blue, burn orange, poison green, bleed red, mark white) is drawn instead of pips.
+- The `echo` bolt attack emits `echo`, not `cast`. An echo of an arc class would call `swing` (unused until batch B).
+- Bot (`Bot.pickAbility`): an owned active that is not in the build's order scores 0.5 (like a passive). When every
+  card is a new active that would replace a better one, the bot takes the highest-scored card anyway (a pick is
+  mandatory) and replaces its lowest slot. The browser bot takes the build from `?build=<id>`.
+- Level-up screen: cards show family icon, name (rarity colour), `ACTIVE` / `PASSIVE`, the family in its colour,
+  `NEW` or `Rank r/max`, the description at the rank you would get, 4 pips (filled after this pick; 2nd and 4th
+  outlined as thresholds), the bonus text in green when the pick reaches 2 or 4, and `Replaces a slot`. Below: the
+  3 slots and the owned families with pips. A new active with full slots opens the slot picker (`Replace which
+  active?`, `slot_0..2`, `slot_back`, keys 1-3 and Esc); a slot whose loss drops a family tier (net of the new
+  active's own family) shows `Fire 4 -> 3: loses Pyre` in red. The in-play HUD shows the 3 slots bottom centre
+  (not by the skill button, which exists on touch only). The character panel does not list abilities yet.
+- Debug panel: `ABILITIES` gives the default build's 3 actives. Family icons `fam_<id>` are in `tools/pixelart.py`.
+- Tuning (batch A, Storm build was 0 of 10): `mg_chain` radius 60 -> 90 and damage x1.5; `mg_twin` chance x1.5 and
+  damage 0.8 -> 1.0 (both within the +-50% allowed). Other numbers are as written.
