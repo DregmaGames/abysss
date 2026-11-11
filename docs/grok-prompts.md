@@ -38,6 +38,34 @@ come out at the game's pixel size and in the game's palette, so it always goes t
 > glowing green fissure with ember-orange edges, torches on the walls, a small blue-robed mage in
 > the centre. Limited palette of slate greys, toxic green, ember orange. No text, no UI.
 
+### Step 9 (content audit): what code still draws badly
+
+The game reads these frame names; an import must keep them (and the frame meaning) to drop in.
+
+**Rift Tyrant attack poses (`tyrant_2` fists raised for slam / burst, `tyrant_3` head down for the charge; 34-36 px tall)**
+> Pixel art game sprite sheet, 3x1 grid, evenly spaced, pure magenta #FF00FF background. The same
+> hulking horned crimson demon in three poses, front view, top-down 3/4 perspective: 1) both fists
+> raised high above the horns, glowing green light in the fists, about to smash the ground;
+> 2) crouched with head lowered and horns pointing forward, about to charge; 3) arms spread wide,
+> chest crack glowing, roaring. Bone horns, yellow eyes, thick dark outline, flat colours, no ground shadow.
+> (The code-drawn fists are square blocks: the pose reads, the hands do not.)
+
+**Don Montoto (city NPC `npc_montoto_0/1`, 20 px tall; also the caged frame `cage_0/1`)**
+> Pixel art game sprite sheet, 2x1 grid, pure magenta #FF00FF background. A very old, slightly bent
+> man in a deep purple hooded robe, long white beard down to his rope belt, bushy white eyebrows,
+> leaning on a tall wooden walking stick with a gold knob, front view, top-down 3/4 perspective,
+> two idle frames (breathing). Three flat shades of purple, warm skin, dark outline, no ground shadow.
+
+**Don Montoto portrait (panel art, 48x48, for his talk panel; no frame exists yet: needs code to show it)**
+> Pixel art portrait, square, pure magenta #FF00FF background. Head and shoulders of a kind,
+> mischievous old man in a purple hood, long white beard, white eyebrows, one eye half closed,
+> candle light from below. Flat colours, 3 shades per material, dark outline.
+
+**Skeleton throw (`skeleton_2`, 20 px tall)**
+> Pixel art game sprite, pure magenta #FF00FF background. A thin bone-white skeleton, front view,
+> top-down 3/4, one arm drawn back over its head holding a sharp bone shard, green glowing eye
+> sockets. Flat cream and grey shades, dark outline, no ground shadow.
+
 ## Importing
 
 ```

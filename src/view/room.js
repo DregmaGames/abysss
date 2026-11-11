@@ -35,16 +35,57 @@
       this.items.push(scene.add.image(d.x, d.y, 'atlas', 'decal_' + d.k).setDepth(-900));
     }
     this.torches = [];
+    var torchAt = {};
     for (i = 0; i < room.torches.length; i++) {
       var t = room.torches[i];
       var img = scene.add.image(t.x, t.y, 'atlas', 'torch_0').setDepth(-600);
       var glow = scene.add.image(t.x, t.y + 6, 'atlas', 'glow').setDepth(-650).setBlendMode(Phaser.BlendModes.ADD).setTint(UI.hex('em2')).setAlpha(0.4);
       this.torches.push({ img: img, glow: glow }); this.items.push(img, glow);
+      torchAt[((t.y - 8) / T) * W + (t.x - 8) / T] = 1;
     }
+    this.candles = [];
+    this.dress(scene, room, wall, torchAt);
     this.fissures = room.fissures.map(function (f) { return new FissureView(scene, f); });
+  };
+  // Props (step 9): bones, skulls, rubble, grates, puddles, candles on the floor; cobwebs in inner corners;
+  // chains, banners and moss on wall faces. View only: picked by a hash of seed, room and tile, never by the
+  // sim's rng, so the sim and the bot are unchanged. Never on a fissure, the start, the exit or the chest.
+  var FLOOR_PROPS = ['prop_bones', 'prop_rubble', 'prop_skull', 'prop_grate', 'prop_puddle', 'prop_bones', 'prop_rubble', 'prop_candles'];
+  var WALL_PROPS = ['wall_chain', 'wall_banner', 'wall_moss', 'wall_chain', 'wall_moss'];
+  var FLAT = { prop_grate: 1, prop_puddle: 1, prop_bones: 1 };
+  G.RoomView.prototype.dress = function (scene, room, wall, torchAt) {
+    var W = room.w, H = room.h, busy = {}, x, y, i, j, self = this;
+    room.fissures.forEach(function (f) {
+      f.cells.forEach(function (c) { busy[Math.floor((f.y + c.y) / T) * W + Math.floor((f.x + c.x) / T)] = 1; });
+    });
+    function keep(px, py, r) { for (var yy = -r; yy <= r; yy++) for (var xx = -r; xx <= r; xx++) busy[(Math.floor(py / T) + yy) * W + Math.floor(px / T) + xx] = 1; }
+    keep(room.start.x, room.start.y, 2); keep(room.exit.x, room.exit.y, 1); keep(room.chest.x, room.chest.y, 1);
+    function put(px, py, frame, depth, flip) {
+      var im = scene.add.image(px, py, 'atlas', frame).setDepth(depth).setFlipX(!!flip);
+      self.items.push(im); return im;
+    }
+    for (y = 1; y < H - 1; y++) for (x = 1; x < W - 1; x++) {
+      var h = G.hash32(room.seed ^ (x * 7349 + y * 131), room.index * 977 + y * 31 + x), r = h % 1000, k = (h >>> 10);
+      if (wall(x, y)) {
+        // south-facing wall face without a torch
+        if (!wall(x, y + 1) && !torchAt[y * W + x] && r < 250) put(x * T + 8, y * T + 9, WALL_PROPS[k % WALL_PROPS.length], -610);
+        continue;
+      }
+      if (busy[y * W + x]) continue;
+      if (wall(x, y - 1) && wall(x - 1, y) && r < 600) { put(x * T + 6, y * T + 6, 'prop_web', -880); continue; }
+      if (wall(x, y - 1) && wall(x + 1, y) && r < 600) { put(x * T + 10, y * T + 6, 'prop_web', -880, true); continue; }
+      if (r >= 32) continue;
+      var fr = FLOOR_PROPS[k % FLOOR_PROPS.length], px = x * T + 4 + (k >> 4) % 8, py = y * T + 5 + (k >> 8) % 7;
+      if (fr === 'prop_candles') {
+        var c = put(px, py, 'prop_candles_0', py + 3);
+        c.glow = scene.add.image(px, py - 2, 'atlas', 'glow_s').setDepth(-640).setBlendMode(Phaser.BlendModes.ADD).setTint(UI.hex('em3')).setAlpha(0.35);
+        self.items.push(c.glow); self.candles.push(c);
+      } else put(px, py, fr, FLAT[fr] ? -890 : py + 2, (k >> 12) & 1);
+    }
   };
   G.RoomView.prototype.tick = function (frame, simFissures, simTick) {
     var i;
+    for (i = 0; i < this.candles.length; i++) this.candles[i].setFrame('prop_candles_' + (((frame >> 4) + i) & 1));
     for (i = 0; i < this.torches.length; i++) {
       var t = this.torches[i], k = ((frame >> 3) + i * 2) % 3;
       t.img.setFrame('torch_' + k);

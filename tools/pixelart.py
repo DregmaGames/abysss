@@ -314,6 +314,23 @@ Ggcgabbbbbbbaa..
 ...a..
 ''', L, mirror=True)
     add('imp_0', outline(imp)); add('imp_1', outline(bob(imp, 2)))
+    # attack pose (frame 2, shown while it is about to touch the hero): claws up, mouth open
+    add('imp_2', outline(parse('''
+d.....
+dh....
+ahH...
+.abbbb
+.abbcc
+.abccc
+.abYKc
+..accc
+...aKT
+...abb
+...abc
+...abc
+..ab.b
+..a..a
+''', L, mirror=True)))
 
     # --- bat: quick, erratic flyer (two explicit wing frames)
     L = 'a=bt0 b=bt1 c=bt2 d=bt3 R=eye_r K=outline T=tooth'
@@ -338,6 +355,18 @@ abbabbbTb
 aba.aabbb
 aa....abb
 a......a.
+''', L, mirror=True)))
+    # attack pose (frame 2): wings swept back, fangs out
+    add('bat_2', outline(parse('''
+a........
+ab.......
+abb......
+.abba..a.
+..abba.ab
+...abbabR
+....aabbb
+......aTT
+.......aT
 ''', L, mirror=True)))
 
     # --- hound: purple rift beast that winds up and lunges
@@ -366,6 +395,20 @@ abba.abbbbbbbbabbbRbbba
 ''']
     for i, lg in enumerate(legs):
         add('hound_%d' % i, outline(parse(top.strip('\n') + '\n' + lg.strip('\n'), L)))
+    # wind-up pose (frame 2): crouched low, jaws open, ready to lunge
+    add('hound_2', outline(parse('''
+......................
+.....a..a..a....aa.a..
+....aba.ba.ba..abbab..
+.aa.abbabbabba.abbbbba
+abba.abbbbbbbbabbbRbbba
+.abbabbccccccbbbbbbbbba
+..abbbccddddccbbbbTTTa.
+..abbccddddcccbbbaKKKa.
+..abbcccccccccbbaTTTa..
+.aabbabbaabbaabba......
+.aaa..aaa...aaa........
+''', L)))
 
     # --- skeleton: keeps its distance and throws bone shards
     L = 'a=sk0 b=sk1 c=sk2 d=sk3 K=outline G=rg3'
@@ -391,6 +434,30 @@ abba.abbbbbbbbabbbRbbba
 ..bb..
 ''', L, mirror=True)
     add('skeleton_0', outline(sk)); add('skeleton_1', outline(bob(sk, 3)))
+    # wind-up pose (frame 2): both arms raised, a bone shard held over the skull
+    add('skeleton_2', outline(parse('''
+dd....
+c.....
+c..ccd
+c.cccd
+c.cKKc
+c.cGKc
+c.cccc
+.c.cKc
+..c.bb
+....cc
+....bc
+....cc
+....bc
+....cc
+.....c
+....cc
+...cc.
+...c..
+...c..
+...b..
+..bb..
+''', L, mirror=True)))
 
     # --- warden: stone brute with rift cracks; elite of the super fissure
     L = 'a=wd0 b=wd1 c=wd2 d=wd3 G=rg3 g=rg2 K=outline'
@@ -417,6 +484,29 @@ abccba.abba
 ......aaaaa
 ''', L, mirror=True)
     add('warden_0', outline(wd)); add('warden_1', outline(bob(wd, 3)))
+    # wind-up pose (frame 2): stone fists thrown up, rift light in them
+    add('warden_2', outline(parse('''
+aa......aaa
+aGa....abbc
+aGGa...abGc
+abba...abbc
+.abba.aaabb
+..abbccbbbb
+..abcdcbbgb
+...acccbbGg
+....abbabbG
+.......abbg
+.......abbb
+.......abbb
+.......abbb
+.......abbb
+.......abba
+.......abba
+.......abba
+.......abba
+......abbba
+......aaaaa
+''', L, mirror=True)))
 
     # --- the Rift Tyrant: boss of the last room
     L = 'a=ty0 b=ty1 c=ty2 d=ty3 h=horn H=horn_d Y=eye_y K=outline T=tooth G=rg3 g=rg2 W=horn'
@@ -455,6 +545,28 @@ aWbWba...abbba...
 ........aaaaaa...
 ''', L, mirror=True)
     add('tyrant_0', outline(ty)); add('tyrant_1', outline(bob(ty, 4)))
+    # slam / burst wind-up (frame 2): both fists raised beside the horns, rift light in them
+    w0, h0 = ty.size
+    up = blank(w0 + 8, h0)
+    body = ty.copy()
+    for y in range(14, h0 - 2):
+        for x in range(w0):
+            if x < 8 or x >= w0 - 8:
+                body.putpixel((x, y), (0, 0, 0, 0))
+    up.paste(body, (4, 0))
+    for side in (0, 1):
+        def R(x, y, w, h, k):
+            rect(up, x if not side else up.width - x - w, y, w, h, k)
+        R(2, 6, 5, 9, 'ty0'); R(3, 6, 3, 9, 'ty1'); R(4, 7, 1, 7, 'ty2')        # forearm
+        R(5, 12, 7, 4, 'ty0'); R(6, 12, 6, 3, 'ty1')                           # upper arm to the shoulder
+        R(0, 0, 8, 7, 'ty0'); R(1, 1, 6, 5, 'ty2'); R(2, 2, 4, 3, 'ty3')        # fist
+        R(3, 3, 2, 1, 'rg3'); R(2, 4, 1, 1, 'rg2'); R(5, 2, 1, 1, 'rg4')        # rift light
+    add('tyrant_2', outline(up))
+    # charge wind-up (frame 3): head and shoulders dropped 3 px, crouched to run
+    lo = blank(w0, h0)
+    lo.paste(ty.crop((0, 0, w0, h0 - 6)), (0, 3))
+    lo.paste(ty.crop((0, h0 - 4, w0, h0)), (0, h0 - 4))
+    add('tyrant_3', outline(lo))
 
 
 # ---------------------------------------------------------------------- world objects
@@ -578,6 +690,114 @@ cdc..c.
 ''']
     for i, d in enumerate(decals):
         add('decal_%d' % i, parse(d, L))
+
+    # floor props (step 9: room variety). View-only dressing, nothing collides with them.
+    L = 'a=sk0 b=sk1 c=sk2 d=sk3 K=outline'
+    add('prop_bones', outline(parse('''
+.....c.....
+..cdc.b.cc.
+.c..dccdb.c
+cbccbc.dcbb
+..b...cb...
+''', L)))
+    add('prop_skull', outline(parse('''
+.cdd.
+cddcd
+cKcKc
+.ccb.
+.b.b.
+''', L)))
+    L = 'a=wb0 b=wb1 c=wb2 d=wb3 f=f1'
+    add('prop_rubble', outline(parse('''
+....cd.....
+...bccd....
+.cdbbcb.cd.
+bccbbbabccd
+abbaabaabba
+''', L)))
+    L = 'a=iron0 b=iron1 c=iron2 f=f0'
+    add('prop_grate', parse('''
+aaaaaaaaaaa
+abbbbbbbbba
+abfbfbfbfba
+abfbfbfbfba
+abfbfbfbfba
+abfbfbfbfba
+abbbbbbbbba
+aaaaaaaaaaa
+''', L))
+    L = 'a=f0 b=fb c=wb1 d=mb0'
+    add('prop_puddle', parse('''
+...aaaaa.....
+.aabbbbbaaa..
+abbbcbbbbbba.
+abbbbbbbdbbba
+.aabbbbbbbaa.
+...aaaaaaa...
+''', L))
+    L = 'a=sk1 b=sk2 c=sk3 f=em3 g=em4 w=wood_d'
+    candles = []
+    for f in range(2):
+        fl = ('.g..f..g.', '.f..g..f.')[f]
+        candles.append(parse('''
+%s
+.f..f..f.
+.c..c....
+.b..c..c.
+.b..b..b.
+.b.wb..b.
+wbwwbwwbw
+''' % fl, L))
+        add('prop_candles_%d' % f, outline(candles[-1]))
+    # a cobweb for the inner corner where two walls meet (top-left; flipped for top-right)
+    web = blank(12, 12)
+    wc = rgb('wb3', 170)
+    def wline(x0, y0, x1, y1):
+        n = max(abs(x1 - x0), abs(y1 - y0))
+        for i in range(n + 1):
+            web.putpixel((round(x0 + (x1 - x0) * i / n), round(y0 + (y1 - y0) * i / n)), wc)
+    spokes = [(11, 0), (11, 5), (8, 8), (5, 11), (0, 11)]
+    for sx, sy in spokes:
+        wline(0, 0, sx, sy)
+    for k in (0.4, 0.75):                      # two strands across the spokes
+        pts = [(round(sx * k), round(sy * k)) for sx, sy in spokes]
+        for (x0, y0), (x1, y1) in zip(pts, pts[1:]):
+            wline(x0, y0, x1, y1)
+    add('prop_web', web)
+
+    # wall-face props (hung on south-facing wall faces, like the torches)
+    L = 'a=iron0 b=iron1 c=iron2'
+    add('wall_chain', outline(parse('''
+.c.....c.
+.b.....b.
+.c.....c.
+.b.....b.
+.c.....c.
+.b.....b.
+bab...bab
+b.b...b.b
+.b.....b.
+''', L)))
+    L = 'a=ir0 b=ir1 c=ir2 g=gold_d w=wood_d'
+    add('wall_banner', outline(parse('''
+wwwwwwwww
+.abbbbba.
+.abbcbba.
+.abcgcba.
+.abbcbba.
+.abbbbba.
+.abbbbba.
+.ab.abba.
+.a...ba..
+''', L)))
+    L = 'a=moss b=rg0'
+    add('wall_moss', parse('''
+aaabaaaa..a
+.aaaaba.aa.
+..a.aaa..a.
+..a..a.....
+.....a.....
+''', L))
 
     # pickups, projectiles
     L = 'a=xp0 b=xp1 c=xp2'
@@ -849,18 +1069,38 @@ xwwabbbbbbawwx
     def smith_mark(im):
         rect(im, 4, 6, 6, 2, 'wood_d'); rect(im, 5, 8, 4, 1, 'wood_d')       # beard
         rect(im, 3, 10, 8, 5, 'ch1'); rect(im, 4, 10, 6, 1, 'ch2')          # leather apron
-    def montoto_mark(im):
-        rect(im, 3, 3, 8, 1, 'tome2')                                       # the hood's rim
-        rect(im, 4, 4, 2, 1, 'ui_text'); rect(im, 8, 4, 2, 1, 'ui_text')     # white eyebrows
-        rect(im, 4, 7, 6, 5, 'ui_text'); rect(im, 5, 12, 4, 1, 'ui_text')   # a long white beard down the robe
-        rect(im, 5, 8, 4, 1, 'wb3'); rect(im, 5, 10, 4, 1, 'wb3')           # its shading
-        rect(im, 13, 3, 1, 15, 'wood'); rect(im, 12, 2, 3, 2, 'wood_d'); rect(im, 13, 2, 1, 1, 'gold')   # walking stick
     def trainer_mark(im):
         rect(im, 3, 2, 8, 1, 'ir1'); rect(im, 3, 3, 8, 1, 'ir2')            # red headband
         rect(im, 4, 10, 6, 2, 'iron2')                                      # bracers
     folk('npc_smith', 'a=iron0 b=iron1 c=iron2', smith_mark)
-    folk('npc_montoto', 'a=tome0 b=tome1 c=tome2', montoto_mark)
     folk('npc_trainer', 'a=rg0 b=rg1 c=rg2', trainer_mark)
+
+    # Don Montoto: his own body plan, not the townsfolk one. A bent old man in a deep hood and robe,
+    # head pushed forward over a hunched back, a white beard to the belt, a tall walking stick.
+    montoto = """
+......aaaa........
+....aabbbbaa......
+...abbbbbbbba.....
+..abccccccccbaa...
+..abcwwsswwcbbba..
+..abcsessescbbbba.
+..aabsstssbabbbbba
+.g.awwwwwwwabbbbba
+gxg.awvwwvwabbbba.
+.x.sawwwwwwaabbba.
+.xssbawwwwabbbbba.
+.x.abbawvwabbbbba.
+.x.abbbawwabbbbba.
+.x.abhgghggghbbba.
+.x.abbbbbbbbbbbba.
+.x..abbbbbcbbbbba.
+.x..abbbbbcbbbbbba
+.x..aaaaaaaaaaaaa.
+.y....kk....kk....
+.y....kk....kk....
+"""
+    mo = parse(montoto, 'a=tome0 b=tome1 c=tome2 s=skin t=skin_d e=f0 w=ui_text v=sk2 g=gold h=gold_d x=wood y=wood_d k=boot')
+    add('npc_montoto_0', outline(mo)); add('npc_montoto_1', outline(bob(mo, 2)))
 
     # the cage: iron bars round a hooded old man with a white beard (Don Montoto); 2 frames, he fidgets
     for f in range(2):
@@ -1017,23 +1257,24 @@ abcBBggBBcba
 ..G..
 ''',
         'axe': '''
-..wddd
-..wcdd
-..wcdc
-..wcc.
-..w...
-..w...
-..w...
-..w...
-..W...
-..G...
+...wd..
+..cwdd.
+..cwcdd
+..cwcdd
+..cwdd.
+...wd..
+...w...
+...w...
+...w...
+...W...
+...G...
 ''',
         'mace': '''
-..c..
-.cdc.
-cdddc
-.cdc.
-..w..
+.c.c.
+ccdcc
+.ddd.
+ccdcc
+.c.c.
 ..w..
 ..w..
 ..w..
@@ -1072,14 +1313,19 @@ cccccbb
         px(10, 0, 'iron3'); px(2, 7, 'gold'); px(3, 8, 'gold'); px(4, 9, 'gold')
         px(2, 9, 'wood'); px(1, 10, 'wood'); px(0, 11, 'gold_d')
     def axe(px):
-        shaft(px, 1, 10, 8, 3); px(0, 11, 'gold_d')
-        for x, y, k in [(7, 1, 'iron3'), (8, 1, 'iron3'), (9, 2, 'iron3'), (10, 3, 'iron3'), (6, 2, 'iron2'), (7, 2, 'iron3'), (8, 2, 'iron3'),
-                        (9, 3, 'iron2'), (7, 3, 'iron2'), (8, 4, 'iron2'), (9, 4, 'iron2'), (10, 4, 'iron1'), (9, 5, 'iron1')]:
+        # a broad crescent blade on one side of the haft: the widest head of the set
+        shaft(px, 1, 10, 7, 4); px(0, 11, 'gold_d'); shaft(px, 7, 4, 9, 2, 'wood_d')
+        for x, y, k in [(8, 0, 'iron2'), (9, 0, 'iron3'), (10, 0, 'iron3'), (11, 1, 'iron3'), (11, 2, 'iron3'), (11, 3, 'iron3'), (11, 4, 'iron2'),
+                        (10, 5, 'iron2'), (9, 1, 'iron2'), (10, 1, 'iron3'), (10, 2, 'iron2'), (10, 3, 'iron2'), (10, 4, 'iron1'),
+                        (9, 4, 'iron1'), (8, 1, 'iron1'), (7, 1, 'iron1')]:
             px(x, y, k)
     def mace(px):
-        shaft(px, 1, 10, 7, 4); px(0, 11, 'gold_d')
-        for x, y, k in [(8, 1, 'iron2'), (7, 2, 'iron2'), (8, 2, 'iron3'), (9, 2, 'iron2'), (10, 3, 'iron1'), (6, 3, 'iron1'),
-                        (7, 3, 'iron3'), (8, 3, 'iron2'), (9, 3, 'iron2'), (7, 4, 'iron2'), (8, 4, 'iron2'), (9, 4, 'iron1'), (8, 5, 'iron1'), (8, 0, 'iron1'), (10, 1, 'iron1')]:
+        # a round flanged head with four spikes on a short grip
+        shaft(px, 1, 10, 6, 5); px(0, 11, 'gold_d'); px(2, 8, 'iron2')
+        for x, y, k in [(7, 2, 'iron2'), (8, 2, 'iron3'), (9, 2, 'iron2'), (7, 3, 'iron3'), (8, 3, 'iron3'), (9, 3, 'iron2'),
+                        (7, 4, 'iron2'), (8, 4, 'iron2'), (9, 4, 'iron1'), (6, 3, 'iron1'), (10, 3, 'iron1'),
+                        (8, 0, 'iron3'), (8, 1, 'iron2'), (11, 3, 'iron3'), (5, 3, 'iron2'), (8, 5, 'iron1'), (8, 6, 'iron2'),
+                        (6, 1, 'iron2'), (10, 1, 'iron2'), (10, 5, 'iron1')]:
             px(x, y, k)
     def hammer(px):
         shaft(px, 1, 10, 7, 4); px(0, 11, 'gold_d')

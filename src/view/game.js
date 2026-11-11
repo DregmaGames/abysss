@@ -265,7 +265,7 @@
       }, function (s, m) {
         var fly = m.def.fly || 0, rate = m.def.ai === 'weave' ? 2 : 3;
         s.setPosition(m.x, m.y + m.r + 1 - fly).setDepth(m.y + m.r).setFlipX(m.face < 0);
-        s.setFrame(m.type + '_' + (((tick >> rate) + m.id) & 1));
+        s.setFrame(m.type + '_' + (G.attackPose(m, p) || (((tick >> rate) + m.id) & 1)));
         s.sh.setPosition(m.x, m.y + m.r);
         s.setAlpha(m.emerge > 0 ? 0.6 : 1);
         if (s.flashCd > 0) s.flashCd--;
@@ -459,6 +459,24 @@
           if (m.def.boss) g.fillRect(Math.round(m.x + m.lx * j - m.ly * 6), Math.round(m.y + m.r + m.ly * j + m.lx * 6), 1, 1);
         }
       }
+      // ranged wind-ups: dotted aim lines toward the hero (skeleton 1, warden 3); boss burst: the lanes of the volley
+      var blink = UI.hex((tick >> 2) % 2 ? 'em4' : 'em2');
+      for (i = 0; i < sim.monsters.length; i++) {
+        var q = sim.monsters[i], rays = null, from = 0, to = 0, base = 0;
+        if (q.wind > 0 && (q.def.ai === 'ranged' || q.def.ai === 'elite')) {
+          base = Math.atan2(p.y - q.y, p.x - q.x); from = q.r + 4; to = q.r + 30;
+          rays = q.def.ai === 'elite' ? [base - q.def.spread, base, base + q.def.spread] : [base];
+        } else if (q.st === 'burstWind') {
+          var nb = q.def.burstShots + (q.enraged ? 4 : 0); rays = []; from = q.r + 6; to = q.r + 34;
+          for (j = 0; j < nb; j++) rays.push(q.ba + j / nb * 6.283);
+        }
+        if (!rays) continue;
+        g.fillStyle(blink, 1);
+        for (j = 0; j < rays.length; j++) {
+          var cx = Math.cos(rays[j]), cy = Math.sin(rays[j]);
+          for (k = from; k < to; k += 3) g.fillRect(Math.round(q.x + cx * k), Math.round(q.y - 4 + cy * k), 1, 1);
+        }
+      }
       for (i = 0; i < sim.teles.length; i++) {
         var t = sim.teles[i], tx = Math.round(t.x), ty = Math.round(t.y), r = Math.round(t.r), f = t.t / t.dur;
         g.fillStyle(UI.hex('em2'), 1);
@@ -472,6 +490,17 @@
       }
     }
   });
+
+  // Attack pose frame (2 or 3) while a monster winds up or is about to touch the hero, else 0 (walk cycle).
+  // View only: reads the sim, never changes it.
+  G.attackPose = function (m, p) {
+    var st = m.st, ai = m.def.ai;
+    if (m.def.boss) return st === 'slam' || st === 'burstWind' ? 2 : st === 'chargeWind' || st === 'charge' ? 3 : 0;
+    if (ai === 'lunge') return st === 'wind' || st === 'lunge' ? 2 : 0;
+    if (ai === 'ranged' || ai === 'elite') return m.wind > 0 ? 2 : 0;
+    var dx = p.x - m.x, dy = p.y - m.y, reach = m.r + p.r + 10;
+    return dx * dx + dy * dy < reach * reach ? 2 : 0;
+  };
 
   // QA snapshot: what a test needs to know about the running game, in one call
   G.qa.state = function () {

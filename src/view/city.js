@@ -115,9 +115,16 @@
     },
     placeLabels: function () {
       var wv = this.cameras.main.worldView, l = wv.x + 3, r = wv.x + wv.width - 3;
+      var placed = [];
       (this.labels || []).forEach(function (b) {
-        var w = b.t.width, x = Math.round(Math.max(l, Math.min(r - w, b.cx - w / 2)));
-        b.t.setPosition(x, b.y);
+        var w = b.t.width, x = Math.round(Math.max(l, Math.min(r - w, b.cx - w / 2))), y = b.y;
+        // a label pushed in from the edge can land on its neighbour (portrait): lift it a line until it is clear
+        for (var k = 0; k < placed.length; k++) {
+          var o = placed[k];
+          if (o.y === y && x < o.x + o.w + 3 && o.x < x + w + 3) { y -= 10; k = -1; }
+        }
+        placed.push({ x: x, y: y, w: w });
+        b.t.setPosition(x, y);
       });
     },
 
@@ -203,7 +210,7 @@
       this.portal.setFrame('portal_' + ((this.frame >> 3) % 3));
       var nl = this.nearLabel(this.near);
       this.tag.setVisible(!!nl && !G.paused);
-      if (nl && this.near) this.tag.setText(nl).setPosition(Math.round(this.near.front.x - this.tag.width / 2), Math.round(this.near.front.y - 60 + (this.near.s.id === 'plot' ? 40 : 0) - ((this.frame >> 4) & 1)));
+      if (nl && this.near) this.tag.setText(nl).setPosition(Math.round(this.near.front.x - this.tag.width / 2), Math.round(this.near.front.y - 74 + (this.near.s.id === 'plot' ? 54 : 0) - ((this.frame >> 4) & 1)));
       this.follow(false);
       this.placeLabels();
     },
@@ -294,8 +301,9 @@
       this.scrollText = L.text(X + 63, Y + 16, '', 'ui_text');
       // buttons (top-right): inventory, settings, title
       L.button(V.W - X - 26, Y, 26, 26, '', function () { self.toggleInventory(); }, { icon: 'i_bag', name: 'inv' });
-      L.button(V.W - X - 26, Y + 29, 26, 14, G.t('city.set'), function () { if (!G.Panels.isOpen()) { self.dropStick(); G.Panels.openSettings(self); } }, { name: 'city_set' });
-      L.button(V.W - X - 26, Y + 46, 26, 14, G.t('city.end'), function () { if (!G.Panels.isOpen()) { G.Panels.close(true); self.scene.stop('city'); self.scene.stop('cityhud'); self.scene.start('title'); } }, { name: 'city_title' });
+      // settings: a gear icon, so no word has to fit ("AJUS" was cut in Spanish)
+      L.button(V.W - X - 26, Y + 29, 26, 17, '', function () { if (!G.Panels.isOpen()) { self.dropStick(); G.Panels.openSettings(self); } }, { icon: 'i_gear', name: 'city_set' });
+      L.button(V.W - X - 26, Y + 49, 26, 14, G.t('city.end'), function () { if (!G.Panels.isOpen()) { G.Panels.close(true); self.scene.stop('city'); self.scene.stop('cityhud'); self.scene.start('title'); } }, { name: 'city_title' });
       // the talk button: shown when a stall is in reach (a tap on the stall does the same)
       this.talkBtn = L.button(Math.round(V.W / 2 - 33), V.H - 30, 66, 22, G.t('city.talk'), function () { if (G.city && G.city.near && !G.paused) G.city.talk(G.city.near); }, { name: 'city_talk', color: 'ui_warn' });
       this.talkBtn.setVisible(false);

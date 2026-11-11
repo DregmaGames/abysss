@@ -108,7 +108,7 @@
       tyrant:   { ai: 'boss', r: 14, hp: 1200, speed: 32, dmg: 14, exp: 120, threat: 40, shadow: 'l', boss: true,
                   chaseTime: 2.4, enrageAt: 0.4, enrageRate: 0.7,
                   slamRadius: 56, slamWindup: 0.95, slamDmg: 22,
-                  burstShots: 12, burstDmg: 9, burstSpeed: 70, burstGap: 0.55,
+                  burstShots: 12, burstDmg: 9, burstSpeed: 70, burstGap: 0.55, burstWindup: 0.6,
                   summon: 3,
                   chargeWindup: 0.75, chargeSpeed: 180, chargeTime: 0.6, chargeDmg: 18 }
     },

@@ -1,4 +1,4 @@
-// Boss: the Rift Tyrant (room 10). Chases, then cycles four telegraphed attacks; faster when enraged.
+// Boss: the Rift Tyrant (room 10). Chases, then cycles slam, burst, charge, summon; every attack has a wind-up; faster when enraged.
 (function (G) {
   var S = G.Sim.prototype;
   var CYCLE = ['slam', 'burst', 'charge', 'summon'];
@@ -17,7 +17,9 @@
             this.teles.push({ id: this.nextId++, x: m.x, y: m.y, r: D.slamRadius, t: 0, dur: m.t, dmg: D.slamDmg * m.mul });
             this.emit({ t: 'windup', id: m.id, dur: m.t });
           } else if (m.st === 'burst') {
-            m.t = D.burstGap * 2 * rate; m.vol = 0;
+            // wind-up first: fists up, the lanes of the first volley are aimed now and shown on the floor
+            m.st = 'burstWind'; m.t = D.burstWindup * rate; m.ba = G.M.atan2(dy, dx);
+            this.emit({ t: 'windup', id: m.id, dur: m.t });
           } else if (m.st === 'charge') {
             m.t = D.chargeWindup * rate; m.lx = dx / d; m.ly = dy / d; m.st = 'chargeWind';
             this.emit({ t: 'windup', id: m.id, dur: m.t });
@@ -32,10 +34,13 @@
           }
         }
         break;
+      case 'burstWind':
+        if (m.t <= 0) { m.st = 'burst'; m.t = D.burstGap * 2 * rate; m.vol = 0; }
+        break;
       case 'burst':
         var due = m.vol === 0 || (m.vol === 1 && m.t <= D.burstGap * rate);
         if (due && m.vol < 2) {
-          var shots = D.burstShots + (enr ? 4 : 0), off = m.vol * Math.PI / shots + G.M.atan2(dy, dx);
+          var shots = D.burstShots + (enr ? 4 : 0), off = m.vol * Math.PI / shots + m.ba;
           for (i = 0; i < shots; i++) this.fireShot(m, off + i / shots * 6.283, D.burstSpeed, D.burstDmg * m.mul, 'big');
           m.vol++;
           this.emit({ t: 'shoot', id: m.id, x: m.x, y: m.y });

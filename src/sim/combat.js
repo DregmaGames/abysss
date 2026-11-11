@@ -126,7 +126,7 @@
     if (this.boxHits(x, y, def.r)) { var f = this.fissures[fid]; x = f.x; y = f.y; }
     var m = { id: this.nextId++, type: type, def: def, x: x, y: y, r: def.r, hp: Math.round(def.hp * th), maxHp: Math.round(def.hp * th),
       dmg: def.dmg * th, mul: th, fid: fid, hitCd: 0.5, kx: 0, ky: 0, st: 'chase', t: 0, cd: 0.6 + this.rngCombat.next() * 1.2,
-      cd2: def.summonEvery || 0, wind: 0, lx: 0, ly: 0, face: 1, los: true, emerge: 0.35, age: 0, atk: 0, px: x, py: y, bump: 0, detour: 0, walkLos: false, fx: null, slowMul: 1, side: this.rngCombat.chance(0.5) ? 1 : -1 };
+      cd2: def.summonEvery || 0, wind: 0, lx: 0, ly: 0, face: 1, los: true, emerge: 0.35, age: 0, atk: 0, ba: 0, px: x, py: y, bump: 0, detour: 0, walkLos: false, fx: null, slowMul: 1, side: this.rngCombat.chance(0.5) ? 1 : -1 };
     if (def.boss) { m.t = 1.6; }
     m.walk = !def.fly && !def.boss;      // walkers go around open cracks; bats fly over, the boss ignores them
     this.monsters.push(m);

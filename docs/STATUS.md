@@ -41,7 +41,21 @@ Design decisions live in the plan doc (the user has it); this file is what an ag
   Font: `tools/pixelart.py` adds a, e, i, o, u with acute, n with tilde, u with diaeresis (both cases) and the inverted ! and ? to both bitmap fonts (capitals rise 1-2 px above the line). Checks: `node tools/check_i18n.js` (same keys and placeholders, no unused keys, every character in the font, English texts = the sim's, Spanish agreement, no English left hardcoded in `src/view`).
   Settings panel rebuilt: language row, zoom and shake rows with [-] / [+] buttons, tapping the track picks the nearest step, dragging works with mouse and touch even outside the track, zoom applies when the pointer is released (the old live rebuild cut the drag), the zoom slider now also goes below the default on big screens (`G.view.lo`), label = knob = `G.view.S`.
   Rough: no Spanish for `qa/` logs or bot output; the capital N with tilde touches the top of a button; Spanish text is about 20 % longer, panels were shortened or wrapped but touch was not tested on a real device.
+- Step 9 (content audit and polish) on branch `step-9-content`: no new systems. Attack poses (frame `_2`, view `G.attackPose`): imp claws up / bat fangs when within 10 px of touching, skeleton arms up, warden fists up, hound crouch,
+  tyrant fists up (`tyrant_2`, slam and burst) and head down (`tyrant_3`, charge). Ground telegraphs (`drawGround`): skeleton 1 / warden 3 dotted aim lines during the wind-up; boss burst lanes.
+  Sim change (only one): the boss burst had no wind-up (first volley fired at once); now state `burstWind`, `burstWindup` 0.6 s (x0.7 enraged), the volley angle `m.ba` is fixed at the start so the lanes shown are the real ones.
+  Imp and bat still hurt on contact with no sim wind-up (pose only). No sixth monster: a new type in the fissure pools would change every bot result.
+  Room dressing (view only, `RoomView.dress`, picked by `G.hash32` of seed / room / tile, never the sim rng): bones, rubble, skull, grate, puddle, candles (2 frames, glow), cobwebs in inner corners, chains / banners / moss on wall faces; never on a fissure, the start, exit or chest.
+  Don Montoto has his own body plan (bent, hood, beard to the belt, stick). Axe and mace icons and in-hand sprites redrawn (the mace read as a spear). City settings button = gear icon (`city.set` key removed). `UI.button` moves a label with an accented capital (Ñ, Á...) down so the mark clears the frame.
+  City labels pushed in from the edge are lifted a line when they overlap (portrait); the TALK tag sits above the stall label. `qa/screens.js` (23 shots per size: title, city, stalls, run, door choice, result, back to city, boss slam / burst / charge, won) and `qa/session.js` (title -> city -> portal -> run -> LEAVE -> city -> again, default 2 min) rewritten for today's game. Grok prompts: tyrant poses, Montoto, Montoto portrait, skeleton throw.
 - `main` is the working base. One branch per step: `step-N-<slug>`.
+
+## Last measured (2026-11-11, step 9: content audit)
+
+- `determinism.js` pass, `check_bag.js` pass, `check_i18n.js` pass, `contrast.js` 0 failing (lowest 5.65:1).
+- `sim_bot --seeds 1-10` before -> after: mage 0 -> 0, warrior 1 (7) -> 2 (7, 9), archer 2 (5, 10) -> 2 (5, 10); 0 softlocks, 0 timeouts. Only runs that reached the boss changed (burst wind-up); every other run identical field by field.
+- `qa/screens.js both`: 23 + 23 screenshots, 0 errors. `qa/session.js --minutes 2`: 3 runs from the portal, left twice, rotated, 13 level-ups, worst stuck 6.7 s, 0 errors.
+- Rough: imp / bat have no sim wind-up (contact); the tyrant's raised fists are square blocks (Grok prompt written); burst lanes are thin dots; props are rare in some rooms and not tuned per room; the city in portrait still scrolls; touch not tested; `qa/bot.js` and `qa/test_room.js` not run; Spanish only checked on city and settings.
 
 ## Last measured (2026-11-11, Don Montoto, step 8)
 

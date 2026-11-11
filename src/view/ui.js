@@ -68,6 +68,7 @@
   };
 
   // Button. A list `into` collects every object it creates so the owner can destroy them.
+  UI.RAISED = /[\u00c1\u00c9\u00cd\u00d3\u00da\u00d1\u00dc]/;
   UI.button = function (scene, x, y, w, h, label, onClick, opts) {
     opts = opts || {};
     x = Math.round(x); y = Math.round(y);
@@ -77,7 +78,10 @@
     var b = { bg: bg, t: t, icon: icon, enabled: true, x: x, y: y, w: w, h: h, objs: icon ? [bg, t, icon] : [bg, t] };
     b.setLabel = function (s, color) {
       t.setText(s); if (color) t.setTint(UI.hex(color));
-      t.setPosition(x + Math.round((w - t.width) / 2), y + Math.round((h - 7) / 2) - 1);
+      // accented capitals (Ñ, Á...) rise 2 px over the line: move the label down so the mark clears the frame
+      var ty = Math.round((h - 7) / 2) - 1;
+      if (UI.RAISED.test(s)) ty += Math.max(0, Math.min(4 - ty, h - 10 - ty));
+      t.setPosition(x + Math.round((w - t.width) / 2), y + ty);
     };
     b.setEnabled = function (on) { b.enabled = on; b.objs.forEach(function (o) { o.setAlpha(on ? 1 : 0.4); }); };
     b.setVisible = function (on) { b.objs.forEach(function (o) { o.setVisible(on); }); if (on) bg.setInteractive(); else bg.disableInteractive(); };
