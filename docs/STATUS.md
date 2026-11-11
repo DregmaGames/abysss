@@ -28,13 +28,23 @@ Design decisions live in the plan doc (the user has it); this file is what an ag
   Decide in step 10 whether it stays. Old saves load as they are (the stored shop tier is ignored; save stays v6).
 - Step 8 (city) on branch `step-8-city`: **done**. Title ("ENTER THE CITY", the class picker row stays on the title) -> the walkable city of the selected class. The title no longer has EQUIPMENT or SHOP.
   City = `src/view/city.js` (`CityScene` world + `CityHudScene` overlay), 26 x 15 tiles, art in `tools/pixelart.py` `city()`. Stalls: Blacksmith (BUY with the scrolls, SELL, UPGRADE; `Panels.openShop(scene, false, 'smith')`),
-  Trainer on the Neutral quarter's plot (permanent RANKS; `'trainer'`), Appraiser (identifies the kept bag, `Panels.openAppraiser`), Mage quarter = fenced empty plot with a sign, the Rift portal (walk into it = run).
+  Trainer on the Neutral quarter's plot (permanent RANKS; `'trainer'`), Don Montoto (the old man who replaced the Appraiser: a story line per talk and free identify-all, `Panels.openMontoto`), Mage quarter = fenced empty plot with a sign, the Rift portal (walk into it = run).
   Equipping and the kept bag: the inventory button / I in the city. Result screen: RUN AGAIN and BACK TO CITY. QUIT RUN (settings) goes to the city; END (city) goes to the title; the test room is still on the title.
-  Appraiser: fee `economy.appraiser.feeMult` 1.5 x town scroll 15 = 23 gold per item (user can change it), same identification as a scroll (clears `unid`, never rerolls), kept bag only. Rescue: a cage
-  (`G.cageRoom(seed, B, gear)`, pure function of the run seed: 50 % of runs, rooms 1-8, none once freed, none in the test room) with `sim.cage`; tap it or press I within 22 px: `Sim.freeCaged` sets
-  `gear.city.appraiser` at once (kept even if the hero dies later). Saved PER CHARACTER (each class has its own city state; account-wide would need a shared save field). Save v7 adds `gears[c].city = { appraiser }`;
-  v4-v6 saves load as not rescued, nothing else changes. Debug panel CAGE puts one beside the hero. The career bot (`opts.rescue`, on in `sim_bot --career`) walks to the cage after the chest; it never appraises (scrolls are cheaper).
+  Don Montoto (user design, 2026-11-11, replaces the Appraiser; no fee any more, `economy.appraiser` and `G.appraiseFee/appraiseAt` are gone). Rescue: his cage is ALWAYS in room 5 (`economy.montoto.room` = index 4; `G.cageRoom` = 4 until the character has rescued him, none in the test room)
+  from the start of the room, but it only opens once the room is clear (`Sim.roomClear()` = phase chest or exit, i.e. super fissure closed): tap or I in reach (22 px) -> `Sim.freeCaged`; before that it emits `cagelocked` (toast "Clear the room first", cage tag LOCKED). Opening sets `gear.city.montoto` at once (kept if the hero dies later).
+  In the city: talk -> one story line (`src/lore.js` `G.MONTOTO_STORIES`, 16 entries `{ en }`, next one each talk, cycling; index `gear.city.story`, saved) and IDENTIFY ALL (FREE): `G.identifyAll(gear)` clears `unid` on the whole kept bag, reveal item by item (SKIP ends it). All his UI strings: `G.MONTOTO_UI` in `src/lore.js` (`G.montotoText(key, vars)`).
+  Saved PER CHARACTER. Save v8: `gears[c].city = { montoto, story }`; v7's `appraiser` flag loads as `montoto` (rescued stays rescued), v4-v6 load as not rescued. Debug CAGE puts a (locked until clear) cage beside the hero. The career bot (`opts.rescue`, on in `sim_bot --career`) frees him after the chest of room 5 and `Bot.prepareGear` / `shopVisit` call `G.identifyAll` first (scrolls only for what is still hidden).
+  City labels (`CityScene.label`) are clamped to the camera each frame, so in portrait (540x960, the city is wider than the view and scrolls) none is cut.
 - `main` is the working base. One branch per step: `step-N-<slug>`.
+
+## Last measured (2026-11-11, Don Montoto, step 8)
+
+- `determinism.js` passes (rescue run: warrior seed 1, 7 rooms, twice identical, he is freed). `check_bag.js` passes (new: no fee left, identify-all free / never rerolls / refused when not rescued, 16 story lines cycle and wrap, cage always room 5, locked until the room is clear (also during the super phase),
+  refused from far away, saved at once, not back, none for later runs, kept after death, none in the test room, debug CAGE, career bot frees him / leaving before room 5 does not, v6 and v7 -> v8, the `appraiser` flag becomes `montoto`, malformed city state, story index round trip).
+- `sim_bot --seeds 1-10` (fresh gear, ignores the cage): mage 0 / warrior 1 / archer 2 wins, 0 softlocks, 0 timeouts (same as before). Career warrior 10 runs: 7 wins, first at run 4, 3 left (was 5 wins, first at run 5): identify-all is free so scrolls go further. Not tuned.
+- Browser (script outside the repo, `qa/lib.js`): room 5 forced, tap on the closed cage -> "Clear the room first", debug SKIP PHASE until clear, cage opens (saved), leave -> BACK TO CITY, talk twice (two different lines), IDENTIFY ALL (3 -> 0, gold unchanged), portrait labels all inside the view with the hero at both ends; 0 console errors.
+  Screenshots `/tmp/montoto_city_portrait.png` (540x960), `/tmp/montoto_talk.png` (960x540).
+- Rough: in portrait the city still scrolls sideways (labels are clamped, not the map fitted); the sprite is a recoloured townsperson body plan with a beard and a stick; the reveal is plain; touch not tested; no English-only audit of `G.MONTOTO_UI` for other languages yet (only `en`); `economy.md` never mentioned the fee, so it is unchanged.
 
 ## Last measured (2026-11-11, step 8: city)
 
@@ -45,7 +55,7 @@ Design decisions live in the plan doc (the user has it); this file is what an ag
   (banked) -> result -> BACK TO CITY (Appraiser now in his stall) -> sell an item -> Trainer rank -> Appraiser identifies an item (23 gold, reveal) -> inventory button -> portal -> die -> RUN AGAIN (new seed). Screenshots
   `/tmp/step8_city_landscape.png`, `/tmp/step8_city_portrait.png`.
 - Rough: touch not tested (the stick is a copy of the run's); tapping a stall from afar only says "Walk closer"; the reveal is plain (icon, name, stat lines one by one); the cage appears in 50 % of runs until freed (a guess); in portrait the city scrolls
-  sideways and edge labels can be cut; the city has no music or ambient life; `qa/session.js` and `qa/screens.js` still use the old title buttons (`res_gear`, `title_shop`) and are stale; the bot never uses the Appraiser.
+  sideways and edge labels can be cut; the city has no music or ambient life; `qa/session.js` and `qa/screens.js` still use the old title buttons (`res_gear`, `title_shop`) and are stale; the Appraiser was replaced by Don Montoto (see the newer entry).
 
 ## Last measured (2026-11-11, tiers removed)
 

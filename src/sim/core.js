@@ -41,7 +41,7 @@
     this.testRoom = opts.testRoom ? B.run.testRoom : -1;   // test room: one room, restarted on clear
     this.loops = 0;
     this.merchantAt = this.testRoom >= 0 ? [] : G.merchantRooms(this.seed, B);
-    this.cageAt = this.testRoom >= 0 ? -1 : G.cageRoom(this.seed, B, this.gear);   // step 8: the caged Appraiser, in one room of some runs
+    this.cageAt = this.testRoom >= 0 ? -1 : G.cageRoom(this.seed, B, this.gear);   // step 8: Don Montoto's cage: room 5, every run, until this character rescued him
     this.cage = null; this.rescued = false;
     this.loadRoom(this.testRoom >= 0 ? this.testRoom : 0);
   }
@@ -455,18 +455,23 @@
     this.emit({ t: 'merchant', open: false });
     return true;
   };
-  // The caged Appraiser (step 8): tap him (or the key) within reach to free him. Permanent at once, saved on the character (gear.city.appraiser);
-  // dying later does not undo it. No state change, the run goes on.
-  S.canFree = function () {
+  // Don Montoto's cage (step 8): in room 5 from the start, but it only opens once the room is clear (the super fissure is closed: phase chest or exit).
+  // Tap him (or the key) within reach to free him. Permanent at once, saved on the character (gear.city.montoto); dying later does not undo it.
+  S.roomClear = function () { return this.phase === 'chest' || this.phase === 'exit'; };
+  S.cageNear = function () {
     var c = this.cage, p = this.player;
     if (this.state !== 'play' || !c) return false;
-    var dx = p.x - c.x, dy = p.y - c.y, r = this.B.economy.appraiser.cage.freeR;
+    var dx = p.x - c.x, dy = p.y - c.y, r = this.B.economy.montoto.freeR;
     return dx * dx + dy * dy <= r * r;
   };
+  S.canFree = function () { return this.cageNear() && this.roomClear(); };
+  // returns true when freed; a tap on a locked cage says so (event 'cagelocked') and changes nothing
   S.freeCaged = function () {
-    if (!this.canFree()) return false;
-    if (!this.gear.city) this.gear.city = { appraiser: false };
-    this.gear.city.appraiser = true; this.rescued = true;
+    if (this.state !== 'play' || !this.cage) return false;
+    if (!this.roomClear()) { this.emit({ t: 'cagelocked', x: this.cage.x, y: this.cage.y }); return false; }
+    if (!this.cageNear()) return false;
+    if (!this.gear.city) this.gear.city = { montoto: false, story: 0 };
+    this.gear.city.montoto = true; this.rescued = true;
     var c = this.cage; this.cage = null;
     this.emit({ t: 'rescue', x: c.x, y: c.y });
     return true;
@@ -537,7 +542,7 @@
   };
   // debug: a cage beside the hero (only when the character has not freed him)
   S.cheatCage = function () {
-    if (this.gear.city && this.gear.city.appraiser) return;
+    if (this.gear.city && this.gear.city.montoto) return;
     this.cageAt = this.roomIndex; this.rescued = false;
     this.cage = G.cageSpot(this.room, this.B, this.merchant) || { x: this.player.x + 20, y: this.player.y + 8 };
   };

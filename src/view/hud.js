@@ -17,7 +17,7 @@
       this.game.events.on('viewchange', this.onView, this);
 
       var kb = this.input.keyboard;
-      kb.on('keydown-I', function () { if (!self.level && !self.choiceL && !self.merchL && !G.Panels.isOpen() && self.game_.sim.canFree()) { self.game_.sim.freeCaged(); return; } if (!self.level && !self.choiceL && !self.merchL && !G.Panels.isOpen() && self.game_.sim.canTalk()) self.openMerchant(); else self.toggleInventory(); });      // next to the merchant the inventory key talks to him
+      kb.on('keydown-I', function () { if (!self.level && !self.choiceL && !self.merchL && !G.Panels.isOpen() && self.game_.sim.cageNear()) { self.game_.sim.freeCaged(); return; } if (!self.level && !self.choiceL && !self.merchL && !G.Panels.isOpen() && self.game_.sim.canTalk()) self.openMerchant(); else self.toggleInventory(); });      // next to the merchant the inventory key talks to him
       kb.on('keydown-F2', function (e) { if (e && e.preventDefault) e.preventDefault(); self.toggleDebug(); });
       kb.on('keydown-TAB', function (e) { e.preventDefault(); self.toggleInventory(); });
       kb.on('keydown-ESC', function () {

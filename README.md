@@ -13,7 +13,7 @@ file: `dist/riftscar.html`. No bundler, no package installs.
    Ten rooms; the Rift Tyrant is in the tenth.
 5. Kills give EXP (pick 1 of 3 abilities per level: actives that change the attack, passives, family bonuses), closures and monsters drop gear and ability
    tomes. Gear found in a run goes into the sealed bag (the HUD shows only its count and best rarity): leaving or winning
-   keeps it, dying loses it (worn gear is kept). Between runs you walk the city (title -> class -> city): the Blacksmith buys, sells, upgrades and sells scrolls, the Trainer sells permanent ranks, the Appraiser (rescued from a cage in a run) identifies kept items for gold, and the Rift portal starts a run. Equip from the inventory button; the gear you start with stays on all run.
+   keeps it, dying loses it (worn gear is kept). Between runs you walk the city (title -> class -> city): the Blacksmith buys, sells, upgrades and sells scrolls, the Trainer sells permanent ranks, Don Montoto (rescued from a cage in room 5 of a run once it is clear) tells stories and identifies kept items for free, and the Rift portal starts a run. Equip from the inventory button; the gear you start with stays on all run.
    Difficulty comes from the room number and the doors; the gear score also scales the monsters a little (`run.gearK`).
 
 Controls: WASD / arrows move, SPACE dodge, Q or E pulse, I inventory, ESC settings.

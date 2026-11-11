@@ -792,7 +792,7 @@ def city():
     rect(ap, 8, 18, 10, 9, 'cloth1'); rect(ap, 8, 18, 10, 1, 'cloth2'); rect(ap, 10, 20, 6, 1, 'ui_text'); rect(ap, 10, 23, 6, 1, 'ui_text')   # open ledger
     ellipse(ap, 28, 22, 4, 4, 'orb'); ellipse(ap, 27, 21, 2, 2, 'orb_c'); rect(ap, 25, 26, 6, 1, 'gold_d')   # crystal ball
     rect(ap, 36, 17, 8, 1, 'gold'); rect(ap, 39, 17, 2, 9, 'gold_d'); rect(ap, 36, 18, 2, 3, 'gold'); rect(ap, 42, 18, 2, 3, 'gold')   # scales
-    add('stall_appr', outline(ap))
+    add('stall_montoto', outline(ap))
     tr = stall('rg1', 'rg2')
     for x in (8, 14, 20):                                                                                  # a rack of practice swords
         rect(tr, x, 15, 2, 11, 'iron2'); rect(tr, x, 15, 1, 11, 'iron3'); rect(tr, x - 1, 24, 4, 2, 'wood_d')
@@ -849,21 +849,24 @@ xwwabbbbbbawwx
     def smith_mark(im):
         rect(im, 4, 6, 6, 2, 'wood_d'); rect(im, 5, 8, 4, 1, 'wood_d')       # beard
         rect(im, 3, 10, 8, 5, 'ch1'); rect(im, 4, 10, 6, 1, 'ch2')          # leather apron
-    def appr_mark(im):
-        rect(im, 3, 4, 3, 1, 'gold'); rect(im, 8, 4, 3, 1, 'gold'); im.putpixel((6, 4), rgb('gold'))   # spectacles
-        rect(im, 5, 11, 4, 3, 'ui_text')                                    # a scroll in the hands
+    def montoto_mark(im):
+        rect(im, 3, 3, 8, 1, 'tome2')                                       # the hood's rim
+        rect(im, 4, 4, 2, 1, 'ui_text'); rect(im, 8, 4, 2, 1, 'ui_text')     # white eyebrows
+        rect(im, 4, 7, 6, 5, 'ui_text'); rect(im, 5, 12, 4, 1, 'ui_text')   # a long white beard down the robe
+        rect(im, 5, 8, 4, 1, 'wb3'); rect(im, 5, 10, 4, 1, 'wb3')           # its shading
+        rect(im, 13, 3, 1, 15, 'wood'); rect(im, 12, 2, 3, 2, 'wood_d'); rect(im, 13, 2, 1, 1, 'gold')   # walking stick
     def trainer_mark(im):
         rect(im, 3, 2, 8, 1, 'ir1'); rect(im, 3, 3, 8, 1, 'ir2')            # red headband
         rect(im, 4, 10, 6, 2, 'iron2')                                      # bracers
     folk('npc_smith', 'a=iron0 b=iron1 c=iron2', smith_mark)
-    folk('npc_appr', 'a=tome0 b=tome1 c=tome2', appr_mark)
+    folk('npc_montoto', 'a=tome0 b=tome1 c=tome2', montoto_mark)
     folk('npc_trainer', 'a=rg0 b=rg1 c=rg2', trainer_mark)
 
-    # the cage: iron bars round a hooded prisoner (the Appraiser); 2 frames, he fidgets
+    # the cage: iron bars round a hooded old man with a white beard (Don Montoto); 2 frames, he fidgets
     for f in range(2):
         cg = blank(18, 22)
-        rect(cg, 4, 6 + f, 10, 13 - f, 'tome1'); rect(cg, 5, 3 + f, 8, 5, 'tome1'); rect(cg, 6, 5 + f, 6, 3, 'skin'); rect(cg, 7, 6 + f, 1, 1, 'f0'); rect(cg, 10, 6 + f, 1, 1, 'f0')
-        rect(cg, 4, 6 + f, 10, 1, 'tome2')
+        rect(cg, 4, 6 + f, 10, 13 - f, 'tome1'); rect(cg, 5, 3 + f, 8, 5, 'tome1'); rect(cg, 6, 5 + f, 6, 3, 'skin'); rect(cg, 7, 7 + f, 1, 1, 'f0'); rect(cg, 10, 7 + f, 1, 1, 'f0')
+        rect(cg, 4, 6 + f, 10, 1, 'tome2'); rect(cg, 6, 9 + f, 6, 4, 'ui_text'); rect(cg, 7, 13 + f, 4, 1, 'ui_text')   # white beard
         rect(cg, 0, 18, 18, 4, 'iron1'); rect(cg, 0, 18, 18, 1, 'iron2'); rect(cg, 0, 21, 18, 1, 'iron0')
         rect(cg, 0, 1, 18, 2, 'iron1'); rect(cg, 0, 1, 18, 1, 'iron2')
         for x in (1, 5, 9, 13, 16):

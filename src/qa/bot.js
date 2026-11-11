@@ -11,7 +11,7 @@
   function Bot(sim, buildId, opts) {
     this.leaveAt = opts && +opts.leave > 0 ? +opts.leave : 0; this.lowHp = opts && opts.lowHp > 0 ? +opts.lowHp : 0;
     this.pushHp = opts && opts.pushHp > 0 ? +opts.pushHp : 0; this.pushGear = opts && opts.pushGear > 0 ? +opts.pushGear : 0;
-    this.rescue = !!(opts && opts.rescue); this.freed = 0;      // step 8: careers free the caged Appraiser like a player would (off by default: fresh-gear runs stay as they were)
+    this.rescue = !!(opts && opts.rescue); this.freed = 0;      // step 8: careers free Don Montoto like a player would (off by default: fresh-gear runs stay as they were)
     // class hint (BAL.classes.<id>.bot): keep-away multiplier
     this.melee = sim.cls.attack.kind === 'arc'; this.keep = sim.cls.bot.keep;
     var builds = sim.B.builds && sim.B.builds[sim.clsId];
@@ -49,6 +49,7 @@
   // other classes' weapons first, then the weakest, until there is room for a full sealed bag.
   Bot.prepareGear = function (gear, B, clsId) {
     var g = gear, i, changed = true, guard = 0;
+    G.identifyAll(g);      // Don Montoto identifies the whole kept bag for free (when this character rescued him)
     Bot.identifyBest(g.bag, B, clsId, function () { return g.scrolls | 0; }, function (k) { return G.identifyInBag(g, k); }, g);
     while (changed && guard++ < 60) {
       changed = false;
@@ -158,7 +159,8 @@
       }
     }
     function sell(k) { log.sold++; log.goldSold += G.sellFromBag(g, k, B); }
-    // 1. identify worthy items; buy scrolls when out
+    // 1. Don Montoto identifies everything for free (once rescued); then the worthy items still hidden use scrolls; buy scrolls when out
+    G.identifyAll(g);
     Bot.identifyBest(g.bag, B, clsId, function () { return g.scrolls | 0; }, function (k) { return G.identifyInBag(g, k); }, g,
       function () { if (!G.shopBuyScroll(g, B)) return false; log.scrollsBought++; log.spent.scrolls += E.shop.scroll; return true; });
     // 2. equip the best per slot
@@ -246,7 +248,7 @@
     return this.pathDir(m.x, m.y);
   };
 
-  // The caged Appraiser (careers only): after the chest, walk to the cage and free him. Gives up after 15 s.
+  // Don Montoto's cage (careers only): in room 5, after the chest (the room is clear), walk to the cage and free him. Gives up after 15 s.
   Bot.prototype.cageStep = function () {
     var sim = this.sim, c = sim.cage;
     if (!this.rescue || !c || sim.phase !== 'exit') return null;

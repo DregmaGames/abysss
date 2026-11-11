@@ -1,5 +1,5 @@
 // The city (step 8): a small walkable plaza between runs, drawn at the game's one pixel size.
-// Title -> class -> city. The Blacksmith (buy, sell, upgrade, scrolls), the Appraiser (identifies the kept bag, rescued in a run), the Trainer
+// Title -> class -> city. The Blacksmith (buy, sell, upgrade, scrolls), Don Montoto (stories, identifies the kept bag for free; rescued in room 5 of a run), the Trainer
 // (permanent ranks, the Neutral quarter), an empty plot for the Mage quarter, and the portal that starts a run.
 // CityScene is the world (camera follows the hero); CityHudScene is the overlay: gold, buttons, the touch stick, panels.
 (function (G) {
@@ -11,7 +11,7 @@
   var SPOTS = [
     { id: 'smith', x: 100, y: 88, frame: 'stall_smith', npc: 'npc_smith', label: 'BLACKSMITH', color: 'ui_warn' },
     { id: 'trainer', x: 208, y: 88, frame: 'stall_trainer', npc: 'npc_trainer', label: 'TRAINER', color: 'ui_good' },
-    { id: 'appraiser', x: 316, y: 88, frame: 'stall_appr', npc: 'npc_appr', label: 'APPRAISER', color: 'tome2' }
+    { id: 'montoto', x: 316, y: 88, frame: 'stall_montoto', npc: 'npc_montoto', label: G.montotoText('name'), color: 'tome2' }
   ];
   var PLOT = { x: 100, y: 186, w: 48, h: 32 };         // the Mage quarter: a fenced empty plot with a sign
   var SIGN = { x: 144, y: 184 };
@@ -40,7 +40,7 @@
       G.screen = 'city'; G.city = this; G.gameScene = null; G.hud = null; G.paused = false; G.testRoom = false;
       if (G.runSeed == null) G.runSeed = G.params.has('seed') ? (parseInt(G.params.get('seed'), 10) >>> 0) : 1;
       this.gear = G.gearOf(G.save, G.cls);
-      this.solids = solids();
+      this.solids = solids(); this.labels = [];
       this.controls = new G.Controls(this);
       this.keyEnter = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
       this.px = START.x; this.py = START.y; this.face = 1; this.moving = false; this.frame = 0; this.cam = { x: START.x, y: START.y };
@@ -70,11 +70,11 @@
         this.add.image(x * T, y * T, 'atlas', f).setOrigin(0, 0).setDepth(-1000);
       }
       this.spots = {};
-      this.rescued = !!(this.gear.city && this.gear.city.appraiser);
+      this.rescued = !!(this.gear.city && this.gear.city.montoto);
       SPOTS.forEach(function (s) {
-        var empty = s.id === 'appraiser' && !self.rescued, o = { s: s, empty: empty, front: { x: s.x, y: s.y + 14 } };
+        var empty = s.id === 'montoto' && !self.rescued, o = { s: s, empty: empty, front: { x: s.x, y: s.y + 14 } };
         o.stall = self.add.image(s.x, s.y, 'atlas', empty ? 'stall_empty' : s.frame).setOrigin(0.5, 1).setDepth(s.y);
-        UI.text(self, 0, 0, empty ? 'EMPTY STALL' : s.label, empty ? 'ui_dim' : s.color).setDepth(6000).setPosition(Math.round(s.x - (empty ? 33 : s.label.length * 3)), s.y - 52);
+        self.label(empty ? 'EMPTY STALL' : s.label, empty ? 'ui_dim' : s.color, s.x, s.y - 52);
         if (!empty) {
           o.npc = self.add.image(s.x, s.y + 12, 'atlas', s.npc + '_0').setOrigin(0.5, 1).setDepth(s.y + 12);
           o.shadow = self.add.image(s.x, s.y + 11, 'atlas', 'shadow_s').setDepth(-100);
@@ -87,7 +87,7 @@
       });
       // the Mage quarter: nothing built yet
       this.add.image(PLOT.x, PLOT.y, 'atlas', 'plot_fence').setOrigin(0.5, 1).setDepth(PLOT.y);
-      UI.text(this, 0, 0, 'MAGE QUARTER', 'ui_dim').setDepth(6000).setPosition(PLOT.x - 36, PLOT.y - PLOT.h - 11);
+      this.label('MAGE QUARTER', 'ui_dim', PLOT.x, PLOT.y - PLOT.h - 11);
       this.sign = this.add.image(SIGN.x, SIGN.y, 'atlas', 'c_sign').setOrigin(0.5, 1).setDepth(SIGN.y).setInteractive({ useHandCursor: true });
       this.sign.on('pointerdown', function () { self.say('Mage quarter: nothing built here yet.', 'ui_dim'); });
       this.plotOwner = { s: { id: 'plot' }, front: { x: SIGN.x - 6, y: SIGN.y + 6 } };
@@ -95,10 +95,26 @@
       // the portal
       this.portal = this.add.image(PORTAL.x, PORTAL.y, 'atlas', 'portal_0').setOrigin(0.5, 1).setDepth(PORTAL.y - 20);
       this.add.image(PORTAL.x, PORTAL.y - 16, 'atlas', 'glow').setDepth(-640).setBlendMode(Phaser.BlendModes.ADD).setTint(UI.hex('rg2')).setAlpha(0.25);
-      UI.text(this, 0, 0, 'THE RIFT', 'ui_good').setDepth(6000).setPosition(PORTAL.x - 21, PORTAL.y - 58);
+      this.label('THE RIFT', 'ui_good', PORTAL.x, PORTAL.y - 58);
     },
 
     say: function (text, color) { if (G.cityHud) G.cityHud.say(text, color); },
+
+    // a world label centred on cx: kept fully inside the visible part of the city (clamped to the camera each frame), so a narrow portrait screen never cuts one
+    label: function (text, color, cx, y) {
+      var t = UI.text(this, 0, 0, text, color).setDepth(6000);
+      this.labels = this.labels || [];
+      this.labels.push({ t: t, cx: cx, y: y });
+      this.placeLabels();
+      return t;
+    },
+    placeLabels: function () {
+      var wv = this.cameras.main.worldView, l = wv.x + 3, r = wv.x + wv.width - 3;
+      (this.labels || []).forEach(function (b) {
+        var w = b.t.width, x = Math.round(Math.max(l, Math.min(r - w, b.cx - w / 2)));
+        b.t.setPosition(x, b.y);
+      });
+    },
 
     // a tap on a stall or its owner: talk if the hero is in reach
     tap: function (o) {
@@ -123,9 +139,9 @@
       hud.dropStick();
       if (id === 'smith') G.Panels.openShop(hud, false, 'smith');
       else if (id === 'trainer') G.Panels.openShop(hud, false, 'trainer');
-      else if (id === 'appraiser') {
-        if (o.empty) this.say('An empty stall. Someone is missing: look for a cage in the rift.', 'ui_warn');
-        else G.Panels.openAppraiser(hud, false);
+      else if (id === 'montoto') {
+        if (o.empty) this.say(G.montotoText('emptyStall'), 'ui_warn');
+        else G.Panels.openMontoto(hud, false);
       } else this.say('Mage quarter: nothing built here yet.', 'ui_dim');
     },
     // the label and what the button says for the thing in reach
@@ -150,6 +166,7 @@
       var cx = MW <= V.W ? MW / 2 : Math.max(V.W / 2, Math.min(MW - V.W / 2, this.cam.x));
       var cy = MH + top <= V.H ? (MH - top) / 2 : Math.max(V.H / 2 - top, Math.min(MH - V.H / 2, this.cam.y));
       cam.centerOn(Math.round(cx), Math.round(cy));
+      this.placeLabels();
     },
 
     update: function (time, delta) {
@@ -183,6 +200,7 @@
       this.tag.setVisible(!!nl && !G.paused);
       if (nl && this.near) this.tag.setText(nl).setPosition(Math.round(this.near.front.x - this.tag.width / 2), Math.round(this.near.front.y - 60 + (this.near.s.id === 'plot' ? 40 : 0) - ((this.frame >> 4) & 1)));
       this.follow(false);
+      this.placeLabels();
     },
 
     enterRift: function () {

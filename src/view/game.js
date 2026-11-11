@@ -49,9 +49,9 @@
       this.tradeTag = UI.text(this, 0, 0, 'TRADE', 'ui_warn').setDepth(7500).setVisible(false);
       this.merch.setInteractive({ useHandCursor: true });
       this.merch.on('pointerdown', function () { if (!G.paused && self.sim.canTalk() && G.hud) G.hud.openMerchant(); });
-      // the caged Appraiser (step 8): tap him in reach to free him
+      // Don Montoto's cage (step 8): tap it in reach to free him once the room is clear
       this.cageImg = this.add.image(0, 0, 'atlas', 'cage_0').setOrigin(0.5, 1).setVisible(false);
-      this.cageTag = UI.text(this, 0, 0, 'FREE HIM', 'ui_warn').setDepth(7500).setVisible(false);
+      this.cageTag = UI.text(this, 0, 0, G.montotoText('freeHim'), 'ui_warn').setDepth(7500).setVisible(false);
       this.cageImg.setInteractive({ useHandCursor: true });
       this.cageImg.on('pointerdown', function () { if (!G.paused) self.sim.freeCaged(); });
       this.goldAcc = 0; this.goldT = 0;
@@ -215,7 +215,8 @@
           case 'chest': fx.burst(e.x, e.y, 'gold', 30, 110, 0.7); fx.ring(e.x, e.y, 3, 30, 0.4, 'gold'); break;
           case 'drop': fx.burst(e.x, e.y, UI.RARITY[e.rarity], 8, 50, 0.5); break;
           case 'pickup': fx.burst(this.sim.player.x, this.sim.player.y, e.item ? UI.RARITY[e.item.rarity] : (e.kind === 'scroll' ? 'gold' : 'tome2'), 10, 60, 0.4); break;
-          case 'rescue': fx.burst(e.x, e.y - 4, 'tome2', 24, 90, 0.7); fx.ring(e.x, e.y, 3, 26, 0.4, 'gold'); fx.number(e.x, e.y - 26, 'APPRAISER FREED', 'gold'); G.storeSave(G.save); break;
+          case 'cagelocked': if (G.hud) G.hud.say(G.montotoText('clearFirst'), 'ui_warn'); break;
+          case 'rescue': fx.burst(e.x, e.y - 4, 'tome2', 24, 90, 0.7); fx.ring(e.x, e.y, 3, 26, 0.4, 'gold'); fx.number(e.x, e.y - 26, G.montotoText('freed'), 'gold'); G.storeSave(G.save); break;
           case 'room': this.buildRoom(); this.cameras.main.fadeIn(300, 7, 6, 11); break;
           case 'dead': fx.shake(1); fx.burst(this.sim.player.x, this.sim.player.y, this.cls.sprite.glow, 36, 120, 0.9); break;
         }
@@ -319,7 +320,7 @@
       this.cageImg.setVisible(!!cg);
       if (cg) {
         this.cageImg.setPosition(cg.x, cg.y + 8).setDepth(cg.y + 8).setFrame('cage_' + ((tick >> 5) & 1));
-        this.cageTag.setVisible(sim.canFree()).setPosition(Math.round(cg.x - this.cageTag.width / 2), Math.round(cg.y - 22 - ((tick >> 4) & 1)));
+        this.cageTag.setText(sim.roomClear() ? G.montotoText('freeHim') : G.montotoText('locked')).setVisible(sim.cageNear()).setPosition(Math.round(cg.x - this.cageTag.width / 2), Math.round(cg.y - 22 - ((tick >> 4) & 1)));
       } else this.cageTag.setVisible(false);
       // gold: one floating label per 0.2 s (the rest is summed)
       if (this.goldAcc > 0 && --this.goldT <= 0) { this.fx.number(this.goldX, this.goldY - 14, '+' + this.goldAcc, 'gold'); this.goldAcc = 0; this.goldT = 12; }
@@ -478,7 +479,7 @@
     if (sim) {
       var p = sim.player;
       out.sim = { state: sim.state, room: sim.roomIndex, phase: sim.phase, tick: sim.tick, hp: Math.round(p.hp), maxHp: p.maxHp, level: p.level,
-        gold: sim.gold, scrolls: sim.scrolls, merchant: !!sim.merchant, canTalk: sim.canTalk(), cage: sim.cage ? { x: sim.cage.x, y: sim.cage.y } : null, canFree: sim.canFree(), kills: sim.kills, rooms: sim.roomsCleared, stuck: +sim.stuckSeconds().toFixed(1), worstStuck: +gs.worstStuck.toFixed(1),
+        gold: sim.gold, scrolls: sim.scrolls, merchant: !!sim.merchant, canTalk: sim.canTalk(), cage: sim.cage ? { x: sim.cage.x, y: sim.cage.y } : null, canFree: sim.canFree(), roomClear: sim.roomClear(), cageAt: sim.cageAt, kills: sim.kills, rooms: sim.roomsCleared, stuck: +sim.stuckSeconds().toFixed(1), worstStuck: +gs.worstStuck.toFixed(1),
         monsters: sim.monsters.length, bag: sim.bag.length, kept: sim.gear.bag.length, mod: sim.mod, doors: sim.doors.slice(), result: sim.result, gearScore: G.gearScore(sim.gear), hash: sim.room.hash,
         objective: sim.objective(), test: sim.testRoom >= 0, loops: sim.loops, touch: !!G.touch, fissures: sim.fissures.map(function (f) { return f.state; }), x: Math.round(p.x), y: Math.round(p.y) };
     }

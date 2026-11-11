@@ -8,7 +8,7 @@
 'use strict';
 const fs = require('fs'), path = require('path'), vm = require('vm');
 const ROOT = path.dirname(__dirname);
-const SIM = ['balance.js', 'rng.js', 'mapgen.js', 'sim/items.js', 'sim/economy.js', 'sim/abilities.js', 'sim/core.js', 'sim/effects.js', 'sim/combat.js', 'sim/fissures.js', 'sim/boss.js', 'qa/bot.js', 'save.js'];
+const SIM = ['balance.js', 'lore.js', 'rng.js', 'mapgen.js', 'sim/items.js', 'sim/economy.js', 'sim/abilities.js', 'sim/core.js', 'sim/effects.js', 'sim/combat.js', 'sim/fissures.js', 'sim/boss.js', 'qa/bot.js', 'save.js'];
 const INEXACT = ['sin', 'cos', 'tan', 'asin', 'acos', 'atan', 'atan2', 'sinh', 'cosh', 'tanh', 'asinh', 'acosh', 'atanh',
   'exp', 'expm1', 'log', 'log1p', 'log2', 'log10', 'pow', 'cbrt', 'hypot'];
 const StrictMath = {};
@@ -69,13 +69,13 @@ for (const cls of ['mage', 'warrior', 'archer']) {
   if (!ok) ecoBad++;
   console.log(`economy ${cls} seed 3 with merchants (rooms ${G.merchantRooms(3, G.BAL).join(',')}) twice: ${ok ? 'identical' : 'DIFFERENT'} (${a.result}, gold earned ${a.bag.goldEarned} kept ${a.bag.goldKept} spent ${a.bag.goldSpent}, merchants met ${a.merchants.met} used ${a.merchants.used}, scrolls bought ${a.bag.scrollsBought})`);
 }
-// the caged Appraiser (step 8): a career-style run that frees him, twice (cage placement and the walk to it use no inexact Math)
+// Don Montoto's cage (step 8): a career-style run that frees him, twice (cage placement and the walk to it use no inexact Math)
 let cageBad = 0;
 {
-  let seed = 1; while (G.cageRoom(seed, G.BAL, G.newGear()) < 0) seed++;
+  const seed = 1;
   const gA = G.newGear(), gB = G2.newGear();
-  const a = G.botRun(seed, { gear: gA, rescue: true, leave: 6 }), b = G2.botRun(seed, { gear: gB, rescue: true, leave: 6 }), ok = JSON.stringify([a, gA]) === JSON.stringify([b, gB]);
+  const a = G.botRun(seed, { gear: gA, rescue: true, leave: 7, cls: 'warrior' }), b = G2.botRun(seed, { gear: gB, rescue: true, leave: 7, cls: 'warrior' }), ok = JSON.stringify([a, gA]) === JSON.stringify([b, gB]);
   if (!ok) cageBad++;
-  console.log(`cage seed ${seed} (room ${G.cageRoom(seed, G.BAL, G.newGear()) + 1}) rescue run twice: ${ok ? 'identical' : 'DIFFERENT'} (${a.result}, ${a.rooms} rooms, Appraiser ${gA.city.appraiser ? 'freed' : 'not freed'})`);
+  console.log(`cage seed ${seed} (room ${G.cageRoom(seed, G.BAL, G.newGear()) + 1}) rescue run twice: ${ok ? 'identical' : 'DIFFERENT'} (${a.result}, ${a.rooms} rooms, Don Montoto ${gA.city.montoto ? 'freed' : 'not freed'})`);
 }
 process.exit(cageBad || bad || modBad || ecoBad || abilBad || !same || hashes.size !== checked ? 1 : 0);

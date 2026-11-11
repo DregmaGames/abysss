@@ -243,11 +243,10 @@
         scroll: { price: 25, stock: 3 },
         potion: { price: 30, stock: 2, heal: 0.4 }
       },
-      // The Appraiser (step 8): identifies items of the kept bag in the city. fee = round(shop.scroll x feeMult) gold per item (orchestrator default 1.5 x the
-      // town scroll price = 23; the user can change feeMult). He is rescued in a run: a cage in one room of a run (G.cageRoom: a pure function of the run seed)
-      // while the character has not freed him yet. chance: share of runs with a cage; lo / hi: the room indices it can be in; spots: tile offsets from the
-      // start tile (first open floor tile not on the merchant); freeR: tap / key reach in px. Saved per character: gear.city.appraiser.
-      appraiser: { feeMult: 1.5, cage: { chance: 0.5, lo: 1, hi: 8, freeR: 22, spots: [[-2, 1], [2, 1], [-1, -2], [1, -2], [-1, 2], [1, 2]] } }
+      // Don Montoto (step 8): the old man in the cage. He is in his cage from the start of room `room` (index 4 = room 5) of every run until the character has
+      // rescued him; the cage opens once the room is clear (super fissure closed). spots: tile offsets from the start tile (first open floor tile not on the
+      // merchant); freeR: tap / key reach in px. Saved per character: gear.city.montoto. In the city he tells stories and identifies the kept bag, both free.
+      montoto: { room: 4, freeR: 22, spots: [[-2, 1], [2, 1], [-1, -2], [1, -2], [-1, 2], [1, 2]] }
     },
 
 

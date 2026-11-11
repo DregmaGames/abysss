@@ -7,14 +7,14 @@ Read `CLAUDE.md` and `docs/STATUS.md` first. Do only this step. Do not read the 
 ## Task
 
 TASK: Build the city as a small walkable scene in the game's view and pixel size. Version 1 has
-two characters: the Blacksmith (buy, sell, upgrade) and the Appraiser (opens the sealed bag with
-a reveal, one item at a time). The Appraiser is not there at first: he is rescued inside a run
+two characters: the Blacksmith (buy, sell, upgrade) and Don Montoto, who replaced the Appraiser (opens the sealed bag with
+a reveal, one item at a time). Don Montoto is not there at first: he is rescued inside a run
 (a caged NPC in a room) and then appears in the city. The result screen offers "run again"
 directly, without walking through the city. Leave empty plots for the Mage and Neutral quarters.
 VERIFY: a scripted Playwright session: run, leave, appraise, sell, buy, run again, at both sizes;
 node qa/session.js --minutes 10.
 - The Blacksmith's shop (or a stall next to him) also sells Scrolls of Identification for gold (price from the step 7 economy), added to
-  the class's kept scroll count `gear.scrolls`. The Appraiser's reveal is the same thing as identification: it clears `unid` on an item of
+  the class's kept scroll count `gear.scrolls`. Don Montoto's reveal is the same thing as identification: it clears `unid` on an item of
   the sealed or kept bag (stats are already rolled; it never rerolls), so do not build a second mechanism.
 
 ## Test budget

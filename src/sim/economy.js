@@ -130,28 +130,32 @@
   };
   G.rankTotal = function (gear) { var n = 0; for (var k in (gear.ranks || {})) n += gear.ranks[k] | 0; return n; };
 
-  // ------------------------------------------------------------------ the Appraiser (step 8)
-  // fee for identifying one item of the kept bag (gold). The same identification as a scroll: clears `unid`, never rerolls.
-  G.appraiseFee = function (B) { var A = E(B).appraiser; return Math.round(E(B).shop.scroll * A.feeMult); };
-  G.canAppraise = function (gear, idx, B) {
-    var it = gear.bag[idx];
-    return !!(gear.city && gear.city.appraiser && it && it.unid && (gear.gold | 0) >= G.appraiseFee(B));
+  // ------------------------------------------------------------------ Don Montoto (step 8)
+  // He is rescued in room 5 of a run (economy.montoto.room, an index) and then lives in the city. Two services, both free: stories (G.montotoStory)
+  // and identifying the whole kept bag (G.identifyAll): the same identification as a scroll, it clears `unid` and never rerolls.
+  G.canIdentifyAll = function (gear) {
+    return !!(gear.city && gear.city.montoto && gear.bag.some(function (it) { return it.unid; }));
   };
-  G.appraiseAt = function (gear, idx, B) {
-    if (!G.canAppraise(gear, idx, B)) return null;
-    gear.gold -= G.appraiseFee(B);
-    gear.bag[idx].unid = false;
-    return gear.bag[idx];
+  // identifies every unidentified item of the kept bag; returns them in bag order ([] when he is not rescued or nothing is hidden)
+  G.identifyAll = function (gear) {
+    var out = [];
+    if (!gear.city || !gear.city.montoto) return out;
+    gear.bag.forEach(function (it) { if (it.unid) { it.unid = false; out.push(it); } });
+    return out;
   };
-  // the room index of the cage in the run of this seed (or -1): a pure function of the seed; none once the character freed him
+  // the next story line: one per talk, cycling; the index is saved on the character (gear.city.story)
+  G.montotoStory = function (gear) {
+    var L = G.MONTOTO_STORIES, i = Math.max(0, (gear.city.story | 0)) % L.length;
+    gear.city.story = (i + 1) % L.length;
+    return L[i].en;
+  };
+  // the room index of the cage in a run (or -1): always room 5 until the character has rescued him; none in the test room (the caller checks)
   G.cageRoom = function (seed, B, gear) {
-    var C = E(B).appraiser.cage;
-    if (gear && gear.city && gear.city.appraiser) return -1;
-    if (G.hash32(seed >>> 0, 8080) / 4294967296 >= C.chance) return -1;
-    return C.lo + G.hash32(seed >>> 0, 8081) % (C.hi - C.lo + 1);
+    if (gear && gear.city && gear.city.montoto) return -1;
+    return E(B).montoto.room;
   };
   G.cageSpot = function (room, B, avoid) {
-    var C = E(B).appraiser.cage, sx = Math.floor(room.start.x / T), sy = Math.floor(room.start.y / T);
+    var C = E(B).montoto, sx = Math.floor(room.start.x / T), sy = Math.floor(room.start.y / T);
     for (var i = 0; i < C.spots.length; i++) {
       var tx = sx + C.spots[i][0], ty = sy + C.spots[i][1];
       if (tx < 0 || ty < 0 || tx >= room.w || ty >= room.h || room.tiles[ty * room.w + tx]) continue;

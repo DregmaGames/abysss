@@ -25,7 +25,7 @@
     else if (c === 'debug') P.openDebug(scene);
     else if (c === 'abilities') P.openAbilities(scene);
     else if (c === 'shop') P.openShop(scene, true);
-    else if (c === 'appraiser') P.openAppraiser(scene, true);
+    else if (c === 'montoto') P.openMontoto(scene, true);
   };
   function sim() { return G.gameScene && G.screen !== 'title' && G.screen !== 'city' ? G.gameScene.sim : null; }
   function gear() { var s = sim(); return s ? s.gear : G.gearOf(G.save, G.cls); }
@@ -330,7 +330,7 @@
         var sp = G.sellPrice(item, B);
         if (item.unid) L.text(b.ix + 5, b.iy + b.ih - 36, 'Sells for ' + sp + ' (' + G.sellPrice(Object.assign({}, item, { unid: false }), B) + ' if identified)', 'ui_dim').setMaxWidth(b.iw - 10);
         L.button(b.ix + 5, b.iy + b.ih - 22, b.iw - 10, 18, 'SELL ' + sp + 'g', function () { G.sellFromBag(g, +st.sel.slice(1), B); st.sel = null; refresh(); }, { name: 'shop_sell_item', color: 'gold' });
-      } else L.text(b.ix + 5, b.iy + 5, 'Tap an item to sell it. Unidentified items sell for less: the Appraiser can identify them.', 'ui_dim').setMaxWidth(b.iw - 10);
+      } else L.text(b.ix + 5, b.iy + 5, 'Tap an item to sell it. Unidentified items sell for less: ' + G.montotoText('sellHint'), 'ui_dim').setMaxWidth(b.iw - 10);
     } else if (st.tab === 'up') {
       var list = [];
       G.ITEM_SLOTS.forEach(function (k) { if (G.canUpgrade(g.equipped[k], B)) list.push({ key: 'w' + k, item: g.equipped[k], where: { slot: k }, worn: true }); });
@@ -366,64 +366,50 @@
     }
   };
 
-  // ------------------------------------------------------------------ appraiser
-  // The Appraiser (step 8): identifies items of the kept bag for gold, one at a time, with a short reveal. It is the same identification as a scroll
-  // (clears `unid`, the stats were rolled at the drop). Sim functions: G.appraiseFee, G.appraiseAt (src/sim/economy.js).
-  P.appr = { sel: null, reveal: null, n: 0 };
-  P.openAppraiser = function (scene, keep) {
+  // ------------------------------------------------------------------ Don Montoto
+  // Don Montoto (step 8): one story line per talk (src/lore.js, the index is saved on the character) and a free identification of the whole kept bag, item by item
+  // with a short reveal. Same identification as a scroll: clears `unid`, the stats were rolled at the drop. Sim: G.montotoStory, G.identifyAll (src/sim/economy.js).
+  P.monto = { story: null, queue: [], reveal: null, n: 0 };
+  P.openMontoto = function (scene, keep) {
     if (P.L) P.L.destroy();
-    var V = G.view, B = G.BAL, g = G.gearOf(G.save, G.cls), st = P.appr, fee = G.appraiseFee(B);
-    P.current = 'appraiser'; P.scene = scene; G.paused = true;
-    if (!keep) { st.sel = null; st.reveal = null; st.n = 0; }
-    var pw = Math.min(V.W - 8, 260), ph = Math.min(V.H - 8, 236);
-    var L = P.L = UI.modal(scene, pw, ph, 'APPRAISER'), x0 = L.x, y0 = L.y;
-    L.button(x0 + pw - 22, y0 + 3, 18, 16, '', function () { st.reveal = null; P.close(); }, { icon: 'i_close', name: 'appr_close' });
-    L.image(x0 + 80, y0 + 10, 'i_gold');
-    L.text(x0 + 88, y0 + 6, '' + (g.gold | 0), 'gold');
-    L.text(x0 + 130, y0 + 6, 'Fee ' + fee + 'g each', 'ui_dim');
+    var V = G.view, g = G.gearOf(G.save, G.cls), st = P.monto;
+    P.current = 'montoto'; P.scene = scene; G.paused = true;
+    if (!keep) { st.queue = []; st.reveal = null; st.n = 0; st.story = G.montotoStory(g); G.storeSave(G.save); }
+    var pw = Math.min(V.W - 8, 260), ph = Math.min(V.H - 8, 200);
+    var L = P.L = UI.modal(scene, pw, ph, G.montotoText('name')), x0 = L.x, y0 = L.y;
+    L.button(x0 + pw - 22, y0 + 3, 18, 16, '', function () { st.reveal = null; st.queue = []; P.close(); }, { icon: 'i_close', name: 'monto_close' });
     var bx = x0 + 8, iw = pw - 16;
     if (st.reveal) {                                   // the reveal: the item shows, then its stats one line at a time
       var it = st.reveal, col = UI.RARITY[it.rarity], cx = x0 + pw / 2, keys = G.STAT_ORDER.filter(function (k) { return it.stats[k] != null; });
       L.panel(bx, y0 + 24, iw, ph - 24 - 6, 'inset', 1);
       L.image(cx, y0 + 50, 'rar_' + it.rarity, 1); L.image(cx, y0 + 50, G.itemIcon(it), 2);
       if (st.n < 1) L.image(cx, y0 + 50, 'i_unid', 3);
-      UI.centerX(L.text(0, y0 + 68, st.n < 1 ? 'Examining...' : it.name, st.n < 1 ? 'ui_dim' : col).setMaxWidth(iw - 8), cx);
+      UI.centerX(L.text(0, y0 + 68, st.n < 1 ? G.montotoText('examining') : it.name, st.n < 1 ? 'ui_dim' : col).setMaxWidth(iw - 8), cx);
       if (st.n >= 1) {
         UI.centerX(L.text(0, y0 + 80, UI.RARITY_NAME[it.rarity] + ' ' + (it.wtype ? it.wtype.charAt(0).toUpperCase() + it.wtype.slice(1) : G.SLOT_NAME[it.slot]) + '  Lv ' + it.ilvl, col), cx);
         keys.forEach(function (k, i) { if (i < st.n - 1) UI.centerX(L.text(0, y0 + 96 + i * 11, statText(k, it.stats[k]), 'ui_text'), cx); });
       }
-      var done = st.n - 1 >= keys.length;
-      if (done) L.button(bx + 6, y0 + ph - 28, iw - 12, 18, 'OK', function () { st.reveal = null; st.n = 0; st.sel = null; P.openAppraiser(scene, true); }, { name: 'appr_ok', color: 'ui_good' });
-      else scene.time.delayedCall(st.n < 1 ? 700 : 280, function () { if (P.current === 'appraiser' && st.reveal === it) { st.n++; P.openAppraiser(scene, true); } });
+      var done = st.n - 1 >= keys.length, more = st.queue.length;
+      if (done) L.button(bx + 6, y0 + ph - 28, iw - 12, 18, more ? G.montotoText('next', { n: more }) : G.montotoText('ok'), function () {
+        st.reveal = st.queue.shift() || null; st.n = 0; P.openMontoto(scene, true);
+      }, { name: 'monto_ok', color: 'ui_good' });
+      else {
+        scene.time.delayedCall(st.n < 1 ? 700 : 280, function () { if (P.current === 'montoto' && st.reveal === it) { st.n++; P.openMontoto(scene, true); } });
+        L.button(bx + iw - 40, y0 + 28, 36, 14, G.montotoText('skip'), function () { st.reveal = null; st.queue = []; P.openMontoto(scene, true); }, { name: 'monto_skip' });
+      }
       return;
     }
-    var list = [];
-    g.bag.forEach(function (it, k) { if (it.unid) list.push(k); });
-    L.text(bx, y0 + 24, 'UNIDENTIFIED IN YOUR KEPT BAG: ' + list.length, 'ui_dim');
-    var cols = Math.max(5, Math.min(10, Math.floor((iw - 6) / 22))), gy = y0 + 36, rows = Math.max(1, Math.ceil(list.length / cols));
-    list.forEach(function (bi, k) {
-      var x = bx + (k % cols) * 22, y = gy + Math.floor(k / cols) * 22, it = g.bag[bi];
-      L.image(x + 10, y + 10, 'rar_' + it.rarity, 1); L.image(x + 10, y + 10, G.itemIcon(it), 2); L.image(x + 10, y + 10, 'i_unid', 3);
-      if (st.sel === bi) L.image(x + 10, y + 10, 'select', 3);
-      var hit = L.image(x + 10, y + 10, 'slot', 0).setAlpha(0.01); hit.setInteractive({ useHandCursor: true });
-      hit.on('pointerdown', function () { st.sel = bi; P.openAppraiser(scene, true); });
-      UI.hit('appr_item_' + k, x, y, 20, 20);
-    });
-    var by = gy + rows * 22 + 4, bh = y0 + ph - 6 - by;
-    L.panel(bx, by, iw, bh, 'inset', 1);
-    var sel = st.sel != null ? g.bag[st.sel] : null;
-    if (sel && !sel.unid) sel = null;
-    if (sel) {
-      var c2 = UI.RARITY[sel.rarity];
-      L.text(bx + 5, by + 5, sel.name, c2).setMaxWidth(iw - 10);
-      L.text(bx + 5, by + 17, UI.RARITY_NAME[sel.rarity] + ' ' + (sel.wtype ? sel.wtype.charAt(0).toUpperCase() + sel.wtype.slice(1) : G.SLOT_NAME[sel.slot]) + '  Lv ' + sel.ilvl, c2);
-      L.text(bx + 5, by + 29, 'Stats hidden. Sells for ' + G.sellPrice(sel, B) + 'g now, ' + G.sellPrice(Object.assign({}, sel, { unid: false }), B) + 'g identified.', 'ui_dim').setMaxWidth(iw - 10);
-      var si = st.sel;
-      L.button(bx + 5, by + bh - 24, iw - 10, 18, 'APPRAISE ' + fee + 'g', function () {
-        var done2 = G.appraiseAt(g, si, B);
-        if (done2) { G.storeSave(G.save); st.reveal = done2; st.n = 0; P.openAppraiser(scene, true); }
-      }, { name: 'appr_do', color: 'gold' }).setEnabled(G.canAppraise(g, si, B));
-    } else L.text(bx + 5, by + 5, list.length ? 'Tap an item. I name its stats for ' + fee + ' gold. The stats were rolled when it dropped; I only reveal them.' : 'Nothing to appraise. Items you find in a run come back unidentified.', 'ui_dim').setMaxWidth(iw - 10);
+    // his story: the line of this talk
+    L.panel(bx, y0 + 24, iw, 78, 'inset', 1);
+    L.text(bx + 6, y0 + 30, '"' + st.story + '"', 'ui_text').setMaxWidth(iw - 12);
+    var hidden = g.bag.filter(function (it) { return it.unid; }).length, by = y0 + 108;
+    L.text(bx, by, G.montotoText('hidden', { n: hidden }), 'ui_dim');
+    L.button(bx, by + 14, iw, 20, hidden ? G.montotoText('identifyAll') : G.montotoText('nothingToIdentify'), function () {
+      var list = G.identifyAll(g);
+      if (!list.length) return;
+      G.storeSave(G.save); st.reveal = list.shift(); st.queue = list; st.n = 0; P.openMontoto(scene, true);
+    }, { name: 'monto_do', color: 'gold' }).setEnabled(hidden > 0);
+    L.text(bx, by + 40, G.montotoText('again'), 'ui_dim').setMaxWidth(iw);
   };
 
   // -------------------------------------------------------------- settings
