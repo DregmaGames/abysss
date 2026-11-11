@@ -174,9 +174,14 @@ Design decisions live in the plan doc (the user has it); this file is what an ag
 - Difficulty tiers II and III are not balanced. No audio. No imported art ships.
 - Ten seeds give a noisy win rate; treat 2 to 4 wins out of 10 as the same result.
 
+## Confirmed by the user (2026-11-11)
+
+- Dying loses the sealed bag; equipped gear is kept (`BAL.run.deathKeepsEquipped`).
+- Quitting a run from settings loses the bag, like dying.
+- The kept bag holds 30 items (`loot.stashSize`).
+
 ## Design assumptions waiting for the user
 
-- Dying loses the sealed bag; equipped gear is kept (`BAL.run.deathKeepsEquipped`, `src/balance.js`: set it to false to strip worn gear on death; the only place the rule lives).
 - Bats fly over open cracks; the boss ignores them; other monsters walk around.
 - 3 active ability slots, family bonuses at 2 and 4. Split Shot is rare, not epic (see batch B notes).
 - Where the web version is published (needed before step 11).
