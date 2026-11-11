@@ -10,6 +10,7 @@
   // buildId: one of BAL.builds[cls] (default: the first)
   function Bot(sim, buildId, opts) {
     this.leaveAt = opts && +opts.leave > 0 ? +opts.leave : 0; this.lowHp = opts && opts.lowHp > 0 ? +opts.lowHp : 0;
+    this.pushHp = opts && opts.pushHp > 0 ? +opts.pushHp : 0; this.pushGear = opts && opts.pushGear > 0 ? +opts.pushGear : 0;
     // class hint (BAL.classes.<id>.bot): keep-away multiplier
     this.melee = sim.cls.attack.kind === 'arc'; this.keep = sim.cls.bot.keep;
     var builds = sim.B.builds && sim.B.builds[sim.clsId];
@@ -71,11 +72,19 @@
   // paying the smaller loot bonus (the milder fissure), the first on a tie.
   Bot.prototype.afterRoom = function () {
     var sim = this.sim, B = sim.B;
-    if (this.leaveAt && sim.roomIndex + 1 >= this.leaveAt) return -1;
     if (this.lowHp && sim.player.hp < sim.player.maxHp * this.lowHp) return -1;      // career: hurt, take the bag and go
+    // at the target room: leave, unless (career) HP is at least pushHp of max and the gear score above the tier's unlock score is at
+    // least pushGear per room of the next room (1-based): then push on like a confident player
+    if (this.leaveAt && sim.roomIndex + 1 >= this.leaveAt && !this.canPush()) return -1;
     var best = 0, i;
     for (i = 1; i < sim.doors.length; i++) if (B.doors.mods[sim.doors[i]].loot < B.doors.mods[sim.doors[best]].loot) best = i;
     return best;
+  };
+
+  Bot.prototype.canPush = function () {
+    var sim = this.sim, B = sim.B;
+    if (!this.pushHp || sim.player.hp < sim.player.maxHp * this.pushHp) return false;
+    return G.gearScore(sim.gear) - B.run.tierGear[sim.tier] >= this.pushGear * (sim.roomIndex + 2);
   };
 
   Bot.prototype.pathDir = function (gx, gy) {
@@ -362,7 +371,7 @@
   G.botRun = function (seed, opts) {
     opts = opts || {};
     var gear = opts.gear || G.newGear();
-    var sim = new G.Sim({ seed: seed, tier: opts.tier || 0, gear: gear, bal: opts.bal, cls: opts.cls }), bot = new Bot(sim, opts.build, { leave: opts.leave, lowHp: opts.lowHp });
+    var sim = new G.Sim({ seed: seed, tier: opts.tier || 0, gear: gear, bal: opts.bal, cls: opts.cls }), bot = new Bot(sim, opts.build, { leave: opts.leave, lowHp: opts.lowHp, pushHp: opts.pushHp, pushGear: opts.pushGear });
     var maxTicks = (opts.maxSeconds || 1200) * 60, softlock = false, worstStuck = 0, roomTicks = [], last = 0, lastRoom = 0, minHp = sim.B.run.roomMult.map(function () { return 1; });
     while (sim.tick < maxTicks && (sim.state === 'play' || sim.state === 'levelup' || sim.state === 'choice' || sim.state === 'merchant')) {
       if (sim.state === 'merchant') { sim.closeMerchant(); continue; }

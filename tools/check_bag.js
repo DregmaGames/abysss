@@ -280,8 +280,8 @@ const ids = o => Object.keys(o).map(k => o[k] && o[k].id).join(',');
   check('buy: with gold pays, item to the kept bag, entry sold out', got && bg.gold === 1000 - p0 && bg.bag[0] === got && bg.shop.stock[0] === null && G.shopBuy(bg, 0, B) === null);
   while (bg.bag.length < B.loot.stashSize) bg.bag.push(it(0, 1));
   check('buy: a full kept bag refuses', G.shopBuy(bg, 1, B) === null && bg.gold === 1000 - p0);
-  const sg = G.newGear(); sg.gold = 30;
-  check('buy: scroll 25 gold, then refused without gold', G.shopBuyScroll(sg, B) && sg.scrolls === 1 && sg.gold === 5 && !G.shopBuyScroll(sg, B));
+  const sp = B.economy.shop.scroll, sg = G.newGear(); sg.gold = sp + 5;
+  check('buy: scroll ' + sp + ' gold, then refused without gold', G.shopBuyScroll(sg, B) && sg.scrolls === 1 && sg.gold === 5 && !G.shopBuyScroll(sg, B));
 
   // upgrades
   const ug = G.newGear(), up = it(1, 3, { stats: { armor: 20, hp: 10 } }); ug.bag.push(up); ug.gold = 1000;
@@ -298,10 +298,11 @@ const ids = o => Object.keys(o).map(k => o[k] && o[k].id).join(',');
   // ranks
   const rg = G.newGear(); rg.gold = 10000;
   const costs = []; for (let i = 0; i < 6; i++) { costs.push(G.rankCost(rg, 'might', B)); G.buyRank(rg, 'might', B); }
-  check('ranks: cost curve 60 140 260 420 620, then max (refused)', costs.slice(0, 5).join() === '60,140,260,420,620' && costs[5] === null && rg.ranks.might === 5 && rg.gold === 10000 - 1500);
+  const rc = B.economy.rankCost, rcSum = rc.reduce((t, v) => t + v, 0);
+  check('ranks: cost curve ' + rc.join(' ') + ', then max (refused)', costs.slice(0, 5).join() === rc.join() && costs[5] === null && rg.ranks.might === 5 && rg.gold === 10000 - rcSum);
   const sA = G.computeStats(B, G.newGear(), {}, 'mage'), sB = G.computeStats(B, rg, {}, 'mage');
   check('ranks: stats in computeStats (Might 5 = +15 % damage), not in the gear score', near(sB.dmg / sA.dmg, 1.15) && G.gearScore(rg) === 0);
-  const poor = G.newGear(); poor.gold = 59;
+  const poor = G.newGear(); poor.gold = rc[0] - 1;
   check('ranks: refused without gold', !G.buyRank(poor, 'vitality', B) && !poor.ranks.vitality);
   check('ranks: not abilities (no family counts)', JSON.stringify(G.familyCounts({}, B)) === JSON.stringify(G.familyCounts({}, B)) && !G.abilityPool(B, 'mage').some(x => /^(vitality|might|haste|guard|insight)$/.test(x.id || x)));
 
@@ -350,9 +351,9 @@ const ids = o => Object.keys(o).map(k => o[k] && o[k].id).join(',');
   check('merchant: in range, the panel opens and the run pauses', ms.canTalk() && ms.openMerchant() && ms.state === 'merchant');
   const t0 = ms.tick; ms.step(); check('merchant: a paused run does not step', ms.tick === t0);
   check('merchant: buying with no gold is refused', !ms.merchantBuy('scroll') && ms.scrolls === 0);
-  ms.gear.gold = 5000; ms.gold = 85;
+  const mp = B.economy.merchant.scroll.price; ms.gear.gold = 5000; ms.gold = 2 * mp + 5;
   check('merchant: pays from the run gold only (kept gold 5000 untouched)', !ms.merchantBuy('x') && ms.merchantBuy('scroll') && ms.merchantBuy('scroll') && ms.gold === 5 && ms.gear.gold === 5000 && !ms.merchantBuy('scroll'));
-  check('merchant: scrolls are sealed and counted as bought, not found', ms.scrolls === 2 && ms.scrollsBought === 2 && ms.scrollsFound === 0 && ms.goldSpent === 80 && ms.merchant.stock.scroll === 1);
+  check('merchant: scrolls are sealed and counted as bought, not found', ms.scrolls === 2 && ms.scrollsBought === 2 && ms.scrollsFound === 0 && ms.goldSpent === 2 * mp && ms.merchant.stock.scroll === 1);
   ms.gold = 100; ms.player.hp = ms.player.maxHp * 0.3; const hp0 = ms.player.hp;
   check('merchant: a potion heals 40 % of max HP at once for 30', ms.merchantBuy('potion') && Math.abs(ms.player.hp - (hp0 + ms.player.maxHp * 0.4)) < 1e-6 && ms.gold === 70);
   ms.merchantBuy('potion'); check('merchant: stock runs out (2 potions)', !ms.merchantBuy('potion'));
@@ -364,7 +365,7 @@ const ids = o => Object.keys(o).map(k => o[k] && o[k].id).join(',');
   const cm = new G.Sim({ seed: 5, gear: G.newGear() }); cm.cheatMerchant();
   check('merchant: the debug cheat adds one and 200 gold', !!cm.merchant && cm.gold === 200);
   // scroll drop rates
-  check('scrolls: lower drop rates (kill 0.002, elite 0.05, boss 1, chest 0.06, super 0.06); economy.scrollDrops is gone', B.loot.killScroll === 0.002 && B.loot.eliteScroll === 0.05 && B.loot.bossScroll === 1 && B.loot.chestScroll === 0.06 && B.loot.superScroll === 0.06 && !('scrollDrops' in E));
+  check('scrolls: drop rates of the balance pass 2026-11-11 (kill 0.0035, elite 0.1, boss 1, chest 0.22, super 0.2); economy.scrollDrops is gone', B.loot.killScroll === 0.0035 && B.loot.eliteScroll === 0.1 && B.loot.bossScroll === 1 && B.loot.chestScroll === 0.22 && B.loot.superScroll === 0.2 && !('scrollDrops' in E));
 
   // saves
   const store = { data: {}, getItem(k) { return this.data[k] === undefined ? null : this.data[k]; }, setItem(k, v) { this.data[k] = v; } };

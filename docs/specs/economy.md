@@ -394,3 +394,41 @@ Test budget (`CLAUDE.md` and the step brief): the determinism check, at most 10 
 - `sim_bot --career` runs `shopVisit` once before run 1 and once after every run (after `restockShop`); the sales printed on a run's line are those of the visit after that run.
 - Quitting from settings does not call `finishRun` (as before): the run's gold is simply never banked, which is the same as losing it.
 - `--set loot.killScroll=...` etc. restores the old scroll rates; with those and `economy.merchant.chance=0` the 10-seed runs of all 3 classes were identical field by field to the runs before step 7.
+
+## Balance pass, 2026-11-11 (Opus)
+
+Problem: after steps 6 and 7 careers of 10 runs won 1 / 0 / 0 (mage / warrior / archer), fresh gear 0 / 0 / 1. Causes: too few scrolls
+(few items identified and worn) and a career leave target (start 3, +1 per extraction) that reaches the boss only at run 8, when the gear
+score has already unlocked tier 2. Targets: career first win at run 4-7 and 2-5 wins; fresh gear 0-2 wins; no softlocks; best worn items from drops.
+Not touched (step 10): abilities, monsters, classes, door modifiers, room difficulty, tiers.
+
+Changes (all numbers in `src/balance.js`):
+- `loot` scroll drops: killScroll 0.002 -> 0.0035, eliteScroll 0.05 -> 0.1, chestScroll 0.06 -> 0.22, superScroll 0.06 -> 0.2 (boss 1 unchanged).
+- `economy.shop.scroll` 25 -> 15; `economy.merchant.scroll.price` 40 -> 25 (sell price 5 unchanged).
+- `economy.rankCost` [60, 140, 260, 420, 620] -> [40, 90, 160, 250, 360] (1500 -> 900 per stat).
+- Bot career policy, `bot.career` new `pushHp` 0.7 and `pushGear` 6 (`src/qa/bot.js` `Bot.canPush`, passed by `tools/sim_bot.js --career`):
+  at the target room the bot goes on when HP >= 70 % and gear score - `run.tierGear[tier]` >= 6 x the next room's number; still leaves
+  under `lowHp`. `--leave N` turns pushing off. Fresh-gear runs are unchanged (no target).
+- `tools/check_bag.js` reads the scroll, merchant and rank prices from the balance (scroll drop rates are listed with the new numbers).
+
+Rounds (careers `--career 10 --seeds 1-10`, W = first win run; fresh `--seeds 1-10`), wins mage / warrior / archer:
+
+| round | change | career wins (first) | fresh wins |
+|---|---|---|---|
+| 0 | before | 1 (10) / 0 / 0 | 0 / 0 / 1 |
+| 1 | scrolls 0.004 / 0.12 / 0.3 / 0.25, prices 15 / 25 | 0 / 0 / 0 | 1 / 2 / 3 |
+| 2 | pushHp 0.7 | 2 (6) / 1 (7) / 1 (5), many deaths | 1 / 2 / 3 |
+| 3 | + pushGear 6 | 1 (7) / 2 (5) / 1 (7) | 1 / 2 / 3 |
+| 4 | rank costs lower | 1 (6) / 3 (5) / 1 (10) | 1 / 2 / 3 |
+| 5 | scrolls 0.003 / 0.08 / 0.15 / 0.15 | 1 (8) / 1 (5) / 1 (9) | 0 / 1 / 0 |
+| 6 | scrolls 0.0035 / 0.1 / 0.22 / 0.2 (kept) | 3 (8) / 1 (5) / 1 (9) | 0 / 1 / 2 |
+
+Result (round 6, kept; the budget of 6 rounds ended): **targets not fully met**. Fresh gear 0 / 1 / 2: met. Careers: mage 3 wins but the first at
+run 8; warrior and archer 1 win (runs 5 and 9). 0 softlocks, 0 timeouts in all runs. `bestFromDrops` PASS x3 (mage wears 1 shop item).
+Scrolls found per career run 6.0 / 5.3 / 3.2, fresh 2.7 / 4.6 / 4.1; gold per career run (earned + sold) 584 / 524 / 343; ranks by run 10 20 / 16 / 15 of 25
+(above the spec's 5-12: intended, ranks add power without raising room threat).
+
+What still limits careers (seen in the logs): the career takes the highest unlocked tier, so after the first win the gear score passes 70 and
+the bot plays tier 2, where it leaves hurt at rooms 7-9 or dies (warrior 4 deaths at tier 2); the archer dies in rooms 2-3 in its first 3 runs
+and starts late. Next levers, not tried: a career tier policy (stay on a tier until it is won), `bot.career.startRoom` 2, more scrolls only from
+chests / supers (careers are scroll-limited: round 5 vs 6), or the tier-2 difficulty in step 10.

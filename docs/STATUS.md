@@ -24,6 +24,15 @@ Design decisions live in the plan doc (the user has it); this file is what an ag
   on the title screen until step 8; the shop sells commons, magic and ONE rare (250 / 400 / 550 gold), never epic or better; the merchant in rooms sells scrolls and potions.
 - `main` is the working base. One branch per step: `step-N-<slug>`.
 
+## Last measured (2026-11-11, step 7 balance pass)
+
+- Spec `docs/specs/economy.md` "Balance pass, 2026-11-11": more scroll drops (kill 0.0035, elite 0.1, chest 0.22, super 0.2), scroll 15 in town / 25 at the merchant,
+  rank costs 40 / 90 / 160 / 250 / 360, bot career pushes past its target when HP >= 70 % and gear allows (`bot.career.pushHp`, `pushGear`).
+- 6 rounds, last kept. Careers of 10 (mage / warrior / archer): 3 / 1 / 1 wins, first win at run 8 / 5 / 9 (target was 2-5 wins, first at 4-7: not met for
+  mage timing and warrior / archer count). Fresh gear seeds 1-10: 0 / 1 / 2 wins (met). 0 softlocks, 0 timeouts; `bestFromDrops` PASS x3.
+  Scrolls per career run 6.0 / 5.3 / 3.2; gold per career run 584 / 524 / 343. Limit: careers move to tier 2 after the first win and stall there.
+- `node tools/determinism.js` and `node tools/check_bag.js` pass (check_bag now reads prices from the balance). No browser runs in this pass.
+
 ## Last measured (2026-11-11, step 7: economy)
 
 - Before the economy was switched on (old scroll rates, `economy.merchant.chance=0`): `sim_bot --seeds 1-10 --json` identical field by field to the runs before step 7 for mage, warrior, archer.

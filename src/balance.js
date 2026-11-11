@@ -163,7 +163,7 @@
       superTome: 0.3, killTome: 0.003, healOrb: 0.035, healOrbPct: 0.06,
       // Scroll of Identification: chance per kill (monster / elite / boss), per chest opened, per super fissure closed. The door loot bonus
       // multiplies the kill and closure chances. Found scrolls go to the sealed scroll count of the run (banked on leave / win, lost on death).
-      killScroll: 0.002, eliteScroll: 0.05, bossScroll: 1, chestScroll: 0.06, superScroll: 0.06, scrollCap: 99,
+      killScroll: 0.0035, eliteScroll: 0.1, bossScroll: 1, chestScroll: 0.22, superScroll: 0.2, scrollCap: 99,
       unidentifiedFrom: 1,            // items of this rarity or higher drop unidentified (stats hidden until a scroll is used)
       chestItems: [1, 1, 1, 1, 1, 1, 1, 1, 1, 2],
       // rarity weights: common, magic, rare, epic, legendary
@@ -223,14 +223,14 @@
       // (rare, epic and legendary only drop). Scrolls of Identification: unlimited, `scroll` gold each.
       // User decision 2026-11-11: one RARE entry (the 7th) at rareBuyMult x the identified sell price = 250 / 400 / 550 at shop tier 1 / 2 / 3
       // (5x the magic item of the same tier, 10x what it sells for). maxRarity 2: epic and legendary are refused in the code; maxRare: rares in stock.
-      shop: { rarities: [0, 0, 0, 0, 1, 1, 2], maxRarity: 2, maxRare: 1, ilvlAdd: 1, buyMult: 5, rareBuyMult: 10, scroll: 25 },
+      shop: { rarities: [0, 0, 0, 0, 1, 1, 2], maxRarity: 2, maxRare: 1, ilvlAdd: 1, buyMult: 5, rareBuyMult: 10, scroll: 15 },
       // Upgrade a found, identified item by +1 item level (stats rescale from the values at the drop; power and gear score follow).
       // cost = round(cost[rarity] x (1 + ilvl x (item level - 1)) x (1 + grow x upgrades done)). max: upgrades per item, by rarity.
       // Shop items cannot be upgraded.
       upgrade: { cost: [20, 40, 80, 160, 320], ilvl: 0.25, grow: 0.5, max: [1, 2, 3, 3, 3] },
       // Permanent ranks bought with gold, per class. Each adds `per` x rank to `stat` (the item / ability stat keys), added to gear and
       // ability stats in G.computeStats. cost[r] = gold for rank r + 1 (length = max rank). They do not count for families or gear score.
-      rankCost: [60, 140, 260, 420, 620],
+      rankCost: [40, 90, 160, 250, 360],
       ranks: {
         vitality: { name: 'Vitality', stat: 'hp',     per: 6, text: '+6 max HP' },
         might:    { name: 'Might',    stat: 'dmgPct', per: 3, text: '+3 % damage' },
@@ -245,7 +245,7 @@
       merchant: {
         chance: 0.15, lo: 1, hi: 8, maxPerRun: 2, talkR: 22,
         spots: [[2, 0], [-2, 0], [2, -1], [-2, -1], [0, -2], [0, 2]],
-        scroll: { price: 40, stock: 3 },
+        scroll: { price: 25, stock: 3 },
         potion: { price: 30, stock: 2, heal: 0.4 }
       }
     },
@@ -524,9 +524,11 @@
     // roughly a human reaction time. 1 would be a frame-perfect player.
     // career policy (tools/sim_bot.js --career): leave after a room when HP is under lowHp of max, or when the room reached is at or
     // beyond a target that starts at startRoom and rises by step after every run that ends in an extraction (leave or win), up to cap.
+    // Balance pass 2026-11-11: at the target it pushes on instead when HP >= pushHp of max and the gear score above the tier's unlock
+    // score (run.tierGear) is >= pushGear x the next room's number (1-based), checked again after every room (like a player who feels strong).
     // shop policy (step 7, docs/specs/economy.md "Bot policy"): rankOrder = tie-break order of ranks; potionHp: buy a merchant potion
     // when HP is under this share of max; baseItemMax: buy at most this many shop items per visit.
-    bot: { reactionTicks: 12, career: { startRoom: 3, step: 1, cap: 10, lowHp: 0.4 },
+    bot: { reactionTicks: 12, career: { startRoom: 3, step: 1, cap: 10, lowHp: 0.4, pushHp: 0.7, pushGear: 6 },
            shop: { rankOrder: ['vitality', 'might', 'haste', 'guard', 'insight'], potionHp: 0.5, baseItemMax: 2 } },
 
     fx: { shakeCap: 5, shakeDecay: 9 },   // max shake offset in art px at 100 %

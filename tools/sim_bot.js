@@ -66,7 +66,7 @@ function main() {
     let visit = G.Bot.shopVisit(gear, G.BAL, cls);      // between runs, as a player on the title screen: identify, equip, sell, buy
     for (let i = 0; i < args.career; i++) {
       const gs = G.gearScore(gear), tier = tierOf(gs);
-      const r = G.botRun(seeds[i % seeds.length], { tier, gear, cls: args.cls, build: args.build, leave: args.leave || target, lowHp: cp.lowHp });
+      const r = G.botRun(seeds[i % seeds.length], { tier, gear, cls: args.cls, build: args.build, leave: args.leave || target, lowHp: cp.lowHp, pushHp: args.leave ? 0 : cp.pushHp, pushGear: cp.pushGear });
       r.tier = tier; r.gearBefore = gs; r.target = args.leave || target;
       G.restockShop(gear, G.BAL, cls);      // after every run, any result
       const next = G.Bot.shopVisit(gear, G.BAL, cls);      // the title visit after this run (the last one counts too)
