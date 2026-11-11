@@ -5,7 +5,9 @@
   // A fissure is a crack: a set of art pixels relative to its centre, each with an
   // "order" 0..1 (distance along the crack) used to animate it expanding and closing.
   // The super fissure is a pit with cracks radiating from it.
-  function genFissure(rng, big) {
+  // Normal cracks: two arms from the centre (or one arm when it branches off another crack), each
+  // `len` px long. Every cell gets a segment index (band of `order`): the crack goes dark band by band.
+  function genFissure(rng, big, len, oneArm, ang0) {
     var core = {}, maxO = 0;
     function stamp(x, y, w, o) {
       var h = Math.floor(w / 2);
@@ -42,9 +44,10 @@
         ang = a0 + i / arms * 6.283 + rng.range(-0.25, 0.25);
         walk(G.M.cos(ang) * (R - 3), G.M.sin(ang) * (R - 3) * 0.8, ang, rng.int(34, 50), 6, R * 0.8, 1);
       }
+    } else if (oneArm) {
+      walk(0, 0, ang0, len, 6, 0, 0);
     } else {
       ang = rng.range(0, Math.PI);
-      var len = rng.int(28, 40);
       walk(0, 0, ang, len, 7, 0, 0);
       walk(0, 0, ang + Math.PI + rng.range(-0.3, 0.3), len - rng.int(0, 8), 7, 0, 0);
     }
@@ -159,27 +162,60 @@
       cand.push([x, y]);
     }
     rng.shuffle(cand);
-    var want = B.fissure.count[index], sites = [], gap = 12;
-    while (sites.length < want && gap >= 3) {
-      for (i = 0; i < cand.length && sites.length < want; i++) {
-        var far = true;
-        for (var s = 0; s < sites.length; s++) {
-          if (Math.abs(sites[s][0] - cand[i][0]) + Math.abs(sites[s][1] - cand[i][1]) < gap) far = false;
+    // The crack network: `count` long cracks, closer together than single fissures used to be.
+    // Some branch off an earlier crack: joined cracks form a cluster that shares one kill meter.
+    var F = B.fissure, want = F.count[index], fissures = [];
+    var sxp = sx * T + 8, syp = sy * T + 8, exp_ = ex * T + 8, cxp = cx * T + 8, cyp = cy * T + 8;
+    function keepOut(px, py) {                     // art pixels that never hold a crack
+      if (at(Math.floor(px / T), Math.floor(py / T))) return true;
+      if (Math.abs(px - sxp) <= 40 && Math.abs(py - syp) <= 34) return true;           // start
+      if (Math.abs(px - exp_) <= 30 && py <= 8 * T) return true;                       // chest and exit
+      var qx = px - cxp, qy = py - cyp;
+      return qx * qx + qy * qy < 30 * 30;                                              // super fissure pit
+    }
+    function place(fx, fy, cells) {
+      var out = [];
+      for (var c = 0; c < cells.length; c++) if (!keepOut(fx + cells[c].x, fy + cells[c].y)) out.push(cells[c]);
+      return out;
+    }
+    function siteFree(px, py) {
+      var tx = Math.floor(px / T), ty = Math.floor(py / T);
+      for (var oy = -1; oy <= 1; oy++) for (var ox = -1; ox <= 1; ox++) if (at(tx + ox, ty + oy)) return false;
+      return !keepOut(px, py);
+    }
+    var gap = F.siteGap, ci = 0, tries = 0;
+    while (fissures.length < want && tries++ < 200) {
+      var made = null, k2;
+      if (fissures.length && rng.chance(F.joinChance)) {
+        // branch: start on a mid-length core cell of an earlier crack, head away from its centre
+        var par = fissures[rng.int(0, fissures.length - 1)], mids = [];
+        for (k2 = 0; k2 < par.cells.length; k2++) {
+          var pc = par.cells[k2];
+          if (pc.core && pc.o > 0.35 && pc.o < 0.8 && siteFree(par.x + pc.x, par.y + pc.y)) mids.push(pc);
         }
-        if (far) sites.push(cand[i]);
+        if (mids.length) {
+          var m0 = mids[rng.int(0, mids.length - 1)], away = G.M.atan2(m0.y, m0.x) + (rng.chance(0.5) ? 1 : -1) * rng.range(0.7, 1.3);
+          var bxp = par.x + m0.x, byp = par.y + m0.y;
+          made = { x: bxp, y: byp, cl: par.cl, cells: place(bxp, byp, genFissure(rng, false, rng.int(F.crackLen[0], F.crackLen[1]), true, away)) };
+        }
       }
-      gap--;
-    }
-    function clip(cells, fx, fy) {
-      return cells.filter(function (c) { return !at(Math.floor((fx + c.x) / T), Math.floor((fy + c.y) / T)); });
-    }
-    var fissures = [];
-    for (i = 0; i < sites.length; i++) {
-      var fx = sites[i][0] * T + 8, fy = sites[i][1] * T + 8;
-      fissures.push({ x: fx, y: fy, big: false, cells: clip(genFissure(rng, false), fx, fy) });
+      if (!made) {
+        for (; ci < cand.length && !made; ci++) {
+          var fx = cand[ci][0] * T + 8, fy = cand[ci][1] * T + 8, far = true;
+          for (k2 = 0; k2 < fissures.length; k2++) if (Math.abs(fissures[k2].x - fx) + Math.abs(fissures[k2].y - fy) < gap * T) far = false;
+          if (far && siteFree(fx, fy)) made = { x: fx, y: fy, cl: -1, cells: place(fx, fy, genFissure(rng, false, rng.int(F.crackLen[0], F.crackLen[1]))) };
+        }
+        if (!made) { if (gap > 3) { gap--; ci = 0; continue; } break; }
+      }
+      if (made.cells.length < 12) continue;                     // clipped to almost nothing: try again
+      if (made.cl < 0) made.cl = fissures.length;
+      made.big = false;
+      for (k2 = 0; k2 < made.cells.length; k2++) made.cells[k2].seg = Math.min(F.segments - 1, Math.floor(made.cells[k2].o * F.segments));
+      fissures.push(made);
     }
     var bx2 = cx * T + 8, by2 = cy * T + 8;
-    fissures.push({ x: bx2, y: by2, big: true, cells: clip(genFissure(rng, true), bx2, by2) });
+    var pit = genFissure(rng, true).filter(function (c) { return !at(Math.floor((bx2 + c.x) / T), Math.floor((by2 + c.y) / T)); });
+    fissures.push({ x: bx2, y: by2, big: true, cl: -1, cells: pit });
 
     // dressing: floor decals, wall torches on south-facing wall faces
     var decals = [], torches = [];

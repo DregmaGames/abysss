@@ -72,9 +72,14 @@
         ['warden', 'warden', 'warden', 'hound', 'hound', 'bat', 'bat', 'bat', 'bat'],
         ['tyrant']
       ],
-      maxActive: 2,
-      triggerR: 76,                   // a dormant fissure opens when the mage comes this close...
-      idleOpen: 7,                    // ...or after this many seconds with nothing open (the room never idles)
+      // the crack network: all cracks open when the room starts and go dark segment by segment as
+      // their monsters die. An open crack is a wall for walkers; the player crosses it with the dodge.
+      crackLen: [90, 130],            // px per arm (two arms per crack; a branch has one)
+      segments: 4,                    // dark bands per crack, the tips go dark first
+      joinChance: 0.45,               // chance that a crack branches off an earlier one (joined = shared kill meter)
+      siteGap: 8,                     // min tiles (manhattan) between separate crack centres
+      segHeal: 0.01,                  // heal (fraction of max HP) each time a segment goes dark
+      aliveThreat: 1.4,               // monsters alive from the network at once: up to this x one crack's budget
       firstDelay: 1.2,
       openTime: 1.0, closeTime: 1.0, superOpenTime: 1.8, superCloseTime: 1.6,
       spawnEvery: 0.3, superSpawnEvery: 0.5,       // packs come out in a burst

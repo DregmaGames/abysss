@@ -19,7 +19,7 @@
     this.choices = []; this.choiceTome = false;
     this.player = { x: 0, y: 0, r: P.r, hp: P.hp, maxHp: P.hp, fx: 0, fy: -1, face: 1, moving: false,
       atkCd: 0.4, dodgeCd: 0, dashT: 0, dashX: 0, dashY: 0, iframes: 0, pulseCd: 0,
-      level: 1, exp: 0, expNext: this.expFor(1), passives: {}, pending: 0, tomes: 0 };
+      level: 1, exp: 0, expNext: this.expFor(1), passives: {}, pending: 0, tomes: 0, walk: true };
     this.stats = {};
     this.recalc();
     this.player.hp = this.stats.maxHp;
@@ -68,24 +68,13 @@
     this.player.x = room.start.x; this.player.y = room.start.y;
     this.player.dashT = 0;
     this.monsters = []; this.shots = []; this.bolts = []; this.orbs = []; this.drops = []; this.teles = [];
-    this.fissures = room.fissures.map(function (f, i) {
-      var queue = [];
-      if (f.big) queue = F.superWave[index].slice();
-      else {
-        var budget = F.budget[index], pool = F.pool[index], types = Object.keys(pool);
-        while (budget > 0) {
-          var ok = types.filter(function (t) { return B.monsters[t].threat <= budget; });
-          var t = ok[self.rngRoom.weighted(ok.map(function (k) { return pool[k]; }))];
-          queue.push(t); budget -= B.monsters[t].threat;
-        }
-      }
-      return { id: i, x: f.x, y: f.y, big: f.big, cells: f.cells, state: 'dormant', t: 0, reveal: 0, queue: queue, total: queue.length, spawnCd: 0, alive: 0, dealt: 0 };
-    });
+    this.setupFissures(room);           // src/sim/fissures.js
     this.phase = 'fissures';             // fissures | super | chest | exit
-    this.openTimer = F.idleOpen; this.roomTick = this.tick;
+    this.roomTick = this.tick; this.spawnCd = F.firstDelay;
     this.chest = { x: room.chest.x, y: room.chest.y, state: 'hidden' };
     this.exit = { x: room.exit.x, y: room.exit.y, open: false };
-    this.flow = new Int16Array(room.w * room.h);
+    this.flow = new Int16Array(room.w * room.h);          // to the player, around walls (flyers)
+    this.flowWalk = new Int16Array(room.w * room.h);      // to the player, around walls and open cracks (walkers)
     this.flowTile = -1; this.flowTick = -999;
     this.msgTick = -999;
     this.progress();
@@ -102,15 +91,19 @@
       (h > 8 && (this.wallAt(x, y - h) || this.wallAt(x, y + h) || this.wallAt(x - h, y) || this.wallAt(x + h, y)));
   };
   // axis-separated box move (slides along walls). |dx|,|dy| must stay below one tile.
+  // Walkers (the player outside a dodge, monsters that do not fly) cannot step onto an open crack.
+  // Leaving one is always allowed, so nothing can get trapped inside a crack.
   S.move = function (e, dx, dy) {
-    var h = e.r, E = 0.01;
+    var h = e.r, E = 0.01, cc = e.walk && this.crackLit > 0 && !(e.dashT > 0), inC = cc && this.crackHits(e.x, e.y, h);
     if (dx) {
       e.x += dx;
       if (this.boxHits(e.x, e.y, h)) e.x = dx > 0 ? Math.floor((e.x + h) / T) * T - h - E : (Math.floor((e.x - h) / T) + 1) * T + h + E;
+      if (cc && !inC && this.crackHits(e.x, e.y, h)) e.x -= dx;
     }
     if (dy) {
       e.y += dy;
       if (this.boxHits(e.x, e.y, h)) e.y = dy > 0 ? Math.floor((e.y + h) / T) * T - h - E : (Math.floor((e.y - h) / T) + 1) * T + h + E;
+      if (cc && !inC && this.crackHits(e.x, e.y, h)) e.y -= dy;
     }
   };
   // line of sight for a shot-sized object: two parallel rays 2 px either side, sampled every 2 px,
@@ -126,17 +119,19 @@
     return true;
   };
   // breadth-first distance field over floor tiles from one tile (monster pathing, bot pathing)
-  S.bfs = function (tx, ty, out) {
-    var r = this.room, W = r.w, H = r.h, q = [], head = 0, i;
+  // `block` (optional): extra blocked tiles, e.g. tiles an open crack runs through; the start tile is
+  // always allowed, so a field can be built from a player standing next to a crack
+  S.bfs = function (tx, ty, out, block) {
+    var r = this.room, W = r.w, H = r.h, q = [], head = 0, i, t = r.tiles;
     for (i = 0; i < W * H; i++) out[i] = -1;
-    if (tx < 0 || ty < 0 || tx >= W || ty >= H || r.tiles[ty * W + tx]) return out;
+    if (tx < 0 || ty < 0 || tx >= W || ty >= H || t[ty * W + tx]) return out;
     out[ty * W + tx] = 0; q.push(ty * W + tx);
     while (head < q.length) {
       var c = q[head++], cx = c % W, d = out[c] + 1;
-      if (cx + 1 < W && !r.tiles[c + 1] && out[c + 1] < 0) { out[c + 1] = d; q.push(c + 1); }
-      if (cx > 0 && !r.tiles[c - 1] && out[c - 1] < 0) { out[c - 1] = d; q.push(c - 1); }
-      if (c + W < W * H && !r.tiles[c + W] && out[c + W] < 0) { out[c + W] = d; q.push(c + W); }
-      if (c - W >= 0 && !r.tiles[c - W] && out[c - W] < 0) { out[c - W] = d; q.push(c - W); }
+      if (cx + 1 < W && !t[c + 1] && out[c + 1] < 0 && !(block && block[c + 1])) { out[c + 1] = d; q.push(c + 1); }
+      if (cx > 0 && !t[c - 1] && out[c - 1] < 0 && !(block && block[c - 1])) { out[c - 1] = d; q.push(c - 1); }
+      if (c + W < W * H && !t[c + W] && out[c + W] < 0 && !(block && block[c + W])) { out[c + W] = d; q.push(c + W); }
+      if (c - W >= 0 && !t[c - W] && out[c - W] < 0 && !(block && block[c - W])) { out[c - W] = d; q.push(c - W); }
     }
     return out;
   };
@@ -271,6 +266,8 @@
     var p = this.player, tile = Math.floor(p.y / T) * this.room.w + Math.floor(p.x / T);
     if (tile !== this.flowTile || this.tick - this.flowTick > 30) {
       this.bfs(Math.floor(p.x / T), Math.floor(p.y / T), this.flow);
+      if (this.crackLit > 0) this.bfs(Math.floor(p.x / T), Math.floor(p.y / T), this.flowWalk, this.crackTile);
+      else this.flowWalk.set(this.flow);
       this.flowTile = tile; this.flowTick = this.tick;
     }
   };

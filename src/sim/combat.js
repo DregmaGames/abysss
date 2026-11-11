@@ -48,8 +48,9 @@
     if (this.boxHits(x, y, def.r)) { var f = this.fissures[fid]; x = f.x; y = f.y; }
     var m = { id: this.nextId++, type: type, def: def, x: x, y: y, r: def.r, hp: Math.round(def.hp * th), maxHp: Math.round(def.hp * th),
       dmg: def.dmg * th, mul: th, fid: fid, hitCd: 0.5, kx: 0, ky: 0, st: 'chase', t: 0, cd: 0.6 + this.rngCombat.next() * 1.2,
-      cd2: def.summonEvery || 0, wind: 0, lx: 0, ly: 0, face: 1, los: true, emerge: 0.35, age: 0, atk: 0, px: x, py: y, bump: 0, detour: 0, side: this.rngCombat.chance(0.5) ? 1 : -1 };
+      cd2: def.summonEvery || 0, wind: 0, lx: 0, ly: 0, face: 1, los: true, emerge: 0.35, age: 0, atk: 0, px: x, py: y, bump: 0, detour: 0, walkLos: false, side: this.rngCombat.chance(0.5) ? 1 : -1 };
     if (def.boss) { m.t = 1.6; }
+    m.walk = !def.fly && !def.boss;      // walkers go around open cracks; bats fly over, the boss ignores them
     this.monsters.push(m);
     this.fissures[fid].alive++;
     this.emit({ t: 'spawn', id: m.id, x: x, y: y, type: type });
@@ -71,6 +72,7 @@
     this.kills++;
     this.fissures[m.fid].alive--;
     this.progress();
+    this.networkKill(m);
     this.emit({ t: 'die', id: m.id, x: m.x, y: m.y, type: m.type });
     var parts = def.boss ? 8 : (def.elite ? 3 : 1);
     for (i = 0; i < parts; i++) this.spawnOrb('exp', m.x, m.y, def.exp / parts);
@@ -103,8 +105,9 @@
     if (m.detour > 0) m.detour--;
     else if (moved < 0.15) { if (++m.bump > 8) { m.detour = 45; m.bump = 0; } }
     else m.bump = 0;
-    if ((m.los && !m.detour) || d < 12) return { x: (p.x - m.x) / (d || 1), y: (p.y - m.y) / (d || 1) };
-    return this.fieldDir(this.flow, m.x, m.y) || { x: (p.x - m.x) / (d || 1), y: (p.y - m.y) / (d || 1) };
+    var see = m.walk ? m.walkLos : m.los;          // a walker only goes straight if no open crack is in the way
+    if ((see && !m.detour) || d < 12) return { x: (p.x - m.x) / (d || 1), y: (p.y - m.y) / (d || 1) };
+    return this.fieldDir(m.walk ? this.flowWalk : this.flow, m.x, m.y) || { x: (p.x - m.x) / (d || 1), y: (p.y - m.y) / (d || 1) };
   };
   S.fireShot = function (m, ang, speed, dmg, kind) {
     this.shots.push({ id: this.nextId++, x: m.x, y: m.y, vx: G.M.cos(ang) * speed, vy: G.M.sin(ang) * speed, r: kind === 'big' ? 3.5 : 2.5, dmg: dmg, life: 5, kind: kind });
@@ -123,7 +126,10 @@
         if (Math.abs(m.kx) + Math.abs(m.ky) < 2) { m.kx = 0; m.ky = 0; }
       }
       if (m.emerge > 0) { m.emerge -= dt; continue; }
-      if ((this.tick + m.id) % 10 === 0) m.los = this.los(m.x, m.y, p.x, p.y);
+      if ((this.tick + m.id) % 10 === 0) {
+        m.los = this.los(m.x, m.y, p.x, p.y);
+        m.walkLos = m.los && !(m.walk && this.crackLit > 0 && this.crackOnLine(m.x, m.y, p.x, p.y, m.r));
+      }
       var dx = p.x - m.x, dy = p.y - m.y, d = Math.sqrt(dx * dx + dy * dy) || 0.001, def = m.def, dir, sp = def.speed;
       if (Math.abs(dx) > 2) m.face = dx > 0 ? 1 : -1;
       var frenzy = m.age > 75 && !def.boss;      // failsafe: nothing may hide forever

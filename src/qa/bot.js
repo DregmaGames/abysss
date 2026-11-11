@@ -46,6 +46,24 @@
     return l < 1.5 ? { x: 0, y: 0 } : { x: dx / l, y: dy / l };
   };
 
+  // Is the way along `g` blocked by an open crack within a few px? Then return the direction to
+  // dodge across it (the landing spot must be free), 'wait' while the dodge recharges, or null.
+  Bot.prototype.crossDir = function (g) {
+    var sim = this.sim, p = sim.player, P = sim.B.player, gl = Math.sqrt(g.x * g.x + g.y * g.y), k, i;
+    if (gl < 0.1) return null;
+    var ux = g.x / gl, uy = g.y / gl, blocked = false;
+    for (k = 2; k <= 10 && !blocked; k += 2) if (sim.crackHits(p.x + ux * k, p.y + uy * k, p.r)) blocked = true;
+    if (!blocked) return null;
+    if (p.dodgeCd > 0 || p.dashT > 0) return 'wait';
+    var base = G.M.atan2(uy, ux), tries = [0, 0.4, -0.4, 0.8, -0.8];
+    for (i = 0; i < tries.length; i++) {
+      var a = base + tries[i], dx = G.M.cos(a), dy = G.M.sin(a), ok = true;
+      for (k = 6; k <= P.dodgeDist && ok; k += 6) if (sim.boxHits(p.x + dx * k, p.y + dy * k, p.r)) ok = false;
+      if (ok && !sim.crackHits(p.x + dx * P.dodgeDist, p.y + dy * P.dodgeDist, p.r)) return { x: dx, y: dy };
+    }
+    return null;
+  };
+
   Bot.prototype.update = function () {
     var sim = this.sim;
     if (sim.state !== 'play') return;
@@ -116,19 +134,12 @@
         if (sim.phase === 'chest') g = this.pathDir(sim.chest.x, sim.chest.y + 4);
         else if (sim.phase === 'exit') g = this.pathDir(sim.exit.x, sim.exit.y);
         else {
-          // wait near the fissure that is about to matter, but not on top of it
-          // explore: an open fissure first, else walk to the nearest dormant one to wake it
-          var f = null, fbest = 1e9;
-          for (i = 0; i < sim.fissures.length; i++) {
-            var fi = sim.fissures[i], fd0 = Math.abs(fi.x - p.x) + Math.abs(fi.y - p.y);
-            if (fi.state === 'opening' || fi.state === 'open') fd0 -= 10000;
-            else if (!(fi.state === 'dormant' && (!fi.big || sim.phase === 'super'))) continue;
-            if (fd0 < fbest) { fbest = fd0; f = fi; }
-          }
-          if (f) {
-            var fx = f.x - p.x, fy = f.y - p.y, fd = Math.sqrt(fx * fx + fy * fy);
-            if (fd > 62) g = this.pathDir(f.x, f.y);
-            else if (fd < 48) { g = { x: -fx / (fd || 1), y: -fy / (fd || 1) }; gw = 0.6; }
+          // walk to the nearest open crack segment (or the super fissure) and wait beside it
+          var tg = sim.objectiveTarget();
+          if (tg) {
+            var fx = tg.x - p.x, fy = tg.y - p.y, fd = Math.sqrt(fx * fx + fy * fy);
+            if (fd > 62) g = this.pathDir(tg.x, tg.y);
+            else if (fd < 40) { g = { x: -fx / (fd || 1), y: -fy / (fd || 1) }; gw = 0.6; }
           }
         }
       }
@@ -141,10 +152,15 @@
       var bs = -1e9;
       for (i = 0; i < 16; i++) {
         var dir = DIRS[i], sc = (dir.x * ax + dir.y * ay) / al;
-        if (sim.boxHits(p.x + dir.x * 9, p.y + dir.y * 9, p.r)) sc -= 1.2;
+        if (sim.boxHits(p.x + dir.x * 9, p.y + dir.y * 9, p.r) || sim.crackHits(p.x + dir.x * 4, p.y + dir.y * 4, p.r)) sc -= 1.2;
         else if (sim.boxHits(p.x + dir.x * 20, p.y + dir.y * 20, p.r)) sc -= 0.35;
         if (sc > bs) { bs = sc; mx = dir.x; my = dir.y; }
       }
+    }
+    // an open crack between us and where we are going: jump it with the dodge
+    if (g && gw >= 1 && sim.crackLit > 0) {
+      var cross = this.crossDir(g);
+      if (cross && cross !== 'wait') { mx = cross.x; my = cross.y; dodge = true; }   // 'wait': keep sliding along it
     }
     inp.mx = this.mx = mx; inp.my = this.my = my;
     if (close >= 3 && p.hp < p.maxHp * 0.5) dodge = true;

@@ -82,9 +82,14 @@
         ['warden', 'warden', 'warden', 'hound', 'hound', 'bat', 'bat', 'bat', 'bat'],
         ['tyrant']
       ],
-      maxActive: 2,
-      triggerR: 76,                   // a dormant fissure opens when the mage comes this close...
-      idleOpen: 7,                    // ...or after this many seconds with nothing open (the room never idles)
+      // the crack network: all cracks open when the room starts and go dark segment by segment as
+      // their monsters die. An open crack is a wall for walkers; the player crosses it with the dodge.
+      crackLen: [90, 130],            // px per arm (two arms per crack; a branch has one)
+      segments: 4,                    // dark bands per crack, the tips go dark first
+      joinChance: 0.45,               // chance that a crack branches off an earlier one (joined = shared kill meter)
+      siteGap: 8,                     // min tiles (manhattan) between separate crack centres
+      segHeal: 0.01,                  // heal (fraction of max HP) each time a segment goes dark
+      aliveThreat: 1.4,               // monsters alive from the network at once: up to this x one crack's budget
       firstDelay: 1.2,
       openTime: 1.0, closeTime: 1.0, superOpenTime: 1.8, superCloseTime: 1.6,
       spawnEvery: 0.3, superSpawnEvery: 0.5,       // packs come out in a burst
@@ -271,7 +276,9 @@
   // A fissure is a crack: a set of art pixels relative to its centre, each with an
   // "order" 0..1 (distance along the crack) used to animate it expanding and closing.
   // The super fissure is a pit with cracks radiating from it.
-  function genFissure(rng, big) {
+  // Normal cracks: two arms from the centre (or one arm when it branches off another crack), each
+  // `len` px long. Every cell gets a segment index (band of `order`): the crack goes dark band by band.
+  function genFissure(rng, big, len, oneArm, ang0) {
     var core = {}, maxO = 0;
     function stamp(x, y, w, o) {
       var h = Math.floor(w / 2);
@@ -308,9 +315,10 @@
         ang = a0 + i / arms * 6.283 + rng.range(-0.25, 0.25);
         walk(G.M.cos(ang) * (R - 3), G.M.sin(ang) * (R - 3) * 0.8, ang, rng.int(34, 50), 6, R * 0.8, 1);
       }
+    } else if (oneArm) {
+      walk(0, 0, ang0, len, 6, 0, 0);
     } else {
       ang = rng.range(0, Math.PI);
-      var len = rng.int(28, 40);
       walk(0, 0, ang, len, 7, 0, 0);
       walk(0, 0, ang + Math.PI + rng.range(-0.3, 0.3), len - rng.int(0, 8), 7, 0, 0);
     }
@@ -425,27 +433,60 @@
       cand.push([x, y]);
     }
     rng.shuffle(cand);
-    var want = B.fissure.count[index], sites = [], gap = 12;
-    while (sites.length < want && gap >= 3) {
-      for (i = 0; i < cand.length && sites.length < want; i++) {
-        var far = true;
-        for (var s = 0; s < sites.length; s++) {
-          if (Math.abs(sites[s][0] - cand[i][0]) + Math.abs(sites[s][1] - cand[i][1]) < gap) far = false;
+    // The crack network: `count` long cracks, closer together than single fissures used to be.
+    // Some branch off an earlier crack: joined cracks form a cluster that shares one kill meter.
+    var F = B.fissure, want = F.count[index], fissures = [];
+    var sxp = sx * T + 8, syp = sy * T + 8, exp_ = ex * T + 8, cxp = cx * T + 8, cyp = cy * T + 8;
+    function keepOut(px, py) {                     // art pixels that never hold a crack
+      if (at(Math.floor(px / T), Math.floor(py / T))) return true;
+      if (Math.abs(px - sxp) <= 40 && Math.abs(py - syp) <= 34) return true;           // start
+      if (Math.abs(px - exp_) <= 30 && py <= 8 * T) return true;                       // chest and exit
+      var qx = px - cxp, qy = py - cyp;
+      return qx * qx + qy * qy < 30 * 30;                                              // super fissure pit
+    }
+    function place(fx, fy, cells) {
+      var out = [];
+      for (var c = 0; c < cells.length; c++) if (!keepOut(fx + cells[c].x, fy + cells[c].y)) out.push(cells[c]);
+      return out;
+    }
+    function siteFree(px, py) {
+      var tx = Math.floor(px / T), ty = Math.floor(py / T);
+      for (var oy = -1; oy <= 1; oy++) for (var ox = -1; ox <= 1; ox++) if (at(tx + ox, ty + oy)) return false;
+      return !keepOut(px, py);
+    }
+    var gap = F.siteGap, ci = 0, tries = 0;
+    while (fissures.length < want && tries++ < 200) {
+      var made = null, k2;
+      if (fissures.length && rng.chance(F.joinChance)) {
+        // branch: start on a mid-length core cell of an earlier crack, head away from its centre
+        var par = fissures[rng.int(0, fissures.length - 1)], mids = [];
+        for (k2 = 0; k2 < par.cells.length; k2++) {
+          var pc = par.cells[k2];
+          if (pc.core && pc.o > 0.35 && pc.o < 0.8 && siteFree(par.x + pc.x, par.y + pc.y)) mids.push(pc);
         }
-        if (far) sites.push(cand[i]);
+        if (mids.length) {
+          var m0 = mids[rng.int(0, mids.length - 1)], away = G.M.atan2(m0.y, m0.x) + (rng.chance(0.5) ? 1 : -1) * rng.range(0.7, 1.3);
+          var bxp = par.x + m0.x, byp = par.y + m0.y;
+          made = { x: bxp, y: byp, cl: par.cl, cells: place(bxp, byp, genFissure(rng, false, rng.int(F.crackLen[0], F.crackLen[1]), true, away)) };
+        }
       }
-      gap--;
-    }
-    function clip(cells, fx, fy) {
-      return cells.filter(function (c) { return !at(Math.floor((fx + c.x) / T), Math.floor((fy + c.y) / T)); });
-    }
-    var fissures = [];
-    for (i = 0; i < sites.length; i++) {
-      var fx = sites[i][0] * T + 8, fy = sites[i][1] * T + 8;
-      fissures.push({ x: fx, y: fy, big: false, cells: clip(genFissure(rng, false), fx, fy) });
+      if (!made) {
+        for (; ci < cand.length && !made; ci++) {
+          var fx = cand[ci][0] * T + 8, fy = cand[ci][1] * T + 8, far = true;
+          for (k2 = 0; k2 < fissures.length; k2++) if (Math.abs(fissures[k2].x - fx) + Math.abs(fissures[k2].y - fy) < gap * T) far = false;
+          if (far && siteFree(fx, fy)) made = { x: fx, y: fy, cl: -1, cells: place(fx, fy, genFissure(rng, false, rng.int(F.crackLen[0], F.crackLen[1]))) };
+        }
+        if (!made) { if (gap > 3) { gap--; ci = 0; continue; } break; }
+      }
+      if (made.cells.length < 12) continue;                     // clipped to almost nothing: try again
+      if (made.cl < 0) made.cl = fissures.length;
+      made.big = false;
+      for (k2 = 0; k2 < made.cells.length; k2++) made.cells[k2].seg = Math.min(F.segments - 1, Math.floor(made.cells[k2].o * F.segments));
+      fissures.push(made);
     }
     var bx2 = cx * T + 8, by2 = cy * T + 8;
-    fissures.push({ x: bx2, y: by2, big: true, cells: clip(genFissure(rng, true), bx2, by2) });
+    var pit = genFissure(rng, true).filter(function (c) { return !at(Math.floor((bx2 + c.x) / T), Math.floor((by2 + c.y) / T)); });
+    fissures.push({ x: bx2, y: by2, big: true, cl: -1, cells: pit });
 
     // dressing: floor decals, wall torches on south-facing wall faces
     var decals = [], torches = [];
@@ -634,7 +675,7 @@
     this.choices = []; this.choiceTome = false;
     this.player = { x: 0, y: 0, r: P.r, hp: P.hp, maxHp: P.hp, fx: 0, fy: -1, face: 1, moving: false,
       atkCd: 0.4, dodgeCd: 0, dashT: 0, dashX: 0, dashY: 0, iframes: 0, pulseCd: 0,
-      level: 1, exp: 0, expNext: this.expFor(1), passives: {}, pending: 0, tomes: 0 };
+      level: 1, exp: 0, expNext: this.expFor(1), passives: {}, pending: 0, tomes: 0, walk: true };
     this.stats = {};
     this.recalc();
     this.player.hp = this.stats.maxHp;
@@ -683,24 +724,13 @@
     this.player.x = room.start.x; this.player.y = room.start.y;
     this.player.dashT = 0;
     this.monsters = []; this.shots = []; this.bolts = []; this.orbs = []; this.drops = []; this.teles = [];
-    this.fissures = room.fissures.map(function (f, i) {
-      var queue = [];
-      if (f.big) queue = F.superWave[index].slice();
-      else {
-        var budget = F.budget[index], pool = F.pool[index], types = Object.keys(pool);
-        while (budget > 0) {
-          var ok = types.filter(function (t) { return B.monsters[t].threat <= budget; });
-          var t = ok[self.rngRoom.weighted(ok.map(function (k) { return pool[k]; }))];
-          queue.push(t); budget -= B.monsters[t].threat;
-        }
-      }
-      return { id: i, x: f.x, y: f.y, big: f.big, cells: f.cells, state: 'dormant', t: 0, reveal: 0, queue: queue, total: queue.length, spawnCd: 0, alive: 0, dealt: 0 };
-    });
+    this.setupFissures(room);           // src/sim/fissures.js
     this.phase = 'fissures';             // fissures | super | chest | exit
-    this.openTimer = F.idleOpen; this.roomTick = this.tick;
+    this.roomTick = this.tick; this.spawnCd = F.firstDelay;
     this.chest = { x: room.chest.x, y: room.chest.y, state: 'hidden' };
     this.exit = { x: room.exit.x, y: room.exit.y, open: false };
-    this.flow = new Int16Array(room.w * room.h);
+    this.flow = new Int16Array(room.w * room.h);          // to the player, around walls (flyers)
+    this.flowWalk = new Int16Array(room.w * room.h);      // to the player, around walls and open cracks (walkers)
     this.flowTile = -1; this.flowTick = -999;
     this.msgTick = -999;
     this.progress();
@@ -717,15 +747,19 @@
       (h > 8 && (this.wallAt(x, y - h) || this.wallAt(x, y + h) || this.wallAt(x - h, y) || this.wallAt(x + h, y)));
   };
   // axis-separated box move (slides along walls). |dx|,|dy| must stay below one tile.
+  // Walkers (the player outside a dodge, monsters that do not fly) cannot step onto an open crack.
+  // Leaving one is always allowed, so nothing can get trapped inside a crack.
   S.move = function (e, dx, dy) {
-    var h = e.r, E = 0.01;
+    var h = e.r, E = 0.01, cc = e.walk && this.crackLit > 0 && !(e.dashT > 0), inC = cc && this.crackHits(e.x, e.y, h);
     if (dx) {
       e.x += dx;
       if (this.boxHits(e.x, e.y, h)) e.x = dx > 0 ? Math.floor((e.x + h) / T) * T - h - E : (Math.floor((e.x - h) / T) + 1) * T + h + E;
+      if (cc && !inC && this.crackHits(e.x, e.y, h)) e.x -= dx;
     }
     if (dy) {
       e.y += dy;
       if (this.boxHits(e.x, e.y, h)) e.y = dy > 0 ? Math.floor((e.y + h) / T) * T - h - E : (Math.floor((e.y - h) / T) + 1) * T + h + E;
+      if (cc && !inC && this.crackHits(e.x, e.y, h)) e.y -= dy;
     }
   };
   // line of sight for a shot-sized object: two parallel rays 2 px either side, sampled every 2 px,
@@ -741,17 +775,19 @@
     return true;
   };
   // breadth-first distance field over floor tiles from one tile (monster pathing, bot pathing)
-  S.bfs = function (tx, ty, out) {
-    var r = this.room, W = r.w, H = r.h, q = [], head = 0, i;
+  // `block` (optional): extra blocked tiles, e.g. tiles an open crack runs through; the start tile is
+  // always allowed, so a field can be built from a player standing next to a crack
+  S.bfs = function (tx, ty, out, block) {
+    var r = this.room, W = r.w, H = r.h, q = [], head = 0, i, t = r.tiles;
     for (i = 0; i < W * H; i++) out[i] = -1;
-    if (tx < 0 || ty < 0 || tx >= W || ty >= H || r.tiles[ty * W + tx]) return out;
+    if (tx < 0 || ty < 0 || tx >= W || ty >= H || t[ty * W + tx]) return out;
     out[ty * W + tx] = 0; q.push(ty * W + tx);
     while (head < q.length) {
       var c = q[head++], cx = c % W, d = out[c] + 1;
-      if (cx + 1 < W && !r.tiles[c + 1] && out[c + 1] < 0) { out[c + 1] = d; q.push(c + 1); }
-      if (cx > 0 && !r.tiles[c - 1] && out[c - 1] < 0) { out[c - 1] = d; q.push(c - 1); }
-      if (c + W < W * H && !r.tiles[c + W] && out[c + W] < 0) { out[c + W] = d; q.push(c + W); }
-      if (c - W >= 0 && !r.tiles[c - W] && out[c - W] < 0) { out[c - W] = d; q.push(c - W); }
+      if (cx + 1 < W && !t[c + 1] && out[c + 1] < 0 && !(block && block[c + 1])) { out[c + 1] = d; q.push(c + 1); }
+      if (cx > 0 && !t[c - 1] && out[c - 1] < 0 && !(block && block[c - 1])) { out[c - 1] = d; q.push(c - 1); }
+      if (c + W < W * H && !t[c + W] && out[c + W] < 0 && !(block && block[c + W])) { out[c + W] = d; q.push(c + W); }
+      if (c - W >= 0 && !t[c - W] && out[c - W] < 0 && !(block && block[c - W])) { out[c - W] = d; q.push(c - W); }
     }
     return out;
   };
@@ -886,6 +922,8 @@
     var p = this.player, tile = Math.floor(p.y / T) * this.room.w + Math.floor(p.x / T);
     if (tile !== this.flowTile || this.tick - this.flowTick > 30) {
       this.bfs(Math.floor(p.x / T), Math.floor(p.y / T), this.flow);
+      if (this.crackLit > 0) this.bfs(Math.floor(p.x / T), Math.floor(p.y / T), this.flowWalk, this.crackTile);
+      else this.flowWalk.set(this.flow);
       this.flowTile = tile; this.flowTick = this.tick;
     }
   };
@@ -944,8 +982,9 @@
     if (this.boxHits(x, y, def.r)) { var f = this.fissures[fid]; x = f.x; y = f.y; }
     var m = { id: this.nextId++, type: type, def: def, x: x, y: y, r: def.r, hp: Math.round(def.hp * th), maxHp: Math.round(def.hp * th),
       dmg: def.dmg * th, mul: th, fid: fid, hitCd: 0.5, kx: 0, ky: 0, st: 'chase', t: 0, cd: 0.6 + this.rngCombat.next() * 1.2,
-      cd2: def.summonEvery || 0, wind: 0, lx: 0, ly: 0, face: 1, los: true, emerge: 0.35, age: 0, atk: 0, px: x, py: y, bump: 0, detour: 0, side: this.rngCombat.chance(0.5) ? 1 : -1 };
+      cd2: def.summonEvery || 0, wind: 0, lx: 0, ly: 0, face: 1, los: true, emerge: 0.35, age: 0, atk: 0, px: x, py: y, bump: 0, detour: 0, walkLos: false, side: this.rngCombat.chance(0.5) ? 1 : -1 };
     if (def.boss) { m.t = 1.6; }
+    m.walk = !def.fly && !def.boss;      // walkers go around open cracks; bats fly over, the boss ignores them
     this.monsters.push(m);
     this.fissures[fid].alive++;
     this.emit({ t: 'spawn', id: m.id, x: x, y: y, type: type });
@@ -967,6 +1006,7 @@
     this.kills++;
     this.fissures[m.fid].alive--;
     this.progress();
+    this.networkKill(m);
     this.emit({ t: 'die', id: m.id, x: m.x, y: m.y, type: m.type });
     var parts = def.boss ? 8 : (def.elite ? 3 : 1);
     for (i = 0; i < parts; i++) this.spawnOrb('exp', m.x, m.y, def.exp / parts);
@@ -999,8 +1039,9 @@
     if (m.detour > 0) m.detour--;
     else if (moved < 0.15) { if (++m.bump > 8) { m.detour = 45; m.bump = 0; } }
     else m.bump = 0;
-    if ((m.los && !m.detour) || d < 12) return { x: (p.x - m.x) / (d || 1), y: (p.y - m.y) / (d || 1) };
-    return this.fieldDir(this.flow, m.x, m.y) || { x: (p.x - m.x) / (d || 1), y: (p.y - m.y) / (d || 1) };
+    var see = m.walk ? m.walkLos : m.los;          // a walker only goes straight if no open crack is in the way
+    if ((see && !m.detour) || d < 12) return { x: (p.x - m.x) / (d || 1), y: (p.y - m.y) / (d || 1) };
+    return this.fieldDir(m.walk ? this.flowWalk : this.flow, m.x, m.y) || { x: (p.x - m.x) / (d || 1), y: (p.y - m.y) / (d || 1) };
   };
   S.fireShot = function (m, ang, speed, dmg, kind) {
     this.shots.push({ id: this.nextId++, x: m.x, y: m.y, vx: G.M.cos(ang) * speed, vy: G.M.sin(ang) * speed, r: kind === 'big' ? 3.5 : 2.5, dmg: dmg, life: 5, kind: kind });
@@ -1019,7 +1060,10 @@
         if (Math.abs(m.kx) + Math.abs(m.ky) < 2) { m.kx = 0; m.ky = 0; }
       }
       if (m.emerge > 0) { m.emerge -= dt; continue; }
-      if ((this.tick + m.id) % 10 === 0) m.los = this.los(m.x, m.y, p.x, p.y);
+      if ((this.tick + m.id) % 10 === 0) {
+        m.los = this.los(m.x, m.y, p.x, p.y);
+        m.walkLos = m.los && !(m.walk && this.crackLit > 0 && this.crackOnLine(m.x, m.y, p.x, p.y, m.r));
+      }
       var dx = p.x - m.x, dy = p.y - m.y, d = Math.sqrt(dx * dx + dy * dy) || 0.001, def = m.def, dir, sp = def.speed;
       if (Math.abs(dx) > 2) m.face = dx > 0 ? 1 : -1;
       var frenzy = m.age > 75 && !def.boss;      // failsafe: nothing may hide forever
@@ -1190,9 +1234,160 @@
 })(globalThis.G = globalThis.G || {});
 
 // ---- src/sim/fissures.js
-// Room loop: fissures open, spawn, close into scars; then the super fissure, chest and exit.
+// Room loop: the crack network (all open, darkened by kills), then the super fissure, chest and exit.
 (function (G) {
   var S = G.Sim.prototype;
+
+  // ------------------------------------------------------------ the network
+  // Every normal crack is open from the start of the room. Joined cracks form a cluster with one
+  // spawn queue and one kill meter: each kill darkens the next segment (tips first), and a dark
+  // segment is a permanent scar. A crack whose segments are all dark pays out like a closed fissure.
+  // When the whole network is dark the super fissure opens.
+  var T = 16;
+
+  S.setupFissures = function (room) {
+    var B = this.B, F = B.fissure, self = this, index = this.roomIndex, i, s, c;
+    this.crackW = room.w * T; this.crackH = room.h * T;
+    this.crackGrid = new Uint8Array(this.crackW * this.crackH);   // open crack pixels (count of cracks on each)
+    this.crackTile = new Uint8Array(room.w * room.h);             // open crack pixels per tile (walker pathing)
+    this.crackLit = 0;
+    this.fissures = room.fissures.map(function (f, id) {
+      var queue = [];
+      if (f.big) queue = F.superWave[index].slice();
+      else {
+        var budget = F.budget[index], pool = F.pool[index], types = Object.keys(pool);
+        while (budget > 0) {
+          var ok = types.filter(function (t) { return B.monsters[t].threat <= budget; });
+          var t = ok[self.rngRoom.weighted(ok.map(function (k) { return pool[k]; }))];
+          queue.push(t); budget -= B.monsters[t].threat;
+        }
+      }
+      var o = { id: id, x: f.x, y: f.y, big: f.big, cl: f.cl, cells: f.cells, state: f.big ? 'dormant' : 'opening', t: 0, reveal: 0,
+        queue: queue, total: queue.length, spawnCd: 0, alive: 0, dealt: 0 };
+      if (!f.big) {
+        o.nSeg = F.segments; o.dark = []; o.darkTick = []; o.segCells = []; o.segX = []; o.segY = []; o.litN = 0;
+        for (s = 0; s < o.nSeg; s++) { o.dark.push(false); o.darkTick.push(0); o.segCells.push([]); }
+        for (i = 0; i < f.cells.length; i++) { c = f.cells[i]; if (c.core) o.segCells[c.seg].push(c); }
+        for (s = 0; s < o.nSeg; s++) {
+          var sc = o.segCells[s], sx = 0, sy = 0;
+          if (!sc.length) { o.dark[s] = true; o.segX.push(o.x); o.segY.push(o.y); continue; }
+          for (i = 0; i < sc.length; i++) { sx += sc[i].x; sy += sc[i].y; }
+          o.segX.push(o.x + sx / sc.length); o.segY.push(o.y + sy / sc.length);
+          o.litN++;
+        }
+      }
+      return o;
+    });
+    // clusters: one queue and one kill meter per group of joined cracks
+    var byCl = {}, cls = this.clusters = [], f;
+    for (i = 0; i < this.fissures.length; i++) {
+      f = this.fissures[i];
+      if (f.big) continue;
+      var cl = byCl[f.cl];
+      if (!cl) { cl = byCl[f.cl] = { id: cls.length, cracks: [], queue: [], total: 0, killed: 0, order: [], darkN: 0 }; cls.push(cl); }
+      f.cluster = cl.id;
+      cl.cracks.push(f.id);
+      cl.queue = cl.queue.concat(f.queue); cl.total += f.total;
+      f.queue = [];
+      if (!f.litN) { f.state = 'scar'; f.scarTick = this.tick; continue; }
+      for (s = 0; s < f.nSeg; s++) if (!f.dark[s]) this.lightSeg(f, s, 1);
+    }
+    for (i = 0; i < cls.length; i++) {           // darkening order: outermost band of every crack first
+      for (s = F.segments - 1; s >= 0; s--) for (var k = 0; k < cls[i].cracks.length; k++) {
+        f = this.fissures[cls[i].cracks[k]];
+        if (f.litN && !f.dark[s]) cls[i].order.push([f.id, s]);
+      }
+    }
+    for (i = 0; i < this.fissures.length; i++) {
+      f = this.fissures[i];
+      if (!f.big && f.state === 'opening') this.emit({ t: 'fissure', id: f.id, state: 'opening', big: false, x: f.x, y: f.y });
+    }
+  };
+
+  S.lightSeg = function (f, s, v) {
+    var cells = f.segCells[s], W = this.crackW, H = this.crackH, RW = this.room.w, i;
+    for (i = 0; i < cells.length; i++) {
+      var x = f.x + cells[i].x, y = f.y + cells[i].y;
+      if (x < 0 || y < 0 || x >= W || y >= H) continue;
+      this.crackGrid[y * W + x] += v;
+      this.crackTile[(y >> 4) * RW + (x >> 4)] += v;
+      this.crackLit += v;
+    }
+  };
+
+  // does a box of half-size h at (x, y) touch an open crack?
+  S.crackHits = function (x, y, h) {
+    if (!this.crackLit) return false;
+    var W = this.crackW, g = this.crackGrid;
+    var x0 = Math.max(0, Math.floor(x - h)), x1 = Math.min(W - 1, Math.floor(x + h));
+    var y0 = Math.max(0, Math.floor(y - h)), y1 = Math.min(this.crackH - 1, Math.floor(y + h));
+    for (var yy = y0; yy <= y1; yy++) for (var xx = x0, r = yy * W; xx <= x1; xx++) if (g[r + xx]) return true;
+    return false;
+  };
+  // does an open crack cross the straight line between two points?
+  S.crackOnLine = function (x0, y0, x1, y1, r) {
+    var dx = x1 - x0, dy = y1 - y0, d = Math.sqrt(dx * dx + dy * dy), n = Math.ceil(d / 2), h = Math.max(1, r - 2);
+    for (var i = 1; i < n; i++) if (this.crackHits(x0 + dx * i / n, y0 + dy * i / n, h)) return true;
+    return false;
+  };
+
+  // a monster from the network died: its cluster's meter moves, segments go dark
+  S.networkKill = function (m) {
+    var f = this.fissures[m.fid];
+    if (!f || f.big) return;
+    var cl = this.clusters[f.cluster];
+    cl.killed++;
+    var target = cl.killed >= cl.total ? cl.order.length : Math.floor(cl.order.length * cl.killed / cl.total);
+    while (cl.darkN < target) this.darkenSeg(cl.order[cl.darkN++]);
+  };
+  S.darkenSeg = function (fs) {
+    var f = this.fissures[fs[0]], s = fs[1];
+    if (f.dark[s]) return;
+    f.dark[s] = true; f.darkTick[s] = this.tick; f.litN--;
+    this.lightSeg(f, s, -1);
+    this.flowTick = -999;                              // walkers can path through it now
+    this.progress();
+    this.emit({ t: 'seg', id: f.id, seg: s, x: f.segX[s], y: f.segY[s] });
+    if (this.B.fissure.segHeal) this.heal(this.player.maxHp * this.B.fissure.segHeal);
+    if (!f.litN) { f.state = 'scar'; f.reveal = 0; this.closeReward(f); }
+  };
+
+  // nearest open segment of a cluster (or of any cluster when cl is null)
+  S.nearestSeg = function (x, y, cl) {
+    var best = null, bd = 1e9, i, s;
+    for (i = 0; i < this.fissures.length; i++) {
+      var f = this.fissures[i];
+      if (f.big || !f.litN || (cl && f.cluster !== cl.id)) continue;
+      for (s = 0; s < f.nSeg; s++) {
+        if (f.dark[s]) continue;
+        var d = Math.abs(f.segX[s] - x) + Math.abs(f.segY[s] - y);
+        if (d < bd) { bd = d; best = { f: f, s: s, x: f.segX[s], y: f.segY[s], d: d }; }
+      }
+    }
+    return best;
+  };
+
+  // spawn the next monster of a cluster beside one of its open segments, never on the crack
+  S.spawnFromCluster = function (cl) {
+    var type = cl.queue[0], def = this.B.monsters[type], rng = this.rngRoom, lit = [], i, s, k, j;
+    for (i = 0; i < cl.cracks.length; i++) {
+      var f = this.fissures[cl.cracks[i]];
+      for (s = 0; s < f.nSeg; s++) if (!f.dark[s]) lit.push([f, s]);
+    }
+    if (!lit.length) return false;
+    cl.queue.shift();
+    for (k = 0; k < 4; k++) {
+      var pick = lit[rng.int(0, lit.length - 1)], cf = pick[0], cells = cf.segCells[pick[1]], c = cells[rng.int(0, cells.length - 1)];
+      var a0 = rng.range(0, G.M.TAU);
+      for (j = 0; j < 16; j++) {
+        var a = a0 + (j % 8) * G.M.TAU / 8, d = j < 8 ? 11 + def.r : 17 + def.r;
+        var px = cf.x + c.x + G.M.cos(a) * d, py = cf.y + c.y + G.M.sin(a) * d;
+        if (!this.boxHits(px, py, def.r) && !this.crackHits(px, py, def.r)) { this.spawnMonster(type, px, py, cf.id); return true; }
+      }
+    }
+    this.spawnMonster(type, pick[0].x, pick[0].y, pick[0].id);     // fallback: it can always walk out of a crack
+    return true;
+  };
 
   S.openFissure = function (f) {
     f.state = 'opening'; f.t = 0; f.reveal = 0;
@@ -1201,58 +1396,60 @@
   };
 
   S.updateFissures = function (dt) {
-    var F = this.B.fissure, fs = this.fissures, i, f, active = 0, dormant = null, scars = 0, normal = 0;
+    var F = this.B.fissure, fs = this.fissures, i, f, open = 0;
     for (i = 0; i < fs.length; i++) {
       f = fs[i];
       if (f.big) continue;
-      normal++;
-      if (f.state === 'opening' || f.state === 'open') active++;
-      else if (f.state === 'dormant') { if (!dormant) dormant = f; }
-      else if (f.state === 'scar') scars++;
+      if (f.state === 'opening') { f.t += dt; f.reveal = Math.min(1, f.t / F.openTime); if (f.reveal >= 1) f.state = 'open'; }
+      if (f.state !== 'scar') open++;
     }
     if (this.phase === 'fissures') {
-      if (dormant) {
-        // exploring wakes fissures: the nearest dormant one opens when the mage comes close.
-        // With nothing open, a timer opens one anyway, so the room never idles.
-        var p = this.player, near = null, nd = 1e9;
-        for (i = 0; i < fs.length; i++) {
-          f = fs[i];
-          if (f.big || f.state !== 'dormant') continue;
-          var d = Math.sqrt((f.x - p.x) * (f.x - p.x) + (f.y - p.y) * (f.y - p.y));
-          if (d < nd) { nd = d; near = f; }
+      this.spawnCd -= dt;
+      if (this.spawnCd <= 0) {
+        // the cluster nearest to the player spawns next, while the network's monsters stay under the cap
+        var p = this.player, best = null, bd = 1e9, live = 0, cl;
+        for (i = 0; i < this.clusters.length; i++) {
+          cl = this.clusters[i];
+          if (!cl.queue.length) continue;
+          var ns = this.nearestSeg(p.x, p.y, cl);
+          if (ns && ns.d < bd) { bd = ns.d; best = cl; }
         }
-        if (active > 0) this.openTimer = F.idleOpen; else this.openTimer -= dt;
-        var awake = (this.tick - this.roomTick) * this.B.DT > F.firstDelay;
-        if (awake && active < F.maxActive && (nd < F.triggerR || this.openTimer <= 0)) { this.openFissure(near); this.openTimer = F.idleOpen; }
-      } else if (scars === normal) {
+        for (i = 0; i < this.monsters.length; i++) {
+          var m = this.monsters[i];
+          if (!m.dead && !fs[m.fid].big) live += m.def.threat;
+        }
+        if (best && (!live || live + this.B.monsters[best.queue[0]].threat <= F.aliveThreat * F.budget[this.roomIndex])) {
+          this.spawnFromCluster(best);
+          this.spawnCd = F.spawnEvery;
+        } else this.spawnCd = 0.1;
+      }
+      if (!open) {
         this.phase = 'super';
         this.openFissure(fs[fs.length - 1]);
         this.emit({ t: 'phase', phase: 'super' });
       }
     }
-    for (i = 0; i < fs.length; i++) {
-      f = fs[i];
-      if (f.state === 'opening') {
-        f.t += dt;
-        f.reveal = Math.min(1, f.t / (f.big ? F.superOpenTime : F.openTime));
-        if (f.reveal >= 1) { f.state = 'open'; f.spawnCd = 0.15; }
-      } else if (f.state === 'open') {
-        f.spawnCd -= dt;
-        if (f.queue.length && f.spawnCd <= 0) {
-          var a = this.rngRoom.range(0, 6.283), d = this.rngRoom.range(0, f.big ? 10 : 6);
-          this.spawnMonster(f.queue.shift(), f.x + G.M.cos(a) * d, f.y + G.M.sin(a) * d, f.id);
-          f.spawnCd = f.big ? F.superSpawnEvery : F.spawnEvery;
-        }
-        if (!f.queue.length && f.alive <= 0) {
-          f.state = 'closing'; f.t = 0;
-          this.progress();
-          this.emit({ t: 'fissure', id: f.id, state: 'closing', big: f.big, x: f.x, y: f.y });
-        }
-      } else if (f.state === 'closing') {
-        f.t += dt;
-        f.reveal = Math.max(0, 1 - f.t / (f.big ? F.superCloseTime : F.closeTime));
-        if (f.reveal <= 0) { f.state = 'scar'; this.closeReward(f); }
+    f = fs[fs.length - 1];                         // the super fissure: opens, spawns its wave, closes
+    if (f.state === 'opening') {
+      f.t += dt;
+      f.reveal = Math.min(1, f.t / F.superOpenTime);
+      if (f.reveal >= 1) { f.state = 'open'; f.spawnCd = 0.15; }
+    } else if (f.state === 'open') {
+      f.spawnCd -= dt;
+      if (f.queue.length && f.spawnCd <= 0) {
+        var a = this.rngRoom.range(0, 6.283), d = this.rngRoom.range(0, 10);
+        this.spawnMonster(f.queue.shift(), f.x + G.M.cos(a) * d, f.y + G.M.sin(a) * d, f.id);
+        f.spawnCd = F.superSpawnEvery;
       }
+      if (!f.queue.length && f.alive <= 0) {
+        f.state = 'closing'; f.t = 0;
+        this.progress();
+        this.emit({ t: 'fissure', id: f.id, state: 'closing', big: true, x: f.x, y: f.y });
+      }
+    } else if (f.state === 'closing') {
+      f.t += dt;
+      f.reveal = Math.max(0, 1 - f.t / F.superCloseTime);
+      if (f.reveal <= 0) { f.state = 'scar'; this.closeReward(f); }
     }
   };
 
@@ -1298,7 +1495,7 @@
 
   S.objective = function () {
     var fp = this.fissureProgress();
-    if (this.phase === 'fissures') return fp.open ? 'Seal the fissure' : (fp.done ? 'Find the next fissure' : 'Explore the room');
+    if (this.phase === 'fissures') return 'Seal the fissures';
     if (this.phase === 'super') return this.room.boss ? 'Slay the Rift Tyrant' : 'Close the super fissure';
     if (this.phase === 'chest') return 'Open the chest';
     return this.room.boss ? 'Leave through the gate' : 'Take the exit';
@@ -1306,18 +1503,11 @@
 
   // where the current objective is (for the off-screen pointer); null while the fight is on top of you
   S.objectiveTarget = function () {
-    var p = this.player, i, f, best = null, bd = 1e9;
+    var p = this.player, f, best;
     if (this.phase === 'chest') return { x: this.chest.x, y: this.chest.y, kind: 'chest' };
     if (this.phase === 'exit') return { x: this.exit.x, y: this.exit.y, kind: 'exit' };
     if (this.phase === 'super') { f = this.fissures[this.fissures.length - 1]; return { x: f.x, y: f.y, kind: 'super' }; }
-    for (i = 0; i < this.fissures.length; i++) {
-      f = this.fissures[i];
-      if (f.big) continue;
-      if (f.state === 'opening' || f.state === 'open') return { x: f.x, y: f.y, kind: 'fissure' };
-      if (f.state !== 'dormant') continue;
-      var d = Math.abs(f.x - p.x) + Math.abs(f.y - p.y);
-      if (d < bd) { bd = d; best = f; }
-    }
+    best = this.nearestSeg(p.x, p.y, null);
     return best ? { x: best.x, y: best.y, kind: 'fissure' } : null;
   };
 
@@ -1452,6 +1642,24 @@
     return l < 1.5 ? { x: 0, y: 0 } : { x: dx / l, y: dy / l };
   };
 
+  // Is the way along `g` blocked by an open crack within a few px? Then return the direction to
+  // dodge across it (the landing spot must be free), 'wait' while the dodge recharges, or null.
+  Bot.prototype.crossDir = function (g) {
+    var sim = this.sim, p = sim.player, P = sim.B.player, gl = Math.sqrt(g.x * g.x + g.y * g.y), k, i;
+    if (gl < 0.1) return null;
+    var ux = g.x / gl, uy = g.y / gl, blocked = false;
+    for (k = 2; k <= 10 && !blocked; k += 2) if (sim.crackHits(p.x + ux * k, p.y + uy * k, p.r)) blocked = true;
+    if (!blocked) return null;
+    if (p.dodgeCd > 0 || p.dashT > 0) return 'wait';
+    var base = G.M.atan2(uy, ux), tries = [0, 0.4, -0.4, 0.8, -0.8];
+    for (i = 0; i < tries.length; i++) {
+      var a = base + tries[i], dx = G.M.cos(a), dy = G.M.sin(a), ok = true;
+      for (k = 6; k <= P.dodgeDist && ok; k += 6) if (sim.boxHits(p.x + dx * k, p.y + dy * k, p.r)) ok = false;
+      if (ok && !sim.crackHits(p.x + dx * P.dodgeDist, p.y + dy * P.dodgeDist, p.r)) return { x: dx, y: dy };
+    }
+    return null;
+  };
+
   Bot.prototype.update = function () {
     var sim = this.sim;
     if (sim.state !== 'play') return;
@@ -1522,19 +1730,12 @@
         if (sim.phase === 'chest') g = this.pathDir(sim.chest.x, sim.chest.y + 4);
         else if (sim.phase === 'exit') g = this.pathDir(sim.exit.x, sim.exit.y);
         else {
-          // wait near the fissure that is about to matter, but not on top of it
-          // explore: an open fissure first, else walk to the nearest dormant one to wake it
-          var f = null, fbest = 1e9;
-          for (i = 0; i < sim.fissures.length; i++) {
-            var fi = sim.fissures[i], fd0 = Math.abs(fi.x - p.x) + Math.abs(fi.y - p.y);
-            if (fi.state === 'opening' || fi.state === 'open') fd0 -= 10000;
-            else if (!(fi.state === 'dormant' && (!fi.big || sim.phase === 'super'))) continue;
-            if (fd0 < fbest) { fbest = fd0; f = fi; }
-          }
-          if (f) {
-            var fx = f.x - p.x, fy = f.y - p.y, fd = Math.sqrt(fx * fx + fy * fy);
-            if (fd > 62) g = this.pathDir(f.x, f.y);
-            else if (fd < 48) { g = { x: -fx / (fd || 1), y: -fy / (fd || 1) }; gw = 0.6; }
+          // walk to the nearest open crack segment (or the super fissure) and wait beside it
+          var tg = sim.objectiveTarget();
+          if (tg) {
+            var fx = tg.x - p.x, fy = tg.y - p.y, fd = Math.sqrt(fx * fx + fy * fy);
+            if (fd > 62) g = this.pathDir(tg.x, tg.y);
+            else if (fd < 40) { g = { x: -fx / (fd || 1), y: -fy / (fd || 1) }; gw = 0.6; }
           }
         }
       }
@@ -1547,10 +1748,15 @@
       var bs = -1e9;
       for (i = 0; i < 16; i++) {
         var dir = DIRS[i], sc = (dir.x * ax + dir.y * ay) / al;
-        if (sim.boxHits(p.x + dir.x * 9, p.y + dir.y * 9, p.r)) sc -= 1.2;
+        if (sim.boxHits(p.x + dir.x * 9, p.y + dir.y * 9, p.r) || sim.crackHits(p.x + dir.x * 4, p.y + dir.y * 4, p.r)) sc -= 1.2;
         else if (sim.boxHits(p.x + dir.x * 20, p.y + dir.y * 20, p.r)) sc -= 0.35;
         if (sc > bs) { bs = sc; mx = dir.x; my = dir.y; }
       }
+    }
+    // an open crack between us and where we are going: jump it with the dodge
+    if (g && gw >= 1 && sim.crackLit > 0) {
+      var cross = this.crossDir(g);
+      if (cross && cross !== 'wait') { mx = cross.x; my = cross.y; dodge = true; }   // 'wait': keep sliding along it
     }
     inp.mx = this.mx = mx; inp.my = this.my = my;
     if (close >= 3 && p.hp < p.maxHp * 0.5) dodge = true;
@@ -1996,7 +2202,7 @@
 
   // ------------------------------------------------------------------ fissure
   // Open: green rift light inside an ember-hot rim. Sealed: a dark scar with an orange edge
-  // that cools but never fully fades. Dormant: a hairline crack you can spot while exploring.
+  // that cools but never fully fades. Dormant (super fissure only): a hairline crack.
   function FissureView(scene, f) {
     var cells = f.cells, n = cells.length, i, minX = 0, minY = 0, maxX = 0, maxY = 0;
     for (i = 0; i < n; i++) {
@@ -2033,7 +2239,48 @@
     var self = this;
     ['f0', 'outline', 'scar', 'rg0', 'rg1', 'rg2', 'rg3', 'rg4', 'em0', 'em1', 'em2', 'em3', 'em4'].forEach(function (kk) { self.C[kk] = UI.rgb(kk); });
   }
+  // a crack of the network: each segment is open (rift light) or dark (a scar that cools)
+  FissureView.prototype.updateNet = function (f, tick) {
+    var st = f.state, sh = tick >> 3, s, cool = [], minCool = 1, opening = st === 'opening';
+    var key = st + '|' + (opening ? Math.round(f.reveal * 80) : (f.litN ? sh : 0));
+    for (s = 0; s < f.nSeg; s++) {
+      var cv = f.dark[s] ? Math.min(1, (tick - f.darkTick[s]) / 480) : -1;
+      cool.push(cv);
+      if (cv >= 0 && cv < minCool) minCool = cv;
+      key += '|' + (cv < 0 ? 'L' : Math.round(cv * 24));
+    }
+    var litFrac = f.litN / f.nSeg, a, tint;
+    if (f.litN) { a = 0.5 * (opening ? f.reveal : 1) * (0.35 + 0.65 * litFrac) + ((tick >> 2) % 5) * 0.012; tint = 'rg2'; }
+    else { a = 0.34 - minCool * 0.2; tint = 'em2'; }
+    this.glow.setAlpha(a).setTint(UI.hex(tint));
+    if (key === this.last) return;
+    this.last = key;
+    var cells = this.cells, n = cells.length, d = this.img.data, C = this.C, w = this.w, ox = this.ox, oy = this.oy, i;
+    d.fill(0);
+    for (i = 0; i < n; i++) {
+      var c = cells[i], h = this.hash[i], dep = this.depth[i], col = null, cs = cool[c.seg];
+      if (cs < 0 && (!opening || c.o <= f.reveal)) {
+        if (opening && f.reveal - c.o < 0.07) col = c.core ? C.rg4 : C.em4;
+        else if (!c.core) col = (h + sh) % 13 === 0 ? C.em4 : (h % 5 === 0 ? C.em3 : (h % 3 === 0 ? C.em1 : C.em2));
+        else if (dep <= 1) col = C.rg0;
+        else if (dep === 2) col = h % 4 === 0 ? C.rg2 : C.rg1;
+        else if (dep === 3) col = (h + sh) % 9 === 0 ? C.rg3 : C.rg2;
+        else col = (h + sh) % 6 === 0 ? C.rg4 : C.rg3;
+      } else if (cs >= 0) {
+        var hot = 1 - cs;
+        if (c.core) col = h % 9 === 0 && hot > 0.4 ? C.em1 : (dep >= 3 ? C.outline : C.scar);
+        else col = h < hot * 40 ? (h % 2 ? C.em4 : C.em3) : (h % 4 === 0 ? C.em2 : (h % 4 === 3 ? C.em0 : C.em1));
+      } else if (c.core && dep >= 2) col = dep >= 4 ? C.outline : C.f0;
+      if (!col) continue;
+      var p = ((c.y - oy) * w + (c.x - ox)) * 4;
+      d[p] = col[0]; d[p + 1] = col[1]; d[p + 2] = col[2]; d[p + 3] = 255;
+    }
+    this.ctx.putImageData(this.img, 0, 0);
+    this.tex.refresh();
+  };
+
   FissureView.prototype.update = function (f, tick) {
+    if (!f.big) { this.updateNet(f, tick); return; }
     var st = f.state, cooling = st === 'scar' ? Math.min(1, (tick - (f.scarTick || tick)) / 480) : 0, sh = tick >> 3;
     var key = st + '|' + (st === 'open' ? sh : Math.round(f.reveal * 80)) + '|' + Math.round(cooling * 24);
     // light
@@ -2364,6 +2611,7 @@
             if (e.state === 'closing') fx.ring(e.x, e.y, e.big ? 48 : 26, 3, 0.6, 'em3', 0.6);
             if (e.state === 'scar') { fx.burst(e.x, e.y, 'em4', e.big ? 50 : 20, 100, 0.7); fx.shake(e.big ? 0.8 : 0.3); }
             break;
+          case 'seg': fx.burst(e.x, e.y, 'em4', 10, 70, 0.5); fx.ring(e.x, e.y, 14, 2, 0.4, 'em3', 0.5); break;
           case 'chest': fx.burst(e.x, e.y, 'gold', 30, 110, 0.7); fx.ring(e.x, e.y, 3, 30, 0.4, 'gold'); break;
           case 'drop': fx.burst(e.x, e.y, UI.RARITY[e.rarity], 8, 50, 0.5); break;
           case 'pickup': fx.burst(this.sim.player.x, this.sim.player.y, e.item ? UI.RARITY[e.item.rarity] : 'tome2', 10, 60, 0.4); break;

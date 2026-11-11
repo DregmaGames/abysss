@@ -59,7 +59,7 @@
 
   // ------------------------------------------------------------------ fissure
   // Open: green rift light inside an ember-hot rim. Sealed: a dark scar with an orange edge
-  // that cools but never fully fades. Dormant: a hairline crack you can spot while exploring.
+  // that cools but never fully fades. Dormant (super fissure only): a hairline crack.
   function FissureView(scene, f) {
     var cells = f.cells, n = cells.length, i, minX = 0, minY = 0, maxX = 0, maxY = 0;
     for (i = 0; i < n; i++) {
@@ -96,7 +96,48 @@
     var self = this;
     ['f0', 'outline', 'scar', 'rg0', 'rg1', 'rg2', 'rg3', 'rg4', 'em0', 'em1', 'em2', 'em3', 'em4'].forEach(function (kk) { self.C[kk] = UI.rgb(kk); });
   }
+  // a crack of the network: each segment is open (rift light) or dark (a scar that cools)
+  FissureView.prototype.updateNet = function (f, tick) {
+    var st = f.state, sh = tick >> 3, s, cool = [], minCool = 1, opening = st === 'opening';
+    var key = st + '|' + (opening ? Math.round(f.reveal * 80) : (f.litN ? sh : 0));
+    for (s = 0; s < f.nSeg; s++) {
+      var cv = f.dark[s] ? Math.min(1, (tick - f.darkTick[s]) / 480) : -1;
+      cool.push(cv);
+      if (cv >= 0 && cv < minCool) minCool = cv;
+      key += '|' + (cv < 0 ? 'L' : Math.round(cv * 24));
+    }
+    var litFrac = f.litN / f.nSeg, a, tint;
+    if (f.litN) { a = 0.5 * (opening ? f.reveal : 1) * (0.35 + 0.65 * litFrac) + ((tick >> 2) % 5) * 0.012; tint = 'rg2'; }
+    else { a = 0.34 - minCool * 0.2; tint = 'em2'; }
+    this.glow.setAlpha(a).setTint(UI.hex(tint));
+    if (key === this.last) return;
+    this.last = key;
+    var cells = this.cells, n = cells.length, d = this.img.data, C = this.C, w = this.w, ox = this.ox, oy = this.oy, i;
+    d.fill(0);
+    for (i = 0; i < n; i++) {
+      var c = cells[i], h = this.hash[i], dep = this.depth[i], col = null, cs = cool[c.seg];
+      if (cs < 0 && (!opening || c.o <= f.reveal)) {
+        if (opening && f.reveal - c.o < 0.07) col = c.core ? C.rg4 : C.em4;
+        else if (!c.core) col = (h + sh) % 13 === 0 ? C.em4 : (h % 5 === 0 ? C.em3 : (h % 3 === 0 ? C.em1 : C.em2));
+        else if (dep <= 1) col = C.rg0;
+        else if (dep === 2) col = h % 4 === 0 ? C.rg2 : C.rg1;
+        else if (dep === 3) col = (h + sh) % 9 === 0 ? C.rg3 : C.rg2;
+        else col = (h + sh) % 6 === 0 ? C.rg4 : C.rg3;
+      } else if (cs >= 0) {
+        var hot = 1 - cs;
+        if (c.core) col = h % 9 === 0 && hot > 0.4 ? C.em1 : (dep >= 3 ? C.outline : C.scar);
+        else col = h < hot * 40 ? (h % 2 ? C.em4 : C.em3) : (h % 4 === 0 ? C.em2 : (h % 4 === 3 ? C.em0 : C.em1));
+      } else if (c.core && dep >= 2) col = dep >= 4 ? C.outline : C.f0;
+      if (!col) continue;
+      var p = ((c.y - oy) * w + (c.x - ox)) * 4;
+      d[p] = col[0]; d[p + 1] = col[1]; d[p + 2] = col[2]; d[p + 3] = 255;
+    }
+    this.ctx.putImageData(this.img, 0, 0);
+    this.tex.refresh();
+  };
+
   FissureView.prototype.update = function (f, tick) {
+    if (!f.big) { this.updateNet(f, tick); return; }
     var st = f.state, cooling = st === 'scar' ? Math.min(1, (tick - (f.scarTick || tick)) / 480) : 0, sh = tick >> 3;
     var key = st + '|' + (st === 'open' ? sh : Math.round(f.reveal * 80)) + '|' + Math.round(cooling * 24);
     // light

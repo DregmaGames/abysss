@@ -140,6 +140,7 @@
             if (e.state === 'closing') fx.ring(e.x, e.y, e.big ? 48 : 26, 3, 0.6, 'em3', 0.6);
             if (e.state === 'scar') { fx.burst(e.x, e.y, 'em4', e.big ? 50 : 20, 100, 0.7); fx.shake(e.big ? 0.8 : 0.3); }
             break;
+          case 'seg': fx.burst(e.x, e.y, 'em4', 10, 70, 0.5); fx.ring(e.x, e.y, 14, 2, 0.4, 'em3', 0.5); break;
           case 'chest': fx.burst(e.x, e.y, 'gold', 30, 110, 0.7); fx.ring(e.x, e.y, 3, 30, 0.4, 'gold'); break;
           case 'drop': fx.burst(e.x, e.y, UI.RARITY[e.rarity], 8, 50, 0.5); break;
           case 'pickup': fx.burst(this.sim.player.x, this.sim.player.y, e.item ? UI.RARITY[e.item.rarity] : 'tome2', 10, 60, 0.4); break;
