@@ -137,3 +137,7 @@ Tools:
 
 URL parameters: `seed`, `tier`, `class`, `speed`, `bot=1`, `manual=1`, `touch=1`, `fresh=1`, `scene`,
 `room=test`, `debug=0`.
+
+## Planned later
+
+- A dagger class (daguero), after the first public version's three classes. It may take the Venom family.

@@ -6,6 +6,15 @@ without asking questions. Where this spec leaves a choice open, it says so and g
 The data is already in `src/balance.js`: `abilityRules`, `families`, `abilities`, `builds`. The sim does
 not read it yet. The old `passives` table and the old level-up still run the game until you switch over.
 
+
+## Decisions by the user (2026-11-11)
+
+- Replacing an active loses all its ranks (as written below).
+- Venom stays archer-only for now. A dagger class (daguero) is planned later and may use it.
+- Shared Mending stays in the Blood family.
+- Implementation runs in two batches: batch A = rules, offers, slots, families, statuses and the
+  mage group; batch B = warrior and archer groups and the remaining mechanics.
+
 ## 1. What the player sees
 
 - Each level up (and each ability tome) offers **3 cards**: usually 1 active, 1 passive and 1 of either.
