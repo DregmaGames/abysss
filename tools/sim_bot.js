@@ -2,7 +2,8 @@
 // Bulk bot runs of the sim under Node (same sim + bot code the browser runs, no rendering).
 //   node tools/sim_bot.js [--seeds 1-200] [--tier 0] [--class mage] [--build id] [--leave N] [--career N] [--json] [--set path=value ...]
 // Reports win rate, deaths per room, softlocks, and the seeds used.
-// --career N: play N consecutive runs keeping gear (always the highest unlocked tier).
+// --career N: play N consecutive runs keeping gear (always the highest unlocked tier). Between runs the bot equips the best and discards
+//   the rest; it leaves when hurt or at a target room that rises after each extraction (BAL.bot.career). --leave N overrides the target.
 // --leave N: the bot leaves with the sealed bag after clearing room N (default: it goes on to the boss; doors: the milder one, the smaller loot bonus).
 // --class id: play this class (BAL.classes; default BAL.defaultClass).
 // --build id: the bot's named ability build (BAL.builds.<class>.<id>; default: the class's first). 
@@ -59,13 +60,17 @@ function main() {
   const t0 = Date.now();
   if (args.career) {
     gear = G.newSave().gear;
+    const cp = G.BAL.bot.career, cls = G.classDef(G.BAL, args.cls).id;
+    let target = cp.startRoom;
     for (let i = 0; i < args.career; i++) {
+      G.Bot.prepareGear(gear, G.BAL, cls);      // between runs, as a player on the title screen: equip the best, discard the rest
       const gs = G.gearScore(gear);
       let tier = 0;
       G.BAL.run.tierGear.forEach((need, t) => { if (gs >= need) tier = t; });
-      G.Bot.prepareGear(gear, G.BAL, G.classDef(G.BAL, args.cls).id);      // between runs: equip, discard
-      const r = G.botRun(seeds[i % seeds.length], { tier, gear, cls: args.cls, build: args.build, leave: args.leave });
-      r.tier = tier; r.gearBefore = gs;
+      const r = G.botRun(seeds[i % seeds.length], { tier, gear, cls: args.cls, build: args.build, leave: args.leave || target, lowHp: cp.lowHp });
+      r.tier = tier; r.gearBefore = gs; r.target = args.leave || target;
+      G.Bot.prepareGear(gear, G.BAL, cls); r.gearAfter = G.gearScore(gear);
+      if (r.result === 'left' || r.result === 'win') target = Math.min(cp.cap, target + cp.step);
       res.push(r);
     }
   } else {
@@ -94,7 +99,7 @@ function main() {
   if (args.json) console.log(JSON.stringify({ summary, runs: res }));
   else {
     console.log(summary);
-    if (args.career) res.forEach((r, i) => console.log(`run ${i + 1}: tier ${r.tier + 1} gear ${r.gearBefore}->${r.gearScore} ${r.result} room ${r.room + 1} lvl ${r.level} ${r.seconds}s`));
+    if (args.career) res.forEach((r, i) => console.log(`run ${i + 1}: seed ${r.seed} tier ${r.tier + 1}/${G.BAL.run.tierMult.length} target room ${r.target} gear ${r.gearBefore}->${r.gearAfter} ${r.result} room ${r.room + 1} bag ${r.bag.items} (kept ${r.bag.kept}) lvl ${r.level} ${r.seconds}s`));
   }
   process.exit(soft.length || tout.length ? 2 : 0);
 }

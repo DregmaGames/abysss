@@ -463,7 +463,9 @@
 
     // QA bot only (not game difficulty): how often it re-decides in a fight. 12 ticks = 0.2 s,
     // roughly a human reaction time. 1 would be a frame-perfect player.
-    bot: { reactionTicks: 12 },
+    // career policy (tools/sim_bot.js --career): leave after a room when HP is under lowHp of max, or when the room reached is at or
+    // beyond a target that starts at startRoom and rises by step after every run that ends in an extraction (leave or win), up to cap.
+    bot: { reactionTicks: 12, career: { startRoom: 3, step: 1, cap: 10, lowHp: 0.4 } },
 
     fx: { shakeCap: 5, shakeDecay: 9 },   // max shake offset in art px at 100 %
     softlockSeconds: 400

@@ -36,6 +36,10 @@ Design decisions live in the plan doc (the user has it); this file is what an ag
   (bad entries dropped, cut to 30, `nextId` raised above every item id), equipped gear, settings, stats kept.
 - Bot: default goes on to room 10 and takes the door with the smaller loot bonus; `--leave N` (also `?leave=N` in the browser) leaves after room N.
   `G.Bot.prepareGear` equips and discards between runs (used by `--career`). `sim_bot` reports `left` and bag items.
+- Career (`sim_bot --career 10 --seeds 1-10`, 10 runs, gear kept): between runs `G.Bot.prepareGear` equips the best item per slot (own-class weapons only)
+  and discards the rest; the bot leaves when HP < 40 % after a room, or at a target room that starts at 3 and rises 1 per extraction, cap 10
+  (`BAL.bot.career`). Gear score 0 -> 54 / 62 / 55 and the last runs reach room 9-10: mage 7 left, 3 dead, deepest room 9 (no win); warrior 8 left or won
+  (wins in runs 9, 10), 1 dead; archer 9 left or won (wins in runs 9, 10), 1 dead. Gear score stays under 70, so tier 1 all career (the label now reads `tier N/3`).
 - Checks: `node tools/determinism.js` passes (500 rooms, 1200 modified rooms, doors, seed 3 default and `--leave 5` twice, 9 builds twice);
   `node tools/check_bag.js`: 33 checks pass (die / leave / win bag, full kept bag, test room, doors deterministic, each modifier, loot bonus
   102 -> 137 item drops in 4800 imp kills, save migration).
