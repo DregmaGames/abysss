@@ -4,17 +4,18 @@
 (function (G) {
   var T = 16;
   var KEEP = { imp: 44, bat: 38, skeleton: 36, hound: 64, warden: 56, tyrant: 76 };
-  var PICK = { multi: 12, power: 10, haste: 10, pierce: 9, vital: 7, crit: 7, ward: 6, regen: 6, leech: 6, swift: 5, pulse: 4, range: 4, blink: 3, wisdom: 3 };
   var DIRS = [];
   for (var i = 0; i < 16; i++) DIRS.push({ x: G.M.cos(i / 16 * 6.2832), y: G.M.sin(i / 16 * 6.2832) });
 
   function Bot(sim) {
+    // class hints (BAL.classes.<id>.bot): keep-away multiplier and passive preference
+    this.keep = sim.cls.bot.keep; this.pick = sim.cls.bot.pick;
     this.sim = sim; this.room = null; this.field = null; this.goalTile = -1; this.orbit = 1;
     this.thinkTick = -999; this.mx = 0; this.my = 0; this.wantDodge = false; this.wantPulse = false;
   }
 
   Bot.prototype.pickPassive = function () {
-    var c = this.sim.choices, best = 0;
+    var c = this.sim.choices, best = 0, PICK = this.pick;
     for (var i = 1; i < c.length; i++) if ((PICK[c[i]] || 0) > (PICK[c[best]] || 0)) best = i;
     return best;
   };
@@ -49,7 +50,7 @@
   // Is the way along `g` blocked by an open crack within a few px? Then return the direction to
   // dodge across it (the landing spot must be free), 'wait' while the dodge recharges, or null.
   Bot.prototype.crossDir = function (g) {
-    var sim = this.sim, p = sim.player, P = sim.B.player, gl = Math.sqrt(g.x * g.x + g.y * g.y), k, i;
+    var sim = this.sim, p = sim.player, D = sim.cls.dodge, gl = Math.sqrt(g.x * g.x + g.y * g.y), k, i;
     if (gl < 0.1) return null;
     var ux = g.x / gl, uy = g.y / gl, blocked = false;
     for (k = 2; k <= 10 && !blocked; k += 2) if (sim.crackHits(p.x + ux * k, p.y + uy * k, p.r)) blocked = true;
@@ -58,8 +59,8 @@
     var base = G.M.atan2(uy, ux), tries = [0, 0.4, -0.4, 0.8, -0.8];
     for (i = 0; i < tries.length; i++) {
       var a = base + tries[i], dx = G.M.cos(a), dy = G.M.sin(a), ok = true;
-      for (k = 6; k <= P.dodgeDist && ok; k += 6) if (sim.boxHits(p.x + dx * k, p.y + dy * k, p.r)) ok = false;
-      if (ok && !sim.crackHits(p.x + dx * P.dodgeDist, p.y + dy * P.dodgeDist, p.r)) return { x: dx, y: dy };
+      for (k = 6; k <= D.dist && ok; k += 6) if (sim.boxHits(p.x + dx * k, p.y + dy * k, p.r)) ok = false;
+      if (ok && !sim.crackHits(p.x + dx * D.dist, p.y + dy * D.dist, p.r)) return { x: dx, y: dy };
     }
     return null;
   };
@@ -68,7 +69,7 @@
     var sim = this.sim;
     if (sim.state !== 'play') return;
     if (sim.tick % 30 === 0) this.manageGear();
-    var p = sim.player, s = sim.stats, P = sim.B.player, inp = sim.input, i;
+    var p = sim.player, s = sim.stats, K = sim.cls.skill, inp = sim.input, i;
     // Human-like reaction time: in a fight the bot only re-decides every `reactionTicks`
     // and holds its last decision in between. Out of combat it steers every tick.
     var fight = sim.monsters.length || sim.shots.length || sim.teles.length;
@@ -87,10 +88,10 @@
       if (m.dead) continue;
       var dx = m.x - p.x, dy = m.y - p.y, d = Math.sqrt(dx * dx + dy * dy) || 0.01, gap = d - m.r;
       if (gap < nd) { nd = gap; nearest = m; }
-      var keep = KEEP[m.type] + (m.st === 'lunge' || m.st === 'wind' || m.st === 'charge' || m.st === 'chargeWind' ? 24 : 0);
+      var keep = KEEP[m.type] * this.keep + (m.st === 'lunge' || m.st === 'wind' || m.st === 'charge' || m.st === 'chargeWind' ? 24 : 0);
       if (gap < keep) { var w = (keep - gap) / keep * (m.def.boss ? 3 : 2); ax -= dx / d * w; ay -= dy / d * w; }
       if (gap < 15) close++;
-      if (gap < P.pulseRadius - 8) { inPulse++; if (m.def.elite || m.def.boss) heavy++; }
+      if (gap < K.radius - 8) { inPulse++; if (m.def.elite || m.def.boss) heavy++; }
       // a lunging husk / charging boss aimed at us: sidestep with a dodge
       if ((m.st === 'lunge' || m.st === 'charge') && gap < 36 && (m.lx * -dx + m.ly * -dy) / d > 0.6) dodge = true;
     }
@@ -180,7 +181,7 @@
   G.botRun = function (seed, opts) {
     opts = opts || {};
     var gear = opts.gear || G.newSave().gear;
-    var sim = new G.Sim({ seed: seed, tier: opts.tier || 0, gear: gear, bal: opts.bal }), bot = new Bot(sim);
+    var sim = new G.Sim({ seed: seed, tier: opts.tier || 0, gear: gear, bal: opts.bal, cls: opts.cls }), bot = new Bot(sim);
     var maxTicks = (opts.maxSeconds || 1200) * 60, softlock = false, worstStuck = 0, roomTicks = [], last = 0, lastRoom = 0, minHp = sim.B.run.roomMult.map(function () { return 1; });
     while (sim.tick < maxTicks && (sim.state === 'play' || sim.state === 'levelup')) {
       if (sim.state === 'levelup') { sim.choosePassive(bot.pickPassive()); continue; }
@@ -193,7 +194,7 @@
       if (st > worstStuck) worstStuck = st;
       if (st > sim.B.softlockSeconds) { softlock = true; break; }
     }
-    return { seed: seed, result: softlock ? 'softlock' : (sim.state === 'won' ? 'win' : (sim.state === 'dead' ? 'dead' : 'timeout')),
+    return { seed: seed, cls: sim.clsId, result: softlock ? 'softlock' : (sim.state === 'won' ? 'win' : (sim.state === 'dead' ? 'dead' : 'timeout')),
       room: sim.roomIndex, phase: sim.phase, rooms: sim.roomsCleared, seconds: Math.round(sim.tick / 60), level: sim.player.level,
       kills: sim.kills, hp: Math.round(sim.player.hp), gearScore: G.gearScore(gear), worstStuck: Math.round(worstStuck), minHp: minHp, roomSeconds: roomTicks.map(function (t) { return Math.round(t / 60); }) };
   };

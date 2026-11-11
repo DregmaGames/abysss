@@ -5,8 +5,9 @@
   function dist(a, b) { var dx = a.x - b.x, dy = a.y - b.y; return Math.sqrt(dx * dx + dy * dy); }
 
   // -------------------------------------------------------------- player kit
+  // Auto-attack the nearest monster in range and in sight, the class's way (see BAL.classes).
   S.autoAttack = function () {
-    var p = this.player, s = this.stats, P = this.B.player, best = null, bd = s.range, i, m;
+    var p = this.player, s = this.stats, best = null, bd = s.range, i, m;
     for (i = 0; i < this.monsters.length; i++) {
       m = this.monsters[i];
       if (m.dead) continue;
@@ -14,27 +15,57 @@
       if (d < bd && this.los(p.x, p.y, m.x, m.y)) { bd = d; best = m; }
     }
     if (!best) return;
-    var a = G.M.atan2(best.y - p.y, best.x - p.x), life = s.range / P.boltSpeed * 1.2;
     if (Math.abs(best.x - p.x) > 2) p.face = best.x > p.x ? 1 : -1;
-    for (i = -s.multi; i <= s.multi; i++) {
-      var ang = a + i * 0.22, crit = this.rngCombat.chance(s.crit);
-      var dmg = s.dmg * (i === 0 ? 1 : P.sideBoltDmg) * (crit ? P.critMult : 1);
-      this.bolts.push({ id: this.nextId++, x: p.x, y: p.y - 2, vx: G.M.cos(ang) * P.boltSpeed, vy: G.M.sin(ang) * P.boltSpeed,
-        r: P.boltR, dmg: dmg, crit: crit, life: life, pierce: s.pierce, hit: {} });
-    }
+    if (this.cls.attack.kind === 'arc') this.swing(best); else this.shootBolts(best);
     p.atkCd = s.atkInterval;
+  };
+
+  // projectile: one bolt at the target, plus `multi` side bolts on each side
+  S.shootBolts = function (best) {
+    var p = this.player, s = this.stats, C = this.cls, A = C.attack, i;
+    var a = G.M.atan2(best.y - p.y, best.x - p.x), life = s.range / A.speed * A.life;
+    for (i = -s.multi; i <= s.multi; i++) {
+      var ang = a + i * A.spread, crit = this.rngCombat.chance(s.crit);
+      var dmg = s.dmg * (i === 0 ? 1 : A.sideDmg) * (crit ? C.base.critMult : 1);
+      this.bolts.push({ id: this.nextId++, x: p.x, y: p.y - 2, vx: G.M.cos(ang) * A.speed, vy: G.M.sin(ang) * A.speed,
+        r: A.r, dmg: dmg, crit: crit, life: life, pierce: s.pierce, knock: A.knock, knockElite: A.knockElite, hit: {} });
+    }
     this.emit({ t: 'cast', x: p.x, y: p.y });
   };
 
+  // melee: one swing toward the target that hits every monster within reach (s.range + its radius)
+  // inside an arc of A.arc radians centred on the target. One crit roll per swing.
+  S.swing = function (best) {
+    var p = this.player, s = this.stats, C = this.cls, A = C.attack, i;
+    var dx = best.x - p.x, dy = best.y - p.y, l = Math.sqrt(dx * dx + dy * dy) || 1, ux = dx / l, uy = dy / l;
+    var cosHalf = G.M.cos(A.arc / 2), crit = this.rngCombat.chance(s.crit), dmg = s.dmg * (crit ? C.base.critMult : 1);
+    this.emit({ t: 'swing', x: p.x, y: p.y, a: G.M.atan2(uy, ux), arc: A.arc, r: s.range, crit: crit });
+    for (i = this.monsters.length - 1; i >= 0; i--) {
+      var m = this.monsters[i];
+      if (m.dead) continue;
+      var mx = m.x - p.x, my = m.y - p.y, d = Math.sqrt(mx * mx + my * my) || 0.01;
+      if (d - m.r > s.range) continue;
+      if (m !== best && (mx * ux + my * uy) / d < cosHalf) continue;
+      var k = m.def.boss ? 0 : (m.def.elite ? A.knockElite : A.knock);
+      m.kx += mx / d * k; m.ky += my / d * k;
+      this.damageMonster(m, dmg, crit);
+    }
+  };
+
+  // the active skill button; skill kinds: 'pulse' (a new kind adds a branch and a cast function)
+  S.castSkill = function () {
+    if (this.cls.skill.kind === 'pulse') this.castPulse();
+  };
+
   S.castPulse = function () {
-    var p = this.player, s = this.stats, P = this.B.player, R = P.pulseRadius, i;
+    var p = this.player, s = this.stats, K = this.cls.skill, R = K.radius, i;
     p.pulseCd = s.pulseCd;
     this.emit({ t: 'pulse', x: p.x, y: p.y, r: R });
     for (i = this.monsters.length - 1; i >= 0; i--) {
       var m = this.monsters[i], d = dist(m, p);
       if (m.dead || d - m.r > R) continue;
       var k = m.def.boss ? 0.15 : (m.def.elite ? 0.5 : 1), l = d || 1;
-      m.kx += (m.x - p.x) / l * P.pulseKnock * k; m.ky += (m.y - p.y) / l * P.pulseKnock * k;
+      m.kx += (m.x - p.x) / l * K.knock * k; m.ky += (m.y - p.y) / l * K.knock * k;
       this.damageMonster(m, s.pulseDmg, false);
     }
     for (i = this.shots.length - 1; i >= 0; i--) {      // the pulse also clears enemy shots
@@ -226,7 +257,7 @@
         var dx = m.x - b.x, dy = m.y - b.y, rr = m.r + b.r;
         if (dx * dx + dy * dy > rr * rr) continue;
         b.hit[m.id] = 1;
-        var l = Math.sqrt(b.vx * b.vx + b.vy * b.vy), k = m.def.boss ? 0 : (m.def.elite ? 14 : 34);
+        var l = Math.sqrt(b.vx * b.vx + b.vy * b.vy), k = m.def.boss ? 0 : (m.def.elite ? b.knockElite : b.knock);
         m.kx += b.vx / l * k; m.ky += b.vy / l * k;
         this.damageMonster(m, b.dmg, b.crit);
         if (b.pierce > 0) b.pierce--; else gone = true;

@@ -26,9 +26,9 @@
     return { id: id, name: NAME[id], desc: desc, rarity: d.rarity, max: d.max };
   };
 
-  // up to 3 distinct passives that are not at max level
-  G.rollPassives = function (rng, owned, B, tome) {
-    var ids = Object.keys(B.passives).filter(function (id) { return (owned[id] || 0) < B.passives[id].max; });
+  // up to 3 distinct passives that are not at max level, from the class pool (default: all, table order)
+  G.rollPassives = function (rng, owned, B, tome, pool) {
+    var ids = (pool || Object.keys(B.passives)).filter(function (id) { return (owned[id] || 0) < B.passives[id].max; });
     var out = [];
     while (out.length < 3 && ids.length) {
       var w = ids.map(function (id) { var d = B.passives[id]; return d.w * (tome && d.rarity > 0 ? B.tomeRareBoost : 1); });

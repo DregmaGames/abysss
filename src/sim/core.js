@@ -4,7 +4,8 @@
   var T = 16;
 
   function Sim(opts) {
-    var B = this.B = opts.bal || G.BAL, P = B.player;
+    var B = this.B = opts.bal || G.BAL, C = this.cls = G.classDef(B, opts.cls);
+    this.clsId = C.id;
     this.seed = opts.seed >>> 0;
     this.tier = opts.tier || 0;
     this.gear = opts.gear;
@@ -18,8 +19,8 @@
     this.rngLevel = new G.RNG(G.hash32(this.seed, 4242));
     this.choices = []; this.choiceTome = false;
     this.cheats = opts.cheats || {};     // debug panel toggles: god, noCd (see the cheats section below)
-    this.player = { x: 0, y: 0, r: P.r, hp: P.hp, maxHp: P.hp, fx: 0, fy: -1, face: 1, moving: false,
-      atkCd: 0.4, dodgeCd: 0, dashT: 0, dashX: 0, dashY: 0, iframes: 0, pulseCd: 0,
+    this.player = { x: 0, y: 0, r: C.base.r, hp: C.base.hp, maxHp: C.base.hp, fx: 0, fy: -1, face: 1, moving: false,
+      atkCd: C.attack.firstCd, dodgeCd: 0, dashT: 0, dashX: 0, dashY: 0, iframes: 0, pulseCd: 0,
       level: 1, exp: 0, expNext: this.expFor(1), passives: {}, pending: 0, tomes: 0, walk: true,
       crackBlock: false, blockTick: -999, dashOver: false };
     this.stats = {};
@@ -36,9 +37,18 @@
   S.stuckSeconds = function () { return (this.tick - this.progressTick) * this.B.DT; };
   S.expFor = function (level) { var E = this.B.exp; return Math.round(E.base + E.grow * G.M.pow(level - 1, E.pow)); };
 
-  // derived stats = base + gear + passives (pure; also used by the inventory screen outside a run)
-  G.computeStats = function (B, gear, passives) {
-    var P = B.player, cap = B.items.cap, g = G.gearStats(gear), p = G.passiveSums(passives || {}, B), s = {};
+  // the class table entry for an id (unknown or missing id: the default class), with its id
+  G.classDef = function (B, id) {
+    if (!B.classes[id]) id = B.defaultClass;
+    var C = B.classes[id];
+    if (!C.id) C.id = id;
+    return C;
+  };
+  G.classIds = function (B) { return Object.keys(B.classes); };
+
+  // derived stats = class base + gear + passives (pure; also used by the inventory screen outside a run)
+  G.computeStats = function (B, gear, passives, cls) {
+    var C = G.classDef(B, cls), P = C.base, cap = B.items.cap, g = G.gearStats(gear), p = G.passiveSums(passives || {}, B), s = {};
     function v(k) { return (g[k] || 0) + (p[k] || 0); }
     s.maxHp = Math.round(P.hp + v('hp'));
     s.dmg = P.dmg * (1 + v('dmgPct') / 100);
@@ -47,9 +57,9 @@
     s.range = P.range * (1 + v('rangePct') / 100);
     s.crit = Math.min(cap.crit, P.crit * 100 + v('crit')) / 100;
     s.armor = v('armor');
-    s.pulseDmg = P.pulseDmg * (1 + v('pulsePct') / 100);
-    s.pulseCd = P.pulseCd * (1 - Math.min(cap.cdrPct, v('cdrPct') + (p.pulseCdPct || 0)) / 100);
-    s.dodgeCd = P.dodgeCd * (1 - Math.min(cap.cdrPct, v('cdrPct') + (p.dodgeCdPct || 0)) / 100);
+    s.pulseDmg = C.skill.dmg * (1 + v('pulsePct') / 100);
+    s.pulseCd = C.skill.cd * (1 - Math.min(cap.cdrPct, v('cdrPct') + (p.pulseCdPct || 0)) / 100);
+    s.dodgeCd = C.dodge.cd * (1 - Math.min(cap.cdrPct, v('cdrPct') + (p.dodgeCdPct || 0)) / 100);
     s.regen = v('regen');
     s.expMult = 1 + v('expPct') / 100;
     s.pierce = p.pierce || 0; s.multi = p.multi || 0; s.leech = p.leech || 0;
@@ -57,7 +67,7 @@
   };
   // called whenever gear or passives change: stats apply immediately
   S.recalc = function () {
-    var oldMax = this.stats.maxHp || 0, s = this.stats = G.computeStats(this.B, this.gear, this.player.passives), pl = this.player;
+    var oldMax = this.stats.maxHp || 0, s = this.stats = G.computeStats(this.B, this.gear, this.player.passives, this.clsId), pl = this.player;
     pl.maxHp = s.maxHp;
     if (oldMax && s.maxHp > oldMax) pl.hp += s.maxHp - oldMax;
     if (pl.hp > s.maxHp) pl.hp = s.maxHp;
@@ -161,7 +171,7 @@
 
   // ------------------------------------------------------------------ player
   S.updatePlayer = function (dt) {
-    var p = this.player, s = this.stats, P = this.B.player, inp = this.input;
+    var p = this.player, s = this.stats, P = this.B.player, D = this.cls.dodge, inp = this.input;
     var mx = inp.mx, my = inp.my, l = Math.sqrt(mx * mx + my * my);
     p.moving = l > 0.01;
     if (p.moving) { mx /= l; my /= l; p.fx = mx; p.fy = my; if (Math.abs(mx) > 0.2) p.face = mx > 0 ? 1 : -1; }
@@ -173,17 +183,17 @@
     if (this.cheats.noCd) { p.dodgeCd = 0; p.pulseCd = 0; }
 
     if (inp.dodge && p.dodgeCd <= 0 && p.dashT <= 0) {
-      p.dashT = P.dodgeTime; p.dashX = p.fx; p.dashY = p.fy;
-      p.iframes = Math.max(p.iframes, P.dodgeIframes);
+      p.dashT = D.time; p.dashX = p.fx; p.dashY = p.fy;
+      p.iframes = Math.max(p.iframes, D.iframes);
       p.dodgeCd = s.dodgeCd;
       p.dashOver = false;
       // cross: the dash line runs over an open crack (the view draws the hop arc)
-      var cross = this.crackLit > 0 && this.crackOnLine(p.x, p.y, p.x + p.dashX * P.dodgeDist, p.y + p.dashY * P.dodgeDist, p.r);
-      this.emit({ t: 'dodge', x: p.x, y: p.y, dx: p.dashX, dy: p.dashY, cross: cross, dur: P.dodgeTime });
+      var cross = this.crackLit > 0 && this.crackOnLine(p.x, p.y, p.x + p.dashX * D.dist, p.y + p.dashY * D.dist, p.r);
+      this.emit({ t: 'dodge', x: p.x, y: p.y, dx: p.dashX, dy: p.dashY, cross: cross, dur: D.time });
     }
     inp.dodge = false;
     if (p.dashT > 0) {
-      var sp = P.dodgeDist / P.dodgeTime * dt;
+      var sp = D.dist / D.time * dt;
       this.move(p, p.dashX * sp, p.dashY * sp);
       if (!p.dashOver && this.crackHits(p.x, p.y, p.r)) p.dashOver = true;
       p.dashT -= dt;
@@ -197,7 +207,7 @@
       }
     }
 
-    if (inp.pulse && p.pulseCd <= 0) this.castPulse();
+    if (inp.pulse && p.pulseCd <= 0) this.castSkill();   // the class's active skill (input name kept: pulse)
     inp.pulse = false;
     if (p.atkCd <= 0) this.autoAttack();
   };
@@ -227,7 +237,7 @@
   };
   S.openLevelUp = function (tome) {
     var p = this.player;
-    this.choices = G.rollPassives(this.rngLevel, p.passives, this.B, tome);
+    this.choices = G.rollPassives(this.rngLevel, p.passives, this.B, tome, this.cls.passives);
     this.choiceTome = tome;
     if (!this.choices.length) {           // everything maxed: heal instead
       if (tome) p.tomes--; else p.pending--;

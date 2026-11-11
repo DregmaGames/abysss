@@ -25,15 +25,34 @@
       testRoom: 1                     // ?room=test / TEST ROOM button: this room, restarted on every clear
     },
 
+    // shared by every class (class numbers live in `classes` below)
     player: {
-      r: 5, hp: 100, speed: 78,
-      dmg: 10, atkInterval: 0.5, range: 112, boltSpeed: 250, boltR: 3,
-      crit: 0.05, critMult: 1.8, sideBoltDmg: 0.6,
-      dodgeDist: 54, dodgeTime: 0.16, dodgeIframes: 0.34, dodgeCd: 1.6,
-      pulseDmg: 26, pulseRadius: 54, pulseCd: 7, pulseKnock: 200,
       hurtIframes: 0.3, pickupR: 36, levelHeal: 0.03,
-      blockedEvery: 0.4               // s between two 'blocked' events while the mage pushes into an open crack
+      blockedEvery: 0.4               // s between two 'blocked' events while the hero pushes into an open crack
     },
+
+    // Character classes as data. How to add one: docs/classes.md.
+    //   base:   radius, hp, move speed, damage, s per attack, attack range (bolt reach or swing reach), crit.
+    //   attack: kind 'bolt' (projectile: speed, r, sideDmg per extra bolt, spread rad between bolts,
+    //           life = range / speed * life, knock / knockElite on hit) or 'arc' (melee swing: arc = full
+    //           width in rad, knock / knockElite; extra bolts and pierce do nothing for it).
+    //   dodge:  dist px, time s, iframes s, cd s.   skill: the active button (kind 'pulse' only, for now).
+    //   sprite: atlas frame prefix (<frames>_0..2), glow and dash tints (palette keys), attack frame.
+    //   passives: the level-up pool, in roll order (the order is part of the run: changing it changes runs).
+    //   bot: QA bot hints. keep: multiplier on its keep-away distances; pick: passive preference.
+    classes: {
+      mage: {
+        name: 'Mage',
+        base: { r: 5, hp: 100, speed: 78, dmg: 10, atkInterval: 0.5, range: 112, crit: 0.05, critMult: 1.8 },
+        attack: { kind: 'bolt', firstCd: 0.4, speed: 250, r: 3, sideDmg: 0.6, spread: 0.22, life: 1.2, knock: 34, knockElite: 14, frame: 'bolt', glow: 'orb' },
+        dodge: { dist: 54, time: 0.16, iframes: 0.34, cd: 1.6 },
+        skill: { kind: 'pulse', dmg: 26, radius: 54, cd: 7, knock: 200 },
+        sprite: { frames: 'mage', glow: 'mb2', dash: 'mb3' },
+        passives: ['power', 'haste', 'vital', 'swift', 'range', 'wisdom', 'regen', 'crit', 'pulse', 'blink', 'ward', 'pierce', 'multi', 'leech'],
+        bot: { keep: 1, pick: { multi: 12, power: 10, haste: 10, pierce: 9, vital: 7, crit: 7, ward: 6, regen: 6, leech: 6, swift: 5, pulse: 4, range: 4, blink: 3, wisdom: 3 } }
+      }
+    },
+    defaultClass: 'mage',
 
     exp: { base: 9, grow: 5, pow: 1.22 },   // exp to next = base + grow * (level-1)^pow
 
@@ -651,9 +670,9 @@
     return { id: id, name: NAME[id], desc: desc, rarity: d.rarity, max: d.max };
   };
 
-  // up to 3 distinct passives that are not at max level
-  G.rollPassives = function (rng, owned, B, tome) {
-    var ids = Object.keys(B.passives).filter(function (id) { return (owned[id] || 0) < B.passives[id].max; });
+  // up to 3 distinct passives that are not at max level, from the class pool (default: all, table order)
+  G.rollPassives = function (rng, owned, B, tome, pool) {
+    var ids = (pool || Object.keys(B.passives)).filter(function (id) { return (owned[id] || 0) < B.passives[id].max; });
     var out = [];
     while (out.length < 3 && ids.length) {
       var w = ids.map(function (id) { var d = B.passives[id]; return d.w * (tome && d.rarity > 0 ? B.tomeRareBoost : 1); });
@@ -681,7 +700,8 @@
   var T = 16;
 
   function Sim(opts) {
-    var B = this.B = opts.bal || G.BAL, P = B.player;
+    var B = this.B = opts.bal || G.BAL, C = this.cls = G.classDef(B, opts.cls);
+    this.clsId = C.id;
     this.seed = opts.seed >>> 0;
     this.tier = opts.tier || 0;
     this.gear = opts.gear;
@@ -695,8 +715,8 @@
     this.rngLevel = new G.RNG(G.hash32(this.seed, 4242));
     this.choices = []; this.choiceTome = false;
     this.cheats = opts.cheats || {};     // debug panel toggles: god, noCd (see the cheats section below)
-    this.player = { x: 0, y: 0, r: P.r, hp: P.hp, maxHp: P.hp, fx: 0, fy: -1, face: 1, moving: false,
-      atkCd: 0.4, dodgeCd: 0, dashT: 0, dashX: 0, dashY: 0, iframes: 0, pulseCd: 0,
+    this.player = { x: 0, y: 0, r: C.base.r, hp: C.base.hp, maxHp: C.base.hp, fx: 0, fy: -1, face: 1, moving: false,
+      atkCd: C.attack.firstCd, dodgeCd: 0, dashT: 0, dashX: 0, dashY: 0, iframes: 0, pulseCd: 0,
       level: 1, exp: 0, expNext: this.expFor(1), passives: {}, pending: 0, tomes: 0, walk: true,
       crackBlock: false, blockTick: -999, dashOver: false };
     this.stats = {};
@@ -713,9 +733,18 @@
   S.stuckSeconds = function () { return (this.tick - this.progressTick) * this.B.DT; };
   S.expFor = function (level) { var E = this.B.exp; return Math.round(E.base + E.grow * G.M.pow(level - 1, E.pow)); };
 
-  // derived stats = base + gear + passives (pure; also used by the inventory screen outside a run)
-  G.computeStats = function (B, gear, passives) {
-    var P = B.player, cap = B.items.cap, g = G.gearStats(gear), p = G.passiveSums(passives || {}, B), s = {};
+  // the class table entry for an id (unknown or missing id: the default class), with its id
+  G.classDef = function (B, id) {
+    if (!B.classes[id]) id = B.defaultClass;
+    var C = B.classes[id];
+    if (!C.id) C.id = id;
+    return C;
+  };
+  G.classIds = function (B) { return Object.keys(B.classes); };
+
+  // derived stats = class base + gear + passives (pure; also used by the inventory screen outside a run)
+  G.computeStats = function (B, gear, passives, cls) {
+    var C = G.classDef(B, cls), P = C.base, cap = B.items.cap, g = G.gearStats(gear), p = G.passiveSums(passives || {}, B), s = {};
     function v(k) { return (g[k] || 0) + (p[k] || 0); }
     s.maxHp = Math.round(P.hp + v('hp'));
     s.dmg = P.dmg * (1 + v('dmgPct') / 100);
@@ -724,9 +753,9 @@
     s.range = P.range * (1 + v('rangePct') / 100);
     s.crit = Math.min(cap.crit, P.crit * 100 + v('crit')) / 100;
     s.armor = v('armor');
-    s.pulseDmg = P.pulseDmg * (1 + v('pulsePct') / 100);
-    s.pulseCd = P.pulseCd * (1 - Math.min(cap.cdrPct, v('cdrPct') + (p.pulseCdPct || 0)) / 100);
-    s.dodgeCd = P.dodgeCd * (1 - Math.min(cap.cdrPct, v('cdrPct') + (p.dodgeCdPct || 0)) / 100);
+    s.pulseDmg = C.skill.dmg * (1 + v('pulsePct') / 100);
+    s.pulseCd = C.skill.cd * (1 - Math.min(cap.cdrPct, v('cdrPct') + (p.pulseCdPct || 0)) / 100);
+    s.dodgeCd = C.dodge.cd * (1 - Math.min(cap.cdrPct, v('cdrPct') + (p.dodgeCdPct || 0)) / 100);
     s.regen = v('regen');
     s.expMult = 1 + v('expPct') / 100;
     s.pierce = p.pierce || 0; s.multi = p.multi || 0; s.leech = p.leech || 0;
@@ -734,7 +763,7 @@
   };
   // called whenever gear or passives change: stats apply immediately
   S.recalc = function () {
-    var oldMax = this.stats.maxHp || 0, s = this.stats = G.computeStats(this.B, this.gear, this.player.passives), pl = this.player;
+    var oldMax = this.stats.maxHp || 0, s = this.stats = G.computeStats(this.B, this.gear, this.player.passives, this.clsId), pl = this.player;
     pl.maxHp = s.maxHp;
     if (oldMax && s.maxHp > oldMax) pl.hp += s.maxHp - oldMax;
     if (pl.hp > s.maxHp) pl.hp = s.maxHp;
@@ -838,7 +867,7 @@
 
   // ------------------------------------------------------------------ player
   S.updatePlayer = function (dt) {
-    var p = this.player, s = this.stats, P = this.B.player, inp = this.input;
+    var p = this.player, s = this.stats, P = this.B.player, D = this.cls.dodge, inp = this.input;
     var mx = inp.mx, my = inp.my, l = Math.sqrt(mx * mx + my * my);
     p.moving = l > 0.01;
     if (p.moving) { mx /= l; my /= l; p.fx = mx; p.fy = my; if (Math.abs(mx) > 0.2) p.face = mx > 0 ? 1 : -1; }
@@ -850,17 +879,17 @@
     if (this.cheats.noCd) { p.dodgeCd = 0; p.pulseCd = 0; }
 
     if (inp.dodge && p.dodgeCd <= 0 && p.dashT <= 0) {
-      p.dashT = P.dodgeTime; p.dashX = p.fx; p.dashY = p.fy;
-      p.iframes = Math.max(p.iframes, P.dodgeIframes);
+      p.dashT = D.time; p.dashX = p.fx; p.dashY = p.fy;
+      p.iframes = Math.max(p.iframes, D.iframes);
       p.dodgeCd = s.dodgeCd;
       p.dashOver = false;
       // cross: the dash line runs over an open crack (the view draws the hop arc)
-      var cross = this.crackLit > 0 && this.crackOnLine(p.x, p.y, p.x + p.dashX * P.dodgeDist, p.y + p.dashY * P.dodgeDist, p.r);
-      this.emit({ t: 'dodge', x: p.x, y: p.y, dx: p.dashX, dy: p.dashY, cross: cross, dur: P.dodgeTime });
+      var cross = this.crackLit > 0 && this.crackOnLine(p.x, p.y, p.x + p.dashX * D.dist, p.y + p.dashY * D.dist, p.r);
+      this.emit({ t: 'dodge', x: p.x, y: p.y, dx: p.dashX, dy: p.dashY, cross: cross, dur: D.time });
     }
     inp.dodge = false;
     if (p.dashT > 0) {
-      var sp = P.dodgeDist / P.dodgeTime * dt;
+      var sp = D.dist / D.time * dt;
       this.move(p, p.dashX * sp, p.dashY * sp);
       if (!p.dashOver && this.crackHits(p.x, p.y, p.r)) p.dashOver = true;
       p.dashT -= dt;
@@ -874,7 +903,7 @@
       }
     }
 
-    if (inp.pulse && p.pulseCd <= 0) this.castPulse();
+    if (inp.pulse && p.pulseCd <= 0) this.castSkill();   // the class's active skill (input name kept: pulse)
     inp.pulse = false;
     if (p.atkCd <= 0) this.autoAttack();
   };
@@ -904,7 +933,7 @@
   };
   S.openLevelUp = function (tome) {
     var p = this.player;
-    this.choices = G.rollPassives(this.rngLevel, p.passives, this.B, tome);
+    this.choices = G.rollPassives(this.rngLevel, p.passives, this.B, tome, this.cls.passives);
     this.choiceTome = tome;
     if (!this.choices.length) {           // everything maxed: heal instead
       if (tome) p.tomes--; else p.pending--;
@@ -1022,8 +1051,9 @@
   function dist(a, b) { var dx = a.x - b.x, dy = a.y - b.y; return Math.sqrt(dx * dx + dy * dy); }
 
   // -------------------------------------------------------------- player kit
+  // Auto-attack the nearest monster in range and in sight, the class's way (see BAL.classes).
   S.autoAttack = function () {
-    var p = this.player, s = this.stats, P = this.B.player, best = null, bd = s.range, i, m;
+    var p = this.player, s = this.stats, best = null, bd = s.range, i, m;
     for (i = 0; i < this.monsters.length; i++) {
       m = this.monsters[i];
       if (m.dead) continue;
@@ -1031,27 +1061,57 @@
       if (d < bd && this.los(p.x, p.y, m.x, m.y)) { bd = d; best = m; }
     }
     if (!best) return;
-    var a = G.M.atan2(best.y - p.y, best.x - p.x), life = s.range / P.boltSpeed * 1.2;
     if (Math.abs(best.x - p.x) > 2) p.face = best.x > p.x ? 1 : -1;
-    for (i = -s.multi; i <= s.multi; i++) {
-      var ang = a + i * 0.22, crit = this.rngCombat.chance(s.crit);
-      var dmg = s.dmg * (i === 0 ? 1 : P.sideBoltDmg) * (crit ? P.critMult : 1);
-      this.bolts.push({ id: this.nextId++, x: p.x, y: p.y - 2, vx: G.M.cos(ang) * P.boltSpeed, vy: G.M.sin(ang) * P.boltSpeed,
-        r: P.boltR, dmg: dmg, crit: crit, life: life, pierce: s.pierce, hit: {} });
-    }
+    if (this.cls.attack.kind === 'arc') this.swing(best); else this.shootBolts(best);
     p.atkCd = s.atkInterval;
+  };
+
+  // projectile: one bolt at the target, plus `multi` side bolts on each side
+  S.shootBolts = function (best) {
+    var p = this.player, s = this.stats, C = this.cls, A = C.attack, i;
+    var a = G.M.atan2(best.y - p.y, best.x - p.x), life = s.range / A.speed * A.life;
+    for (i = -s.multi; i <= s.multi; i++) {
+      var ang = a + i * A.spread, crit = this.rngCombat.chance(s.crit);
+      var dmg = s.dmg * (i === 0 ? 1 : A.sideDmg) * (crit ? C.base.critMult : 1);
+      this.bolts.push({ id: this.nextId++, x: p.x, y: p.y - 2, vx: G.M.cos(ang) * A.speed, vy: G.M.sin(ang) * A.speed,
+        r: A.r, dmg: dmg, crit: crit, life: life, pierce: s.pierce, knock: A.knock, knockElite: A.knockElite, hit: {} });
+    }
     this.emit({ t: 'cast', x: p.x, y: p.y });
   };
 
+  // melee: one swing toward the target that hits every monster within reach (s.range + its radius)
+  // inside an arc of A.arc radians centred on the target. One crit roll per swing.
+  S.swing = function (best) {
+    var p = this.player, s = this.stats, C = this.cls, A = C.attack, i;
+    var dx = best.x - p.x, dy = best.y - p.y, l = Math.sqrt(dx * dx + dy * dy) || 1, ux = dx / l, uy = dy / l;
+    var cosHalf = G.M.cos(A.arc / 2), crit = this.rngCombat.chance(s.crit), dmg = s.dmg * (crit ? C.base.critMult : 1);
+    this.emit({ t: 'swing', x: p.x, y: p.y, a: G.M.atan2(uy, ux), arc: A.arc, r: s.range, crit: crit });
+    for (i = this.monsters.length - 1; i >= 0; i--) {
+      var m = this.monsters[i];
+      if (m.dead) continue;
+      var mx = m.x - p.x, my = m.y - p.y, d = Math.sqrt(mx * mx + my * my) || 0.01;
+      if (d - m.r > s.range) continue;
+      if (m !== best && (mx * ux + my * uy) / d < cosHalf) continue;
+      var k = m.def.boss ? 0 : (m.def.elite ? A.knockElite : A.knock);
+      m.kx += mx / d * k; m.ky += my / d * k;
+      this.damageMonster(m, dmg, crit);
+    }
+  };
+
+  // the active skill button; skill kinds: 'pulse' (a new kind adds a branch and a cast function)
+  S.castSkill = function () {
+    if (this.cls.skill.kind === 'pulse') this.castPulse();
+  };
+
   S.castPulse = function () {
-    var p = this.player, s = this.stats, P = this.B.player, R = P.pulseRadius, i;
+    var p = this.player, s = this.stats, K = this.cls.skill, R = K.radius, i;
     p.pulseCd = s.pulseCd;
     this.emit({ t: 'pulse', x: p.x, y: p.y, r: R });
     for (i = this.monsters.length - 1; i >= 0; i--) {
       var m = this.monsters[i], d = dist(m, p);
       if (m.dead || d - m.r > R) continue;
       var k = m.def.boss ? 0.15 : (m.def.elite ? 0.5 : 1), l = d || 1;
-      m.kx += (m.x - p.x) / l * P.pulseKnock * k; m.ky += (m.y - p.y) / l * P.pulseKnock * k;
+      m.kx += (m.x - p.x) / l * K.knock * k; m.ky += (m.y - p.y) / l * K.knock * k;
       this.damageMonster(m, s.pulseDmg, false);
     }
     for (i = this.shots.length - 1; i >= 0; i--) {      // the pulse also clears enemy shots
@@ -1243,7 +1303,7 @@
         var dx = m.x - b.x, dy = m.y - b.y, rr = m.r + b.r;
         if (dx * dx + dy * dy > rr * rr) continue;
         b.hit[m.id] = 1;
-        var l = Math.sqrt(b.vx * b.vx + b.vy * b.vy), k = m.def.boss ? 0 : (m.def.elite ? 14 : 34);
+        var l = Math.sqrt(b.vx * b.vx + b.vy * b.vy), k = m.def.boss ? 0 : (m.def.elite ? b.knockElite : b.knock);
         m.kx += b.vx / l * k; m.ky += b.vy / l * k;
         this.damageMonster(m, b.dmg, b.crit);
         if (b.pierce > 0) b.pierce--; else gone = true;
@@ -1684,17 +1744,18 @@
 (function (G) {
   var T = 16;
   var KEEP = { imp: 44, bat: 38, skeleton: 36, hound: 64, warden: 56, tyrant: 76 };
-  var PICK = { multi: 12, power: 10, haste: 10, pierce: 9, vital: 7, crit: 7, ward: 6, regen: 6, leech: 6, swift: 5, pulse: 4, range: 4, blink: 3, wisdom: 3 };
   var DIRS = [];
   for (var i = 0; i < 16; i++) DIRS.push({ x: G.M.cos(i / 16 * 6.2832), y: G.M.sin(i / 16 * 6.2832) });
 
   function Bot(sim) {
+    // class hints (BAL.classes.<id>.bot): keep-away multiplier and passive preference
+    this.keep = sim.cls.bot.keep; this.pick = sim.cls.bot.pick;
     this.sim = sim; this.room = null; this.field = null; this.goalTile = -1; this.orbit = 1;
     this.thinkTick = -999; this.mx = 0; this.my = 0; this.wantDodge = false; this.wantPulse = false;
   }
 
   Bot.prototype.pickPassive = function () {
-    var c = this.sim.choices, best = 0;
+    var c = this.sim.choices, best = 0, PICK = this.pick;
     for (var i = 1; i < c.length; i++) if ((PICK[c[i]] || 0) > (PICK[c[best]] || 0)) best = i;
     return best;
   };
@@ -1729,7 +1790,7 @@
   // Is the way along `g` blocked by an open crack within a few px? Then return the direction to
   // dodge across it (the landing spot must be free), 'wait' while the dodge recharges, or null.
   Bot.prototype.crossDir = function (g) {
-    var sim = this.sim, p = sim.player, P = sim.B.player, gl = Math.sqrt(g.x * g.x + g.y * g.y), k, i;
+    var sim = this.sim, p = sim.player, D = sim.cls.dodge, gl = Math.sqrt(g.x * g.x + g.y * g.y), k, i;
     if (gl < 0.1) return null;
     var ux = g.x / gl, uy = g.y / gl, blocked = false;
     for (k = 2; k <= 10 && !blocked; k += 2) if (sim.crackHits(p.x + ux * k, p.y + uy * k, p.r)) blocked = true;
@@ -1738,8 +1799,8 @@
     var base = G.M.atan2(uy, ux), tries = [0, 0.4, -0.4, 0.8, -0.8];
     for (i = 0; i < tries.length; i++) {
       var a = base + tries[i], dx = G.M.cos(a), dy = G.M.sin(a), ok = true;
-      for (k = 6; k <= P.dodgeDist && ok; k += 6) if (sim.boxHits(p.x + dx * k, p.y + dy * k, p.r)) ok = false;
-      if (ok && !sim.crackHits(p.x + dx * P.dodgeDist, p.y + dy * P.dodgeDist, p.r)) return { x: dx, y: dy };
+      for (k = 6; k <= D.dist && ok; k += 6) if (sim.boxHits(p.x + dx * k, p.y + dy * k, p.r)) ok = false;
+      if (ok && !sim.crackHits(p.x + dx * D.dist, p.y + dy * D.dist, p.r)) return { x: dx, y: dy };
     }
     return null;
   };
@@ -1748,7 +1809,7 @@
     var sim = this.sim;
     if (sim.state !== 'play') return;
     if (sim.tick % 30 === 0) this.manageGear();
-    var p = sim.player, s = sim.stats, P = sim.B.player, inp = sim.input, i;
+    var p = sim.player, s = sim.stats, K = sim.cls.skill, inp = sim.input, i;
     // Human-like reaction time: in a fight the bot only re-decides every `reactionTicks`
     // and holds its last decision in between. Out of combat it steers every tick.
     var fight = sim.monsters.length || sim.shots.length || sim.teles.length;
@@ -1767,10 +1828,10 @@
       if (m.dead) continue;
       var dx = m.x - p.x, dy = m.y - p.y, d = Math.sqrt(dx * dx + dy * dy) || 0.01, gap = d - m.r;
       if (gap < nd) { nd = gap; nearest = m; }
-      var keep = KEEP[m.type] + (m.st === 'lunge' || m.st === 'wind' || m.st === 'charge' || m.st === 'chargeWind' ? 24 : 0);
+      var keep = KEEP[m.type] * this.keep + (m.st === 'lunge' || m.st === 'wind' || m.st === 'charge' || m.st === 'chargeWind' ? 24 : 0);
       if (gap < keep) { var w = (keep - gap) / keep * (m.def.boss ? 3 : 2); ax -= dx / d * w; ay -= dy / d * w; }
       if (gap < 15) close++;
-      if (gap < P.pulseRadius - 8) { inPulse++; if (m.def.elite || m.def.boss) heavy++; }
+      if (gap < K.radius - 8) { inPulse++; if (m.def.elite || m.def.boss) heavy++; }
       // a lunging husk / charging boss aimed at us: sidestep with a dodge
       if ((m.st === 'lunge' || m.st === 'charge') && gap < 36 && (m.lx * -dx + m.ly * -dy) / d > 0.6) dodge = true;
     }
@@ -1860,7 +1921,7 @@
   G.botRun = function (seed, opts) {
     opts = opts || {};
     var gear = opts.gear || G.newSave().gear;
-    var sim = new G.Sim({ seed: seed, tier: opts.tier || 0, gear: gear, bal: opts.bal }), bot = new Bot(sim);
+    var sim = new G.Sim({ seed: seed, tier: opts.tier || 0, gear: gear, bal: opts.bal, cls: opts.cls }), bot = new Bot(sim);
     var maxTicks = (opts.maxSeconds || 1200) * 60, softlock = false, worstStuck = 0, roomTicks = [], last = 0, lastRoom = 0, minHp = sim.B.run.roomMult.map(function () { return 1; });
     while (sim.tick < maxTicks && (sim.state === 'play' || sim.state === 'levelup')) {
       if (sim.state === 'levelup') { sim.choosePassive(bot.pickPassive()); continue; }
@@ -1873,7 +1934,7 @@
       if (st > worstStuck) worstStuck = st;
       if (st > sim.B.softlockSeconds) { softlock = true; break; }
     }
-    return { seed: seed, result: softlock ? 'softlock' : (sim.state === 'won' ? 'win' : (sim.state === 'dead' ? 'dead' : 'timeout')),
+    return { seed: seed, cls: sim.clsId, result: softlock ? 'softlock' : (sim.state === 'won' ? 'win' : (sim.state === 'dead' ? 'dead' : 'timeout')),
       room: sim.roomIndex, phase: sim.phase, rooms: sim.roomsCleared, seconds: Math.round(sim.tick / 60), level: sim.player.level,
       kills: sim.kills, hp: Math.round(sim.player.hp), gearScore: G.gearScore(gear), worstStuck: Math.round(worstStuck), minHp: minHp, roomSeconds: roomTicks.map(function (t) { return Math.round(t / 60); }) };
   };
@@ -2484,7 +2545,7 @@
 })(globalThis.G = globalThis.G || {});
 
 // ---- src/view/title.js
-// Title screen: logo, difficulty tier (gated by gear score), run seed, start.
+// Title screen: logo, class, difficulty tier (gated by gear score), run seed, start.
 (function (G) {
   var UI = G.UI;
   var ROMAN = ['I', 'II', 'III'];
@@ -2497,6 +2558,7 @@
       G.hud = null; G.gameScene = null; G.paused = false;
       if (G.runSeed == null) G.runSeed = G.params.has('seed') ? (parseInt(G.params.get('seed'), 10) >>> 0) : ((Date.now() ^ (Math.random() * 1e9)) >>> 0) % 1000000;
       if (G.tier == null) G.tier = 0;
+      if (G.cls == null) G.cls = G.classDef(G.BAL, G.params.get('class')).id;
       this.scene.launch('backdrop');
       this.scene.bringToTop();
       this.L = null;
@@ -2526,7 +2588,12 @@
       UI.centerX(L.text(0, y, 'Seal the rifts. Keep what you find.', 'ui_dim'), cx);
       y += tall ? 26 : 16;
       this.btnStart = L.button(cx - 64, y, 128, 24, 'ENTER THE RIFT', function () { self.start(); }, { name: 'start', color: 'ui_warn' });
-      y += tall ? 36 : 29;
+      y += tall ? 30 : 26;
+      // class picker: cycles through BAL.classes (one class today)
+      L.button(cx - 64, y, 22, 20, '', function () { self.setClass(-1); }, { icon: 'arrow_l', name: 'cls_l' });
+      L.button(cx + 42, y, 22, 20, '', function () { self.setClass(1); }, { icon: 'arrow_r', name: 'cls_r' });
+      this.clsText = L.text(0, y + 6, '');
+      y += tall ? 26 : 22;
       L.button(cx - 64, y, 22, 20, '', function () { self.setTier(G.tier - 1); }, { icon: 'arrow_l', name: 'tier_l' });
       L.button(cx + 42, y, 22, 20, '', function () { self.setTier(G.tier + 1); }, { icon: 'arrow_r', name: 'tier_r' });
       this.tierText = L.text(0, y + 6, '');
@@ -2551,7 +2618,14 @@
       G.tier = Math.max(0, Math.min(G.BAL.run.tierGear.length - 1, t));
       this.refresh();
     },
+    setClass: function (d) {
+      var ids = G.classIds(G.BAL), i = ids.indexOf(G.cls);
+      G.cls = ids[(i + d + ids.length) % ids.length];
+      this.refresh();
+    },
     refresh: function () {
+      this.clsText.setText(G.classDef(G.BAL, G.cls).name.toUpperCase()).setTint(UI.hex('ui_text'));
+      UI.centerX(this.clsText, Math.round(G.view.W / 2));
       var need = G.BAL.run.tierGear[G.tier], gs = this.gearScore(), locked = gs < need, cx = Math.round(G.view.W / 2);
       this.tierText.setText('TIER ' + ROMAN[G.tier]).setTint(UI.hex(locked ? 'ui_bad' : 'ui_warn'));
       UI.centerX(this.tierText, cx);
@@ -2614,12 +2688,14 @@
       G.screen = 'game';
       if (G.runSeed == null) G.runSeed = P.has('seed') ? parseInt(P.get('seed'), 10) >>> 0 : 1;
       if (G.tier == null) G.tier = P.has('tier') ? parseInt(P.get('tier'), 10) || 0 : 0;
+      if (G.cls == null) G.cls = G.classDef(G.BAL, P.get('class')).id;   // ?class=<id>, or the title's class picker
       // debug panel toggles (src/view/panels.js): kept for the whole browser session, across runs
       G.cheats = G.cheats || { god: false, noCd: false, speed: 1 };
       G.debug = P.get('debug') !== '0' && P.get('bot') !== '1';    // ?debug=0 hides the debug button
       this.speed = P.has('speed') ? parseFloat(P.get('speed')) : G.cheats.speed;
       G.manualLevel = P.get('manual') === '1';      // QA: level-up cards are clicked by the test, not auto-picked
-      this.sim = new G.Sim({ seed: G.runSeed, tier: G.tier, gear: G.save.gear, events: true, cheats: G.cheats, testRoom: !!G.testRoom });
+      this.sim = new G.Sim({ seed: G.runSeed, tier: G.tier, gear: G.save.gear, events: true, cheats: G.cheats, testRoom: !!G.testRoom, cls: G.cls });
+      var C = this.cls = this.sim.cls;
       this.controls = new G.Controls(this);
       this.fx = new G.FX(this);
       this.fx.quiet = this.speed > 4;
@@ -2630,9 +2706,9 @@
       this.hpG = this.add.graphics().setDepth(7000);         // monster health bars, above every sprite
       this.arcG = this.add.graphics().setDepth(7990);         // the hop arc of a dodge across a crack
       this.hop = null; this.arc = []; this.bumpT = 0; this.bumpX = 0; this.bumpY = 0; this.blockN = 0;
-      this.player = this.add.image(0, 0, 'atlas', 'mage_0').setOrigin(0.42, 1);
+      this.player = this.add.image(0, 0, 'atlas', C.sprite.frames + '_0').setOrigin(0.42, 1);
       this.playerShadow = this.add.image(0, 0, 'atlas', 'shadow_s').setDepth(-100);
-      this.playerGlow = this.add.image(0, 0, 'atlas', 'glow').setDepth(-640).setBlendMode(ADD).setTint(UI.hex('mb2')).setAlpha(0.14);
+      this.playerGlow = this.add.image(0, 0, 'atlas', 'glow').setDepth(-640).setBlendMode(ADD).setTint(UI.hex(C.sprite.glow)).setAlpha(0.14);
       this.chest = this.add.image(0, 0, 'atlas', 'chest_closed').setOrigin(0.5, 1);
       this.chestGlow = this.add.image(0, 0, 'atlas', 'glow_s').setDepth(-640).setBlendMode(ADD).setTint(UI.hex('gold')).setAlpha(0);
       this.door = this.add.image(0, 0, 'atlas', 'door_closed').setOrigin(0.5, 1).setDepth(-600);
@@ -2736,6 +2812,13 @@
             fx.burst(e.x, e.y, 'orb', 16, 150, 0.3);
             fx.shake(0.3);
             break;
+          case 'swing':
+            // melee class: sparks along the swept arc (placeholder until the class has its own art)
+            for (var sa = -3; sa <= 3; sa++) {
+              var ang = e.a + sa / 6 * e.arc;
+              fx.spark(e.x + Math.cos(ang) * e.r * 0.8, e.y - 4 + Math.sin(ang) * e.r * 0.8, e.crit ? 'ui_warn' : 'ui_text', 0.16);
+            }
+            break;
           case 'dodge':
             fx.burst(e.x, e.y, 'mb3', 8, 50, 0.3); this.dashTrail = 10;
             // across an open crack: the mage hops in an arc and leaves a dotted trail of it
@@ -2777,7 +2860,7 @@
       var sim = this.sim, tick = sim.tick, self = this, p = sim.player;
       // player
       var walk = p.moving ? [1, 0, 2, 0][(tick >> 3) & 3] : 0;
-      this.player.setFrame('mage_' + walk).setFlipX(p.face < 0).setOrigin(p.face < 0 ? 0.58 : 0.42, 1);
+      this.player.setFrame(this.cls.sprite.frames + '_' + walk).setFlipX(p.face < 0).setOrigin(p.face < 0 ? 0.58 : 0.42, 1);
       // hop: height of the dodge arc over a crack (0 outside it); bump: a 1 px recoil off the edge
       var lift = 0, bx = 0, by = 0;
       if (this.hop) {
@@ -2792,7 +2875,7 @@
       this.playerGlow.setPosition(p.x, p.y);
       this.player.setVisible(sim.state !== 'dead');
       if (this.hurtFlash > 0) { this.hurtFlash--; this.player.setTintFill(0xffffff); }
-      else if (p.dashT > 0) this.player.setTintFill(UI.hex('mb3'));
+      else if (p.dashT > 0) this.player.setTintFill(UI.hex(this.cls.sprite.dash));
       else this.player.clearTint();
       this.player.setAlpha(p.iframes > 0 && p.dashT <= 0 && (tick >> 2) % 2 ? 0.45 : 1);
       if (this.dashTrail > 0) { this.dashTrail--; if (tick % 2 === 0) this.fx.burst(p.x, p.y, 'mb2', 2, 10, 0.25); }
@@ -2817,8 +2900,8 @@
       });
       this.drawHealthBars();
       this.list('bolts', sim.bolts, function (b) {
-        var s = self.add.image(b.x, b.y, 'atlas', 'bolt').setDepth(8000);
-        s.gl = self.add.image(b.x, b.y, 'atlas', 'glow_s').setDepth(-640).setBlendMode(ADD).setTint(UI.hex('orb')).setAlpha(0.5);
+        var A = self.cls.attack, s = self.add.image(b.x, b.y, 'atlas', A.frame).setDepth(8000);
+        s.gl = self.add.image(b.x, b.y, 'atlas', 'glow_s').setDepth(-640).setBlendMode(ADD).setTint(UI.hex(A.glow)).setAlpha(0.5);
         return s;
       }, function (s, b) {
         s.setPosition(b.x, b.y - 6); s.gl.setPosition(b.x, b.y);
@@ -2867,7 +2950,7 @@
     // the arc of a dodge across a crack, drawn whole when the dodge starts: from the mage's feet to
     // where the dash will stop (walls shorten it), as a dotted parabola that fades after landing
     planArc: function (e) {
-      var sim = this.sim, r = sim.player.r, D = sim.B.player.dodgeDist, d = 0, a = this.arc;
+      var sim = this.sim, r = sim.player.r, D = sim.cls.dodge.dist, d = 0, a = this.arc;
       while (d < D && !sim.boxHits(e.x + e.dx * (d + 1), e.y + e.dy * (d + 1), r)) d++;
       a.length = 0;
       for (var j = 0; j <= d; j++) {
@@ -3290,7 +3373,8 @@
     L.button(x0 + pw - 22, y0 + 3, 18, 16, '', function () { P.close(); }, { icon: 'i_close', name: 'inv_close' });
     L.button(x0 + pw - 44, y0 + 3, 18, 16, '', function () { P.openSettings(scene, 'inventory'); }, { icon: 'i_gear', name: 'inv_settings' });
 
-    var passives = s ? s.player.passives : {}, stats = G.computeStats(B, g, passives), base = G.computeStats(B, { equipped: {} }, passives);
+    var passives = s ? s.player.passives : {}, cls = s ? s.clsId : G.cls;
+    var stats = G.computeStats(B, g, passives, cls), base = G.computeStats(B, { equipped: {} }, passives, cls);
     function select(sel) {
       // tapping the selected thing again acts on it (equip / unequip)
       if (P.sel && sel && P.sel.kind === sel.kind && P.sel.key === sel.key) { act(); return; }

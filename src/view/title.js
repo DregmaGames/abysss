@@ -1,4 +1,4 @@
-// Title screen: logo, difficulty tier (gated by gear score), run seed, start.
+// Title screen: logo, class, difficulty tier (gated by gear score), run seed, start.
 (function (G) {
   var UI = G.UI;
   var ROMAN = ['I', 'II', 'III'];
@@ -11,6 +11,7 @@
       G.hud = null; G.gameScene = null; G.paused = false;
       if (G.runSeed == null) G.runSeed = G.params.has('seed') ? (parseInt(G.params.get('seed'), 10) >>> 0) : ((Date.now() ^ (Math.random() * 1e9)) >>> 0) % 1000000;
       if (G.tier == null) G.tier = 0;
+      if (G.cls == null) G.cls = G.classDef(G.BAL, G.params.get('class')).id;
       this.scene.launch('backdrop');
       this.scene.bringToTop();
       this.L = null;
@@ -40,7 +41,12 @@
       UI.centerX(L.text(0, y, 'Seal the rifts. Keep what you find.', 'ui_dim'), cx);
       y += tall ? 26 : 16;
       this.btnStart = L.button(cx - 64, y, 128, 24, 'ENTER THE RIFT', function () { self.start(); }, { name: 'start', color: 'ui_warn' });
-      y += tall ? 36 : 29;
+      y += tall ? 30 : 26;
+      // class picker: cycles through BAL.classes (one class today)
+      L.button(cx - 64, y, 22, 20, '', function () { self.setClass(-1); }, { icon: 'arrow_l', name: 'cls_l' });
+      L.button(cx + 42, y, 22, 20, '', function () { self.setClass(1); }, { icon: 'arrow_r', name: 'cls_r' });
+      this.clsText = L.text(0, y + 6, '');
+      y += tall ? 26 : 22;
       L.button(cx - 64, y, 22, 20, '', function () { self.setTier(G.tier - 1); }, { icon: 'arrow_l', name: 'tier_l' });
       L.button(cx + 42, y, 22, 20, '', function () { self.setTier(G.tier + 1); }, { icon: 'arrow_r', name: 'tier_r' });
       this.tierText = L.text(0, y + 6, '');
@@ -65,7 +71,14 @@
       G.tier = Math.max(0, Math.min(G.BAL.run.tierGear.length - 1, t));
       this.refresh();
     },
+    setClass: function (d) {
+      var ids = G.classIds(G.BAL), i = ids.indexOf(G.cls);
+      G.cls = ids[(i + d + ids.length) % ids.length];
+      this.refresh();
+    },
     refresh: function () {
+      this.clsText.setText(G.classDef(G.BAL, G.cls).name.toUpperCase()).setTint(UI.hex('ui_text'));
+      UI.centerX(this.clsText, Math.round(G.view.W / 2));
       var need = G.BAL.run.tierGear[G.tier], gs = this.gearScore(), locked = gs < need, cx = Math.round(G.view.W / 2);
       this.tierText.setText('TIER ' + ROMAN[G.tier]).setTint(UI.hex(locked ? 'ui_bad' : 'ui_warn'));
       UI.centerX(this.tierText, cx);

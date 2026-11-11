@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 // Bulk bot runs of the sim under Node (same sim + bot code the browser runs, no rendering).
-//   node tools/sim_bot.js [--seeds 1-200] [--tier 0] [--career N] [--json] [--set path=value ...]
+//   node tools/sim_bot.js [--seeds 1-200] [--tier 0] [--class mage] [--career N] [--json] [--set path=value ...]
 // Reports win rate, deaths per room, softlocks, and the seeds used.
 // --career N: play N consecutive runs keeping gear (always the highest unlocked tier).
-// --set player.hp=120: override a balance number for this invocation (for tuning experiments).
+// --class id: play this class (BAL.classes; default BAL.defaultClass).
+// --set classes.mage.base.hp=120: override a balance number for this invocation (for tuning experiments).
 'use strict';
 const fs = require('fs'), path = require('path'), vm = require('vm');
 const ROOT = path.dirname(__dirname);
@@ -19,11 +20,12 @@ function load() {
 }
 
 function parseArgs(argv) {
-  const a = { seeds: '1-100', tier: 0, career: 0, json: false, set: [] };
+  const a = { seeds: '1-100', tier: 0, cls: null, career: 0, json: false, set: [] };
   for (let i = 2; i < argv.length; i++) {
     const k = argv[i];
     if (k === '--seeds') a.seeds = argv[++i];
     else if (k === '--tier') a.tier = +argv[++i];
+    else if (k === '--class') a.cls = argv[++i];
     else if (k === '--career') a.career = +argv[++i];
     else if (k === '--json') a.json = true;
     else if (k === '--set') a.set.push(argv[++i]);
@@ -57,19 +59,19 @@ function main() {
       const gs = G.gearScore(gear);
       let tier = 0;
       G.BAL.run.tierGear.forEach((need, t) => { if (gs >= need) tier = t; });
-      const r = G.botRun(seeds[i % seeds.length], { tier, gear });
+      const r = G.botRun(seeds[i % seeds.length], { tier, gear, cls: args.cls });
       r.tier = tier; r.gearBefore = gs;
       res.push(r);
     }
   } else {
-    for (const s of seeds) res.push(G.botRun(s, { tier: args.tier }));
+    for (const s of seeds) res.push(G.botRun(s, { tier: args.tier, cls: args.cls }));
   }
   const wins = res.filter(r => r.result === 'win').length;
   const soft = res.filter(r => r.result === 'softlock'), tout = res.filter(r => r.result === 'timeout');
   res.forEach(r => { if (r.result === 'dead') deaths[r.room]++; });
   const avg = k => (res.reduce((s, r) => s + r[k], 0) / res.length);
   const summary = {
-    runs: res.length, tier: args.tier, seeds: args.seeds, wins, winRate: +(100 * wins / res.length).toFixed(1),
+    runs: res.length, cls: res.length ? res[0].cls : null, tier: args.tier, seeds: args.seeds, wins, winRate: +(100 * wins / res.length).toFixed(1),
     softlocks: soft.map(r => r.seed), timeouts: tout.map(r => r.seed), deathsByRoom: deaths,
     avgRoomsCleared: +avg('rooms').toFixed(2), avgSeconds: Math.round(avg('seconds')), avgLevel: +avg('level').toFixed(1),
     worstStuck: Math.max(...res.map(r => r.worstStuck)), winSeeds: res.filter(r => r.result === 'win').map(r => r.seed),

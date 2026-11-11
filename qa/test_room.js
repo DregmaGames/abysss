@@ -15,7 +15,7 @@ async function waitFor(page, fn, ms) {
 
 // a floor spot just left of an open crack pixel, with a clear dodge lane to the far side
 function findSpot() {
-  const s = G.gameScene.sim, W = s.crackW, H = s.crackH, g = s.crackGrid, r = s.player.r, D = s.B.player.dodgeDist;
+  const s = G.gameScene.sim, W = s.crackW, H = s.crackH, g = s.crackGrid, r = s.player.r, D = s.cls.dodge.dist;
   for (let y = 72; y < H - 40; y += 2) for (let x = 24; x < W - 24; x++) {
     if (!g[y * W + x] || g[y * W + x - 1]) continue;
     const px = x - r - 2, ex = px + D;
@@ -55,7 +55,7 @@ async function run(browser, size, touch) {
     await page.evaluate(p => { const s = G.gameScene.sim; s.player.x = p.x; s.player.y = p.y; s.player.fx = 1; s.player.fy = 0; G.gameScene.cam.x = p.x; G.gameScene.cam.y = p.y; }, spot);
     // freeze the sim half way through the dodge so the screenshot shows the hop
     await page.evaluate(() => {
-      const s = G.gameScene.sim, step = s.step.bind(s), dur = s.B.player.dodgeTime;
+      const s = G.gameScene.sim, step = s.step.bind(s), dur = s.cls.dodge.time;
       window.__frozen = false; let once = false;
       s.step = () => { if (window.__frozen) return; step(); if (!once && s.player.dashT > 0 && s.player.dashT <= dur * 0.45) { once = window.__frozen = true; G.paused = true; } };
     });

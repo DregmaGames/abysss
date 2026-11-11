@@ -16,12 +16,14 @@
       G.screen = 'game';
       if (G.runSeed == null) G.runSeed = P.has('seed') ? parseInt(P.get('seed'), 10) >>> 0 : 1;
       if (G.tier == null) G.tier = P.has('tier') ? parseInt(P.get('tier'), 10) || 0 : 0;
+      if (G.cls == null) G.cls = G.classDef(G.BAL, P.get('class')).id;   // ?class=<id>, or the title's class picker
       // debug panel toggles (src/view/panels.js): kept for the whole browser session, across runs
       G.cheats = G.cheats || { god: false, noCd: false, speed: 1 };
       G.debug = P.get('debug') !== '0' && P.get('bot') !== '1';    // ?debug=0 hides the debug button
       this.speed = P.has('speed') ? parseFloat(P.get('speed')) : G.cheats.speed;
       G.manualLevel = P.get('manual') === '1';      // QA: level-up cards are clicked by the test, not auto-picked
-      this.sim = new G.Sim({ seed: G.runSeed, tier: G.tier, gear: G.save.gear, events: true, cheats: G.cheats, testRoom: !!G.testRoom });
+      this.sim = new G.Sim({ seed: G.runSeed, tier: G.tier, gear: G.save.gear, events: true, cheats: G.cheats, testRoom: !!G.testRoom, cls: G.cls });
+      var C = this.cls = this.sim.cls;
       this.controls = new G.Controls(this);
       this.fx = new G.FX(this);
       this.fx.quiet = this.speed > 4;
@@ -32,9 +34,9 @@
       this.hpG = this.add.graphics().setDepth(7000);         // monster health bars, above every sprite
       this.arcG = this.add.graphics().setDepth(7990);         // the hop arc of a dodge across a crack
       this.hop = null; this.arc = []; this.bumpT = 0; this.bumpX = 0; this.bumpY = 0; this.blockN = 0;
-      this.player = this.add.image(0, 0, 'atlas', 'mage_0').setOrigin(0.42, 1);
+      this.player = this.add.image(0, 0, 'atlas', C.sprite.frames + '_0').setOrigin(0.42, 1);
       this.playerShadow = this.add.image(0, 0, 'atlas', 'shadow_s').setDepth(-100);
-      this.playerGlow = this.add.image(0, 0, 'atlas', 'glow').setDepth(-640).setBlendMode(ADD).setTint(UI.hex('mb2')).setAlpha(0.14);
+      this.playerGlow = this.add.image(0, 0, 'atlas', 'glow').setDepth(-640).setBlendMode(ADD).setTint(UI.hex(C.sprite.glow)).setAlpha(0.14);
       this.chest = this.add.image(0, 0, 'atlas', 'chest_closed').setOrigin(0.5, 1);
       this.chestGlow = this.add.image(0, 0, 'atlas', 'glow_s').setDepth(-640).setBlendMode(ADD).setTint(UI.hex('gold')).setAlpha(0);
       this.door = this.add.image(0, 0, 'atlas', 'door_closed').setOrigin(0.5, 1).setDepth(-600);
@@ -138,6 +140,13 @@
             fx.burst(e.x, e.y, 'orb', 16, 150, 0.3);
             fx.shake(0.3);
             break;
+          case 'swing':
+            // melee class: sparks along the swept arc (placeholder until the class has its own art)
+            for (var sa = -3; sa <= 3; sa++) {
+              var ang = e.a + sa / 6 * e.arc;
+              fx.spark(e.x + Math.cos(ang) * e.r * 0.8, e.y - 4 + Math.sin(ang) * e.r * 0.8, e.crit ? 'ui_warn' : 'ui_text', 0.16);
+            }
+            break;
           case 'dodge':
             fx.burst(e.x, e.y, 'mb3', 8, 50, 0.3); this.dashTrail = 10;
             // across an open crack: the mage hops in an arc and leaves a dotted trail of it
@@ -179,7 +188,7 @@
       var sim = this.sim, tick = sim.tick, self = this, p = sim.player;
       // player
       var walk = p.moving ? [1, 0, 2, 0][(tick >> 3) & 3] : 0;
-      this.player.setFrame('mage_' + walk).setFlipX(p.face < 0).setOrigin(p.face < 0 ? 0.58 : 0.42, 1);
+      this.player.setFrame(this.cls.sprite.frames + '_' + walk).setFlipX(p.face < 0).setOrigin(p.face < 0 ? 0.58 : 0.42, 1);
       // hop: height of the dodge arc over a crack (0 outside it); bump: a 1 px recoil off the edge
       var lift = 0, bx = 0, by = 0;
       if (this.hop) {
@@ -194,7 +203,7 @@
       this.playerGlow.setPosition(p.x, p.y);
       this.player.setVisible(sim.state !== 'dead');
       if (this.hurtFlash > 0) { this.hurtFlash--; this.player.setTintFill(0xffffff); }
-      else if (p.dashT > 0) this.player.setTintFill(UI.hex('mb3'));
+      else if (p.dashT > 0) this.player.setTintFill(UI.hex(this.cls.sprite.dash));
       else this.player.clearTint();
       this.player.setAlpha(p.iframes > 0 && p.dashT <= 0 && (tick >> 2) % 2 ? 0.45 : 1);
       if (this.dashTrail > 0) { this.dashTrail--; if (tick % 2 === 0) this.fx.burst(p.x, p.y, 'mb2', 2, 10, 0.25); }
@@ -219,8 +228,8 @@
       });
       this.drawHealthBars();
       this.list('bolts', sim.bolts, function (b) {
-        var s = self.add.image(b.x, b.y, 'atlas', 'bolt').setDepth(8000);
-        s.gl = self.add.image(b.x, b.y, 'atlas', 'glow_s').setDepth(-640).setBlendMode(ADD).setTint(UI.hex('orb')).setAlpha(0.5);
+        var A = self.cls.attack, s = self.add.image(b.x, b.y, 'atlas', A.frame).setDepth(8000);
+        s.gl = self.add.image(b.x, b.y, 'atlas', 'glow_s').setDepth(-640).setBlendMode(ADD).setTint(UI.hex(A.glow)).setAlpha(0.5);
         return s;
       }, function (s, b) {
         s.setPosition(b.x, b.y - 6); s.gl.setPosition(b.x, b.y);
@@ -269,7 +278,7 @@
     // the arc of a dodge across a crack, drawn whole when the dodge starts: from the mage's feet to
     // where the dash will stop (walls shorten it), as a dotted parabola that fades after landing
     planArc: function (e) {
-      var sim = this.sim, r = sim.player.r, D = sim.B.player.dodgeDist, d = 0, a = this.arc;
+      var sim = this.sim, r = sim.player.r, D = sim.cls.dodge.dist, d = 0, a = this.arc;
       while (d < D && !sim.boxHits(e.x + e.dx * (d + 1), e.y + e.dy * (d + 1), r)) d++;
       a.length = 0;
       for (var j = 0; j <= d; j++) {

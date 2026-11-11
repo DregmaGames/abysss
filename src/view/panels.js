@@ -42,7 +42,8 @@
     L.button(x0 + pw - 22, y0 + 3, 18, 16, '', function () { P.close(); }, { icon: 'i_close', name: 'inv_close' });
     L.button(x0 + pw - 44, y0 + 3, 18, 16, '', function () { P.openSettings(scene, 'inventory'); }, { icon: 'i_gear', name: 'inv_settings' });
 
-    var passives = s ? s.player.passives : {}, stats = G.computeStats(B, g, passives), base = G.computeStats(B, { equipped: {} }, passives);
+    var passives = s ? s.player.passives : {}, cls = s ? s.clsId : G.cls;
+    var stats = G.computeStats(B, g, passives, cls), base = G.computeStats(B, { equipped: {} }, passives, cls);
     function select(sel) {
       // tapping the selected thing again acts on it (equip / unequip)
       if (P.sel && sel && P.sel.kind === sel.kind && P.sel.key === sel.key) { act(); return; }

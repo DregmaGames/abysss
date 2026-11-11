@@ -15,15 +15,34 @@
       testRoom: 1                     // ?room=test / TEST ROOM button: this room, restarted on every clear
     },
 
+    // shared by every class (class numbers live in `classes` below)
     player: {
-      r: 5, hp: 100, speed: 78,
-      dmg: 10, atkInterval: 0.5, range: 112, boltSpeed: 250, boltR: 3,
-      crit: 0.05, critMult: 1.8, sideBoltDmg: 0.6,
-      dodgeDist: 54, dodgeTime: 0.16, dodgeIframes: 0.34, dodgeCd: 1.6,
-      pulseDmg: 26, pulseRadius: 54, pulseCd: 7, pulseKnock: 200,
       hurtIframes: 0.3, pickupR: 36, levelHeal: 0.03,
-      blockedEvery: 0.4               // s between two 'blocked' events while the mage pushes into an open crack
+      blockedEvery: 0.4               // s between two 'blocked' events while the hero pushes into an open crack
     },
+
+    // Character classes as data. How to add one: docs/classes.md.
+    //   base:   radius, hp, move speed, damage, s per attack, attack range (bolt reach or swing reach), crit.
+    //   attack: kind 'bolt' (projectile: speed, r, sideDmg per extra bolt, spread rad between bolts,
+    //           life = range / speed * life, knock / knockElite on hit) or 'arc' (melee swing: arc = full
+    //           width in rad, knock / knockElite; extra bolts and pierce do nothing for it).
+    //   dodge:  dist px, time s, iframes s, cd s.   skill: the active button (kind 'pulse' only, for now).
+    //   sprite: atlas frame prefix (<frames>_0..2), glow and dash tints (palette keys), attack frame.
+    //   passives: the level-up pool, in roll order (the order is part of the run: changing it changes runs).
+    //   bot: QA bot hints. keep: multiplier on its keep-away distances; pick: passive preference.
+    classes: {
+      mage: {
+        name: 'Mage',
+        base: { r: 5, hp: 100, speed: 78, dmg: 10, atkInterval: 0.5, range: 112, crit: 0.05, critMult: 1.8 },
+        attack: { kind: 'bolt', firstCd: 0.4, speed: 250, r: 3, sideDmg: 0.6, spread: 0.22, life: 1.2, knock: 34, knockElite: 14, frame: 'bolt', glow: 'orb' },
+        dodge: { dist: 54, time: 0.16, iframes: 0.34, cd: 1.6 },
+        skill: { kind: 'pulse', dmg: 26, radius: 54, cd: 7, knock: 200 },
+        sprite: { frames: 'mage', glow: 'mb2', dash: 'mb3' },
+        passives: ['power', 'haste', 'vital', 'swift', 'range', 'wisdom', 'regen', 'crit', 'pulse', 'blink', 'ward', 'pierce', 'multi', 'leech'],
+        bot: { keep: 1, pick: { multi: 12, power: 10, haste: 10, pierce: 9, vital: 7, crit: 7, ward: 6, regen: 6, leech: 6, swift: 5, pulse: 4, range: 4, blink: 3, wisdom: 3 } }
+      }
+    },
+    defaultClass: 'mage',
 
     exp: { base: 9, grow: 5, pow: 1.22 },   // exp to next = base + grow * (level-1)^pow
 
