@@ -187,7 +187,8 @@
       ['KILL ALL', act(function () { s.cheatKillAll(); }), 'dbg_kill'],
       ['SKIP PHASE', act(function () { s.cheatSkipPhase(); }), 'dbg_skip'],
       ['LEVEL UP', act(function () { s.cheatLevel(); }), 'dbg_level'],
-      ['NEXT ROOM', act(function () { s.cheatRoom(s.roomIndex + 1); }), 'dbg_next'],
+      s.testRoom >= 0 ? ['RESTART ROOM', act(function () { s.restartTestRoom(); }), 'dbg_next']
+        : ['NEXT ROOM', act(function () { s.cheatRoom(s.roomIndex + 1); }), 'dbg_next'],
       ['BOSS ROOM', act(function () { s.cheatRoom(s.B.run.rooms - 1); }), 'dbg_boss'],
       ['GIVE LOOT', act(function () { s.cheatLoot(); }), 'dbg_loot'],
       ['RESUME', function () { P.close(); }, 'dbg_resume']
@@ -203,7 +204,7 @@
   P.openResult = function (scene, state) {
     if (P.L) P.L.destroy();
     var V = G.view, s = G.gameScene.sim, B = s.B, won = state === 'won';
-    if (P.resultState !== state || !P.counted) {
+    if ((P.resultState !== state || !P.counted) && s.testRoom < 0) {      // test-room deaths are not runs
       P.counted = true;
       G.save.stats.runs++; if (won) G.save.stats.wins++;
       G.save.stats.best = Math.max(G.save.stats.best || 0, s.roomsCleared);
@@ -215,7 +216,7 @@
     var L = P.L = UI.modal(scene, pw, ph, null), x0 = L.x, y0 = L.y, cx = V.W / 2;
     UI.centerX(L.text(0, y0 + 9, won ? 'RIFT SEALED' : 'YOU DIED', won ? 'ui_good' : 'ui_bad', true), cx);
     var t = Math.round(s.tick / 60), gs = G.gearScore(s.gear), lines = [
-      [won ? 'All ' + B.run.rooms + ' rooms cleared' : 'Fell in room ' + (s.roomIndex + 1) + ' of ' + B.run.rooms, 'ui_text'],
+      [won ? 'All ' + B.run.rooms + ' rooms cleared' : s.testRoom >= 0 ? 'Fell in the test room (clears: ' + s.loops + ')' : 'Fell in room ' + (s.roomIndex + 1) + ' of ' + B.run.rooms, 'ui_text'],
       ['Level ' + s.player.level + '   Kills ' + s.kills + '   ' + Math.floor(t / 60) + ':' + ('0' + t % 60).slice(-2), 'ui_dim'],
       ['Gear score ' + gs + '  (gear is kept)', 'ui_dim']];
     var next = B.run.tierGear[s.tier + 1];

@@ -11,7 +11,8 @@
       tierGear: [0, 70, 170],         // gear score needed to unlock each tier
       roomMult: [1.05, 1.3, 1.55, 1.8, 2.1, 2.4, 2.75, 3.1, 3.5, 3.0],   // monster hp/dmg multiplier per room
       gearK: 0.005,                   // +0.5 % monster hp/dmg per point of gear score ("gear level scales the room")
-      ilvlTier: 3, ilvlRooms: 3       // item level = 1 + tier * ilvlTier + floor(room / ilvlRooms)
+      ilvlTier: 3, ilvlRooms: 3,      // item level = 1 + tier * ilvlTier + floor(room / ilvlRooms)
+      testRoom: 1                     // ?room=test / TEST ROOM button: this room, restarted on every clear
     },
 
     player: {
@@ -20,7 +21,8 @@
       crit: 0.05, critMult: 1.8, sideBoltDmg: 0.6,
       dodgeDist: 54, dodgeTime: 0.16, dodgeIframes: 0.34, dodgeCd: 1.6,
       pulseDmg: 26, pulseRadius: 54, pulseCd: 7, pulseKnock: 200,
-      hurtIframes: 0.3, pickupR: 36, levelHeal: 0.03
+      hurtIframes: 0.3, pickupR: 36, levelHeal: 0.03,
+      blockedEvery: 0.4               // s between two 'blocked' events while the mage pushes into an open crack
     },
 
     exp: { base: 9, grow: 5, pow: 1.22 },   // exp to next = base + grow * (level-1)^pow

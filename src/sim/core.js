@@ -20,11 +20,14 @@
     this.cheats = opts.cheats || {};     // debug panel toggles: god, noCd (see the cheats section below)
     this.player = { x: 0, y: 0, r: P.r, hp: P.hp, maxHp: P.hp, fx: 0, fy: -1, face: 1, moving: false,
       atkCd: 0.4, dodgeCd: 0, dashT: 0, dashX: 0, dashY: 0, iframes: 0, pulseCd: 0,
-      level: 1, exp: 0, expNext: this.expFor(1), passives: {}, pending: 0, tomes: 0, walk: true };
+      level: 1, exp: 0, expNext: this.expFor(1), passives: {}, pending: 0, tomes: 0, walk: true,
+      crackBlock: false, blockTick: -999, dashOver: false };
     this.stats = {};
     this.recalc();
     this.player.hp = this.stats.maxHp;
-    this.loadRoom(0);
+    this.testRoom = opts.testRoom ? B.run.testRoom : -1;   // test room: one room, restarted on clear
+    this.loops = 0;
+    this.loadRoom(this.testRoom >= 0 ? this.testRoom : 0);
   }
   var S = Sim.prototype;
 
@@ -95,17 +98,18 @@
   // Walkers (the player outside a dodge, monsters that do not fly) cannot step onto an open crack.
   // Leaving one is always allowed, so nothing can get trapped inside a crack.
   S.move = function (e, dx, dy) {
-    var h = e.r, E = 0.01, cc = e.walk && this.crackLit > 0 && !(e.dashT > 0), inC = cc && this.crackHits(e.x, e.y, h);
+    var h = e.r, E = 0.01, cc = e.walk && this.crackLit > 0 && !(e.dashT > 0), inC = cc && this.crackHits(e.x, e.y, h), blk = false;
     if (dx) {
       e.x += dx;
       if (this.boxHits(e.x, e.y, h)) e.x = dx > 0 ? Math.floor((e.x + h) / T) * T - h - E : (Math.floor((e.x - h) / T) + 1) * T + h + E;
-      if (cc && !inC && this.crackHits(e.x, e.y, h)) e.x -= dx;
+      if (cc && !inC && this.crackHits(e.x, e.y, h)) { e.x -= dx; blk = true; }
     }
     if (dy) {
       e.y += dy;
       if (this.boxHits(e.x, e.y, h)) e.y = dy > 0 ? Math.floor((e.y + h) / T) * T - h - E : (Math.floor((e.y - h) / T) + 1) * T + h + E;
-      if (cc && !inC && this.crackHits(e.x, e.y, h)) e.y -= dy;
+      if (cc && !inC && this.crackHits(e.x, e.y, h)) { e.y -= dy; blk = true; }
     }
+    if (e === this.player) e.crackBlock = blk;
   };
   // line of sight for a shot-sized object: two parallel rays 2 px either side, sampled every 2 px,
   // so "can see" always means "a bolt can get there" (no false positives at wall corners)
@@ -172,15 +176,25 @@
       p.dashT = P.dodgeTime; p.dashX = p.fx; p.dashY = p.fy;
       p.iframes = Math.max(p.iframes, P.dodgeIframes);
       p.dodgeCd = s.dodgeCd;
-      this.emit({ t: 'dodge', x: p.x, y: p.y });
+      p.dashOver = false;
+      // cross: the dash line runs over an open crack (the view draws the hop arc)
+      var cross = this.crackLit > 0 && this.crackOnLine(p.x, p.y, p.x + p.dashX * P.dodgeDist, p.y + p.dashY * P.dodgeDist, p.r);
+      this.emit({ t: 'dodge', x: p.x, y: p.y, dx: p.dashX, dy: p.dashY, cross: cross, dur: P.dodgeTime });
     }
     inp.dodge = false;
     if (p.dashT > 0) {
       var sp = P.dodgeDist / P.dodgeTime * dt;
       this.move(p, p.dashX * sp, p.dashY * sp);
+      if (!p.dashOver && this.crackHits(p.x, p.y, p.r)) p.dashOver = true;
       p.dashT -= dt;
+      if (p.dashT <= 0) this.emit({ t: 'land', x: p.x, y: p.y, cross: p.dashOver });
     } else if (p.moving) {
       this.move(p, mx * s.speed * dt, my * s.speed * dt);
+      // pushing into an open crack: tell the view where, at most every blockedEvery seconds
+      if (p.crackBlock && this.tick - p.blockTick >= P.blockedEvery * 60) {
+        p.blockTick = this.tick;
+        this.emit({ t: 'blocked', x: p.x + mx * (p.r + 2), y: p.y + my * (p.r + 2), dx: mx, dy: my });
+      }
     }
 
     if (inp.pulse && p.pulseCd <= 0) this.castPulse();
@@ -275,6 +289,12 @@
     } else if (this.phase === 'chest') { p.x = this.chest.x; p.y = this.chest.y; }
     else if (this.phase === 'exit') { p.x = this.exit.x; p.y = this.exit.y; }
     this.progress();
+  };
+  // test room: the same room again, full HP; level, passives and gear are kept
+  S.restartTestRoom = function () {
+    this.loops++;
+    this.player.hp = this.player.maxHp;
+    this.loadRoom(this.roomIndex);
   };
   S.cheatRoom = function (index) {
     index = Math.max(0, Math.min(this.B.run.rooms - 1, index));

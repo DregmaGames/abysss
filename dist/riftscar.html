@@ -21,7 +21,8 @@
       tierGear: [0, 70, 170],         // gear score needed to unlock each tier
       roomMult: [1.05, 1.3, 1.55, 1.8, 2.1, 2.4, 2.75, 3.1, 3.5, 3.0],   // monster hp/dmg multiplier per room
       gearK: 0.005,                   // +0.5 % monster hp/dmg per point of gear score ("gear level scales the room")
-      ilvlTier: 3, ilvlRooms: 3       // item level = 1 + tier * ilvlTier + floor(room / ilvlRooms)
+      ilvlTier: 3, ilvlRooms: 3,      // item level = 1 + tier * ilvlTier + floor(room / ilvlRooms)
+      testRoom: 1                     // ?room=test / TEST ROOM button: this room, restarted on every clear
     },
 
     player: {
@@ -30,7 +31,8 @@
       crit: 0.05, critMult: 1.8, sideBoltDmg: 0.6,
       dodgeDist: 54, dodgeTime: 0.16, dodgeIframes: 0.34, dodgeCd: 1.6,
       pulseDmg: 26, pulseRadius: 54, pulseCd: 7, pulseKnock: 200,
-      hurtIframes: 0.3, pickupR: 36, levelHeal: 0.03
+      hurtIframes: 0.3, pickupR: 36, levelHeal: 0.03,
+      blockedEvery: 0.4               // s between two 'blocked' events while the mage pushes into an open crack
     },
 
     exp: { base: 9, grow: 5, pow: 1.22 },   // exp to next = base + grow * (level-1)^pow
@@ -676,11 +678,14 @@
     this.cheats = opts.cheats || {};     // debug panel toggles: god, noCd (see the cheats section below)
     this.player = { x: 0, y: 0, r: P.r, hp: P.hp, maxHp: P.hp, fx: 0, fy: -1, face: 1, moving: false,
       atkCd: 0.4, dodgeCd: 0, dashT: 0, dashX: 0, dashY: 0, iframes: 0, pulseCd: 0,
-      level: 1, exp: 0, expNext: this.expFor(1), passives: {}, pending: 0, tomes: 0, walk: true };
+      level: 1, exp: 0, expNext: this.expFor(1), passives: {}, pending: 0, tomes: 0, walk: true,
+      crackBlock: false, blockTick: -999, dashOver: false };
     this.stats = {};
     this.recalc();
     this.player.hp = this.stats.maxHp;
-    this.loadRoom(0);
+    this.testRoom = opts.testRoom ? B.run.testRoom : -1;   // test room: one room, restarted on clear
+    this.loops = 0;
+    this.loadRoom(this.testRoom >= 0 ? this.testRoom : 0);
   }
   var S = Sim.prototype;
 
@@ -751,17 +756,18 @@
   // Walkers (the player outside a dodge, monsters that do not fly) cannot step onto an open crack.
   // Leaving one is always allowed, so nothing can get trapped inside a crack.
   S.move = function (e, dx, dy) {
-    var h = e.r, E = 0.01, cc = e.walk && this.crackLit > 0 && !(e.dashT > 0), inC = cc && this.crackHits(e.x, e.y, h);
+    var h = e.r, E = 0.01, cc = e.walk && this.crackLit > 0 && !(e.dashT > 0), inC = cc && this.crackHits(e.x, e.y, h), blk = false;
     if (dx) {
       e.x += dx;
       if (this.boxHits(e.x, e.y, h)) e.x = dx > 0 ? Math.floor((e.x + h) / T) * T - h - E : (Math.floor((e.x - h) / T) + 1) * T + h + E;
-      if (cc && !inC && this.crackHits(e.x, e.y, h)) e.x -= dx;
+      if (cc && !inC && this.crackHits(e.x, e.y, h)) { e.x -= dx; blk = true; }
     }
     if (dy) {
       e.y += dy;
       if (this.boxHits(e.x, e.y, h)) e.y = dy > 0 ? Math.floor((e.y + h) / T) * T - h - E : (Math.floor((e.y - h) / T) + 1) * T + h + E;
-      if (cc && !inC && this.crackHits(e.x, e.y, h)) e.y -= dy;
+      if (cc && !inC && this.crackHits(e.x, e.y, h)) { e.y -= dy; blk = true; }
     }
+    if (e === this.player) e.crackBlock = blk;
   };
   // line of sight for a shot-sized object: two parallel rays 2 px either side, sampled every 2 px,
   // so "can see" always means "a bolt can get there" (no false positives at wall corners)
@@ -828,15 +834,25 @@
       p.dashT = P.dodgeTime; p.dashX = p.fx; p.dashY = p.fy;
       p.iframes = Math.max(p.iframes, P.dodgeIframes);
       p.dodgeCd = s.dodgeCd;
-      this.emit({ t: 'dodge', x: p.x, y: p.y });
+      p.dashOver = false;
+      // cross: the dash line runs over an open crack (the view draws the hop arc)
+      var cross = this.crackLit > 0 && this.crackOnLine(p.x, p.y, p.x + p.dashX * P.dodgeDist, p.y + p.dashY * P.dodgeDist, p.r);
+      this.emit({ t: 'dodge', x: p.x, y: p.y, dx: p.dashX, dy: p.dashY, cross: cross, dur: P.dodgeTime });
     }
     inp.dodge = false;
     if (p.dashT > 0) {
       var sp = P.dodgeDist / P.dodgeTime * dt;
       this.move(p, p.dashX * sp, p.dashY * sp);
+      if (!p.dashOver && this.crackHits(p.x, p.y, p.r)) p.dashOver = true;
       p.dashT -= dt;
+      if (p.dashT <= 0) this.emit({ t: 'land', x: p.x, y: p.y, cross: p.dashOver });
     } else if (p.moving) {
       this.move(p, mx * s.speed * dt, my * s.speed * dt);
+      // pushing into an open crack: tell the view where, at most every blockedEvery seconds
+      if (p.crackBlock && this.tick - p.blockTick >= P.blockedEvery * 60) {
+        p.blockTick = this.tick;
+        this.emit({ t: 'blocked', x: p.x + mx * (p.r + 2), y: p.y + my * (p.r + 2), dx: mx, dy: my });
+      }
     }
 
     if (inp.pulse && p.pulseCd <= 0) this.castPulse();
@@ -931,6 +947,12 @@
     } else if (this.phase === 'chest') { p.x = this.chest.x; p.y = this.chest.y; }
     else if (this.phase === 'exit') { p.x = this.exit.x; p.y = this.exit.y; }
     this.progress();
+  };
+  // test room: the same room again, full HP; level, passives and gear are kept
+  S.restartTestRoom = function () {
+    this.loops++;
+    this.player.hp = this.player.maxHp;
+    this.loadRoom(this.roomIndex);
   };
   S.cheatRoom = function (index) {
     index = Math.max(0, Math.min(this.B.run.rooms - 1, index));
@@ -1570,7 +1592,8 @@
       if (Math.abs(p.x - e.x) < 9 && p.y < e.y + 9) {
         this.roomsCleared++;
         this.progress();
-        if (this.roomIndex === this.B.run.rooms - 1) { this.state = 'won'; this.emit({ t: 'won' }); }
+        if (this.testRoom >= 0) this.restartTestRoom();
+        else if (this.roomIndex === this.B.run.rooms - 1) { this.state = 'won'; this.emit({ t: 'won' }); }
         else this.loadRoom(this.roomIndex + 1);
       }
     }
@@ -2187,6 +2210,7 @@
 // torches with additive light, and the fissures (per-pixel textures redrawn when they change).
 (function (G) {
   var UI = G.UI, T = 16, fissSeq = 0;
+  var FLASH_T = 24, FLASH_R = 18;        // bump flare: sim ticks, px radius
 
   G.RoomView = function (scene, room) {
     var W = room.w, H = room.h, ground = [], shade = [], x, y, i;
@@ -2236,6 +2260,9 @@
     }
     if (simFissures) for (i = 0; i < this.fissures.length; i++) this.fissures[i].update(simFissures[i], simTick);
   };
+  G.RoomView.prototype.bump = function (x, y, tick) {
+    for (var i = 0; i < this.fissures.length; i++) this.fissures[i].bump(x, y, tick);
+  };
   G.RoomView.prototype.destroy = function () {
     this.items.forEach(function (o) { o.destroy(); });
     this.fissures.forEach(function (f) { f.destroy(); });
@@ -2247,9 +2274,24 @@
   // that cools but never fully fades. Dormant (super fissure only): a hairline crack.
   function FissureView(scene, f) {
     var cells = f.cells, n = cells.length, i, minX = 0, minY = 0, maxX = 0, maxY = 0;
+    // barrier edge: a 1 px dark halo just outside the ember rim, drawn while a segment is open,
+    // so the line the mage cannot walk over reads against any floor
+    var seen = {}, halo = [];
+    for (i = 0; i < n; i++) seen[cells[i].x + ',' + cells[i].y] = 1;
     for (i = 0; i < n; i++) {
-      minX = Math.min(minX, cells[i].x); maxX = Math.max(maxX, cells[i].x);
-      minY = Math.min(minY, cells[i].y); maxY = Math.max(maxY, cells[i].y);
+      if (cells[i].core) continue;
+      for (var hy = -1; hy <= 1; hy++) for (var hx = -1; hx <= 1; hx++) {
+        var kk0 = (cells[i].x + hx) + ',' + (cells[i].y + hy);
+        if (seen[kk0]) continue;
+        seen[kk0] = 1;
+        halo.push({ x: cells[i].x + hx, y: cells[i].y + hy, o: cells[i].o, seg: cells[i].seg });
+      }
+    }
+    this.halo = halo;
+    for (i = 0; i < n + halo.length; i++) {
+      var cc0 = i < n ? cells[i] : halo[i - n];
+      minX = Math.min(minX, cc0.x); maxX = Math.max(maxX, cc0.x);
+      minY = Math.min(minY, cc0.y); maxY = Math.max(maxY, cc0.y);
     }
     this.w = maxX - minX + 1; this.h = maxY - minY + 1; this.ox = minX; this.oy = minY;
     // depth of each core cell = steps to the nearest rim cell (drives the inner colour bands)
@@ -2269,7 +2311,8 @@
     this.depth = cells.map(function (cl) { return grid[(cl.y - minY) * w + (cl.x - minX)]; });
     this.hash = cells.map(function (cl) { return (((cl.x * 73856093) ^ (cl.y * 19349663)) >>> 0) % 64; });
     this.key = 'fiss' + (fissSeq++);
-    this.scene = scene; this.big = f.big;
+    this.scene = scene; this.big = f.big; this.fx0 = f.x; this.fy0 = f.y;
+    this.flash = null;                   // { x, y, tick }: where the mage last bumped into this crack
     this.tex = scene.textures.createCanvas(this.key, Math.max(1, this.w), Math.max(1, this.h));
     this.ctx = this.tex.getContext();
     this.img = this.ctx.createImageData(Math.max(1, this.w), Math.max(1, this.h));
@@ -2284,7 +2327,9 @@
   // a crack of the network: each segment is open (rift light) or dark (a scar that cools)
   FissureView.prototype.updateNet = function (f, tick) {
     var st = f.state, sh = tick >> 3, s, cool = [], minCool = 1, opening = st === 'opening';
-    var key = st + '|' + (opening ? Math.round(f.reveal * 80) : (f.litN ? sh : 0));
+    var fl = this.flash, flA = fl ? 1 - (tick - fl.tick) / FLASH_T : 0;
+    if (flA <= 0) { flA = 0; this.flash = fl = null; }
+    var key = st + '|' + (opening ? Math.round(f.reveal * 80) : (f.litN ? sh : 0)) + '|' + Math.round(flA * 12);
     for (s = 0; s < f.nSeg; s++) {
       var cv = f.dark[s] ? Math.min(1, (tick - f.darkTick[s]) / 480) : -1;
       cool.push(cv);
@@ -2299,11 +2344,20 @@
     this.last = key;
     var cells = this.cells, n = cells.length, d = this.img.data, C = this.C, w = this.w, ox = this.ox, oy = this.oy, i;
     d.fill(0);
+    var flR2 = fl ? FLASH_R * FLASH_R * flA : 0, flx = fl ? fl.x : 0, fly = fl ? fl.y : 0, halo = this.halo;
+    for (i = 0; i < halo.length; i++) {
+      var hc = halo[i];
+      if (!(cool[hc.seg] < 0) || (opening && hc.o > f.reveal)) continue;
+      var hd = (hc.x - flx) * (hc.x - flx) + (hc.y - fly) * (hc.y - fly), hcol = fl && hd < flR2 ? C.em3 : C.outline;
+      var hp = ((hc.y - oy) * w + (hc.x - ox)) * 4;
+      d[hp] = hcol[0]; d[hp + 1] = hcol[1]; d[hp + 2] = hcol[2]; d[hp + 3] = 255;
+    }
     for (i = 0; i < n; i++) {
       var c = cells[i], h = this.hash[i], dep = this.depth[i], col = null, cs = cool[c.seg];
       if (cs < 0 && (!opening || c.o <= f.reveal)) {
         if (opening && f.reveal - c.o < 0.07) col = c.core ? C.rg4 : C.em4;
-        else if (!c.core) col = (h + sh) % 13 === 0 ? C.em4 : (h % 5 === 0 ? C.em3 : (h % 3 === 0 ? C.em1 : C.em2));
+        else if (fl && !c.core && (c.x - flx) * (c.x - flx) + (c.y - fly) * (c.y - fly) < flR2) col = h % 3 ? C.rg4 : C.em4;   // bumped: the lip flares
+        else if (!c.core) col = (h + sh) % 11 === 0 ? C.em4 : (h % 4 === 0 ? C.em2 : C.em3);   // steady hot rim = the edge
         else if (dep <= 1) col = C.rg0;
         else if (dep === 2) col = h % 4 === 0 ? C.rg2 : C.rg1;
         else if (dep === 3) col = (h + sh) % 9 === 0 ? C.rg3 : C.rg2;
@@ -2321,6 +2375,13 @@
     this.tex.refresh();
   };
 
+  // the mage pushed into this crack at room pixel (x, y): flare the lip around that point
+  FissureView.prototype.bump = function (x, y, tick) {
+    var lx = x - this.fx0, ly = y - this.fy0, m = FLASH_R;
+    if (this.big || lx < this.ox - m || ly < this.oy - m || lx > this.ox + this.w + m || ly > this.oy + this.h + m) return false;
+    this.flash = { x: lx, y: ly, tick: tick };
+    return true;
+  };
   FissureView.prototype.update = function (f, tick) {
     if (!f.big) { this.updateNet(f, tick); return; }
     var st = f.state, cooling = st === 'scar' ? Math.min(1, (tick - (f.scarTick || tick)) / 480) : 0, sh = tick >> 3;
@@ -2388,6 +2449,7 @@
         if (G.params.get('fresh') === '1') G.save = G.newSave();
         if (G.params.has('zoom')) G.save.settings.zoom = parseInt(G.params.get('zoom'), 10) || 0;
         G.touch = G.params.get('touch') === '1';
+        G.testRoom = G.params.get('room') === 'test';     // ?scene=game&room=test, or the TEST ROOM button
         G.applyView();
         self.scene.start(G.params.get('scene') === 'game' ? 'game' : 'title');
       }
@@ -2457,7 +2519,10 @@
       y += tall ? 34 : 24;
       L.button(cx - 76, y, 74, 20, 'EQUIPMENT', function () { if (!G.Panels.isOpen()) G.Panels.openInventory(self); }, { name: 'title_gear' });
       L.button(cx + 2, y, 74, 20, 'SETTINGS', function () { if (!G.Panels.isOpen()) G.Panels.openSettings(self); }, { name: 'title_settings' });
-      y += 28;
+      y += tall ? 28 : 24;
+      // practice: one room with the crack network, restarted on every clear (also ?scene=game&room=test)
+      L.button(cx - 76, y, 152, 20, 'TEST ROOM (PRACTICE)', function () { if (self.input.activePointer.wasTouch) G.touch = true; self.start(true); }, { name: 'title_test', color: 'ui_good' });
+      y += tall ? 28 : 25;
       var help = G.touch ? ['Drag to move.  Buttons: dodge, pulse.'] : (V.W >= 300 ? ['WASD move    SPACE dodge    Q pulse    I inventory'] : ['WASD move   SPACE dodge', 'Q pulse   I inventory']);
       help.forEach(function (line, i) { if (y + i * 10 < V.H - 12) UI.centerX(L.text(0, y + i * 10, line, 'ui_dim'), cx); });
       this.refresh();
@@ -2477,9 +2542,10 @@
       this.seedText.x = cx - 64;
       this.btnStart.setEnabled(!locked);
     },
-    start: function () {
-      if (this.gearScore() < G.BAL.run.tierGear[G.tier]) return;
+    start: function (test) {
+      if (!test && this.gearScore() < G.BAL.run.tierGear[G.tier]) return;
       if (G.Panels.isOpen()) return;
+      G.testRoom = !!test;
       this.scene.stop('backdrop'); this.scene.start('game');
     },
     update: function () {}
@@ -2518,6 +2584,7 @@
   var SHADOW = { s: 'shadow_s', m: 'shadow_m', l: 'shadow_l' };
   var DIE_COLOR = { imp: 'ir2', bat: 'bt2', skeleton: 'sk2', hound: 'hd2', warden: 'wd2', tyrant: 'ty2' };
   var SHOT_FRAME = { bone: 'shot_bone', big: 'shot_big', orb: 'shot' };
+  var HOP_H = 12, ARC_LIFE = 30;          // dodge across a crack: hop height (px), trail fade (frames)
 
   G.GameScene = new Phaser.Class({
     Extends: Phaser.Scene,
@@ -2533,7 +2600,7 @@
       G.debug = P.get('debug') !== '0' && P.get('bot') !== '1';    // ?debug=0 hides the debug button
       this.speed = P.has('speed') ? parseFloat(P.get('speed')) : G.cheats.speed;
       G.manualLevel = P.get('manual') === '1';      // QA: level-up cards are clicked by the test, not auto-picked
-      this.sim = new G.Sim({ seed: G.runSeed, tier: G.tier, gear: G.save.gear, events: true, cheats: G.cheats });
+      this.sim = new G.Sim({ seed: G.runSeed, tier: G.tier, gear: G.save.gear, events: true, cheats: G.cheats, testRoom: !!G.testRoom });
       this.controls = new G.Controls(this);
       this.fx = new G.FX(this);
       this.fx.quiet = this.speed > 4;
@@ -2541,6 +2608,8 @@
       this.maps = { monsters: new Map(), bolts: new Map(), shots: new Map(), orbs: new Map(), drops: new Map() };
       this.acc = 0; this.frame = 0; this.ended = false; this.worstStuck = 0;
       this.groundG = this.add.graphics().setDepth(-700);     // cooldown rings, telegraphs
+      this.arcG = this.add.graphics().setDepth(7990);         // the hop arc of a dodge across a crack
+      this.hop = null; this.arc = []; this.bumpT = 0; this.bumpX = 0; this.bumpY = 0; this.blockN = 0;
       this.player = this.add.image(0, 0, 'atlas', 'mage_0').setOrigin(0.42, 1);
       this.playerShadow = this.add.image(0, 0, 'atlas', 'shadow_s').setDepth(-100);
       this.playerGlow = this.add.image(0, 0, 'atlas', 'glow').setDepth(-640).setBlendMode(ADD).setTint(UI.hex('mb2')).setAlpha(0.14);
@@ -2568,6 +2637,7 @@
       if (this.roomView) this.roomView.destroy();
       for (k in this.maps) { this.maps[k].forEach(function (s) { if (s.sh) s.sh.destroy(); if (s.gl) s.gl.destroy(); s.destroy(); }); this.maps[k].clear(); }
       this.fx.clear();
+      this.hop = null; this.arc.length = 0; this.blockN = 0;
       this.roomView = new G.RoomView(this, room);
       this.door.setPosition(room.exit.tx * 16 + 8, 32);
       this.doorGlow.setPosition(room.exit.tx * 16 + 8, 40);
@@ -2646,7 +2716,21 @@
             fx.burst(e.x, e.y, 'orb', 16, 150, 0.3);
             fx.shake(0.3);
             break;
-          case 'dodge': fx.burst(e.x, e.y, 'mb3', 8, 50, 0.3); this.dashTrail = 10; break;
+          case 'dodge':
+            fx.burst(e.x, e.y, 'mb3', 8, 50, 0.3); this.dashTrail = 10;
+            // across an open crack: the mage hops in an arc and leaves a dotted trail of it
+            if (e.cross) { this.hop = { dur: e.dur }; this.planArc(e); }
+            break;
+          case 'land':
+            if (e.cross) { fx.burst(e.x, e.y + 5, 'ui_dim', 6, 40, 0.3); fx.ring(e.x, e.y + 5, 2, 10, 0.25, 'mb3', 0.5); }
+            break;
+          case 'blocked':
+            // pushing into an open crack: sparks where the mage touches it, the lip flares, the mage recoils
+            fx.burst(e.x, e.y, 'em4', 4, 40, 0.25);
+            this.roomView.bump(e.x, e.y, this.sim.tick);
+            this.bumpT = 6; this.bumpX = -e.dx; this.bumpY = -e.dy;
+            if (this.blockN++ % 4 === 0) fx.number(this.sim.player.x, this.sim.player.y - 22, 'DODGE TO CROSS', 'ui_warn');
+            break;
           case 'windup': s = this.maps.monsters.get(e.id); if (s) s.wind = Math.round(e.dur * 60); break;
           case 'puff': fx.burst(e.x, e.y, 'ui_dim', 3, 30, 0.2); break;
           case 'slam': fx.ring(e.x, e.y, 8, e.r, 0.3, 'em3'); fx.burst(e.x, e.y, 'em2', 30, 140, 0.5); fx.shake(0.9); break;
@@ -2674,8 +2758,17 @@
       // player
       var walk = p.moving ? [1, 0, 2, 0][(tick >> 3) & 3] : 0;
       this.player.setFrame('mage_' + walk).setFlipX(p.face < 0).setOrigin(p.face < 0 ? 0.58 : 0.42, 1);
-      this.player.setPosition(p.x, p.y + p.r + 1).setDepth(p.y + p.r);
-      this.playerShadow.setPosition(p.x, p.y + p.r);
+      // hop: height of the dodge arc over a crack (0 outside it); bump: a 1 px recoil off the edge
+      var lift = 0, bx = 0, by = 0;
+      if (this.hop) {
+        var k = p.dashT > 0 ? 1 - p.dashT / this.hop.dur : 1;
+        lift = Math.round(Math.sin(Math.PI * Math.min(1, k)) * HOP_H);
+        if (p.dashT <= 0) this.hop = null;
+      }
+      if (this.bumpT > 0) { this.bumpT--; bx = Math.round(this.bumpX); by = Math.round(this.bumpY); }
+      this.player.setPosition(p.x + bx, p.y + p.r + 1 - lift + by).setDepth(p.y + p.r + (lift ? 400 : 0));
+      this.playerShadow.setPosition(p.x, p.y + p.r).setScale(1 - lift / (HOP_H * 2.5));
+      this.drawArc();
       this.playerGlow.setPosition(p.x, p.y);
       this.player.setVisible(sim.state !== 'dead');
       if (this.hurtFlash > 0) { this.hurtFlash--; this.player.setTintFill(0xffffff); }
@@ -2732,6 +2825,34 @@
       this.door.setFrame(sim.exit.open ? 'door_open' : 'door_closed');
       this.doorGlow.setAlpha(sim.exit.open ? 0.35 + ((tick >> 3) % 3) * 0.04 : 0);
       this.drawGround(tick);
+    },
+
+    // the arc of a dodge across a crack, drawn whole when the dodge starts: from the mage's feet to
+    // where the dash will stop (walls shorten it), as a dotted parabola that fades after landing
+    planArc: function (e) {
+      var sim = this.sim, r = sim.player.r, D = sim.B.player.dodgeDist, d = 0, a = this.arc;
+      while (d < D && !sim.boxHits(e.x + e.dx * (d + 1), e.y + e.dy * (d + 1), r)) d++;
+      a.length = 0;
+      for (var j = 0; j <= d; j++) {
+        var q = j / Math.max(1, d);
+        a.push({ x: Math.round(e.x + e.dx * j), y: Math.round(e.y + r + e.dy * j - Math.sin(Math.PI * q) * HOP_H) });
+      }
+      this.arcLife = ARC_LIFE;
+    },
+    drawArc: function () {
+      var g = this.arcG, a = this.arc, i;
+      if (!this.hop && this.arcLife > 0) this.arcLife--;
+      g.clear();
+      if (!a.length || (!this.hop && this.arcLife <= 0)) { a.length = 0; return; }
+      var alpha = this.hop ? 0.9 : 0.9 * this.arcLife / ARC_LIFE, c = UI.hex('mb3'), c2 = UI.hex('mb2');
+      for (i = 0; i < a.length; i++) {
+        g.fillStyle((i >> 1) % 2 ? c2 : c, alpha);
+        g.fillRect(a[i].x, a[i].y, 1, 1);
+      }
+      // landing mark: a small bracket on the floor where the dash ends
+      var L = a[a.length - 1];
+      g.fillStyle(c, alpha);
+      g.fillRect(L.x - 4, L.y, 3, 1); g.fillRect(L.x + 2, L.y, 3, 1); g.fillRect(L.x - 4, L.y - 1, 1, 1); g.fillRect(L.x + 4, L.y - 1, 1, 1);
     },
 
     list: function (name, arr, make, update) {
@@ -2799,7 +2920,7 @@
       out.sim = { state: sim.state, room: sim.roomIndex, phase: sim.phase, tick: sim.tick, hp: Math.round(p.hp), maxHp: p.maxHp, level: p.level,
         kills: sim.kills, rooms: sim.roomsCleared, stuck: +sim.stuckSeconds().toFixed(1), worstStuck: +gs.worstStuck.toFixed(1),
         monsters: sim.monsters.length, bag: sim.gear.bag.length, gearScore: G.gearScore(sim.gear), hash: sim.room.hash,
-        objective: sim.objective(), fissures: sim.fissures.map(function (f) { return f.state; }), x: Math.round(p.x), y: Math.round(p.y) };
+        objective: sim.objective(), test: sim.testRoom >= 0, loops: sim.loops, touch: !!G.touch, fissures: sim.fissures.map(function (f) { return f.state; }), x: Math.round(p.x), y: Math.round(p.y) };
     }
     return out;
   };
@@ -3028,12 +3149,12 @@
       if (L.xp !== xp) { L.xp = xp; this.xpFill.setDisplaySize(Math.max(0.01, xp), 3); }
 
       var fp = sim.fissureProgress(), obj = sim.objective();
-      var okey = obj + '|' + fp.states.join(',') + '|' + sim.phase + '|' + sim.roomIndex;
+      var okey = obj + '|' + fp.states.join(',') + '|' + sim.phase + '|' + sim.roomIndex + '|' + sim.loops;
       if (L.obj !== okey) {
         L.obj = okey;
         this.objText.setText(obj);
         var showBar = sim.phase === 'super', n = fp.total + 1, pipsW = fp.total * 8 + 10, rowW = showBar ? 72 : pipsW;
-        var room = 'Room ' + (sim.roomIndex + 1) + '/' + sim.B.run.rooms;
+        var room = sim.testRoom >= 0 ? 'Test #' + (sim.loops + 1) : 'Room ' + (sim.roomIndex + 1) + '/' + sim.B.run.rooms;
         this.roomText.setText(room);
         var w = Math.min(O.w, Math.max(this.objText.width, rowW + this.roomText.width + 8) + 14), x0 = O.x + Math.round((O.w - w) / 2);
         // centre on the screen when the free area allows it
@@ -3277,7 +3398,8 @@
       ['KILL ALL', act(function () { s.cheatKillAll(); }), 'dbg_kill'],
       ['SKIP PHASE', act(function () { s.cheatSkipPhase(); }), 'dbg_skip'],
       ['LEVEL UP', act(function () { s.cheatLevel(); }), 'dbg_level'],
-      ['NEXT ROOM', act(function () { s.cheatRoom(s.roomIndex + 1); }), 'dbg_next'],
+      s.testRoom >= 0 ? ['RESTART ROOM', act(function () { s.restartTestRoom(); }), 'dbg_next']
+        : ['NEXT ROOM', act(function () { s.cheatRoom(s.roomIndex + 1); }), 'dbg_next'],
       ['BOSS ROOM', act(function () { s.cheatRoom(s.B.run.rooms - 1); }), 'dbg_boss'],
       ['GIVE LOOT', act(function () { s.cheatLoot(); }), 'dbg_loot'],
       ['RESUME', function () { P.close(); }, 'dbg_resume']
@@ -3293,7 +3415,7 @@
   P.openResult = function (scene, state) {
     if (P.L) P.L.destroy();
     var V = G.view, s = G.gameScene.sim, B = s.B, won = state === 'won';
-    if (P.resultState !== state || !P.counted) {
+    if ((P.resultState !== state || !P.counted) && s.testRoom < 0) {      // test-room deaths are not runs
       P.counted = true;
       G.save.stats.runs++; if (won) G.save.stats.wins++;
       G.save.stats.best = Math.max(G.save.stats.best || 0, s.roomsCleared);
@@ -3305,7 +3427,7 @@
     var L = P.L = UI.modal(scene, pw, ph, null), x0 = L.x, y0 = L.y, cx = V.W / 2;
     UI.centerX(L.text(0, y0 + 9, won ? 'RIFT SEALED' : 'YOU DIED', won ? 'ui_good' : 'ui_bad', true), cx);
     var t = Math.round(s.tick / 60), gs = G.gearScore(s.gear), lines = [
-      [won ? 'All ' + B.run.rooms + ' rooms cleared' : 'Fell in room ' + (s.roomIndex + 1) + ' of ' + B.run.rooms, 'ui_text'],
+      [won ? 'All ' + B.run.rooms + ' rooms cleared' : s.testRoom >= 0 ? 'Fell in the test room (clears: ' + s.loops + ')' : 'Fell in room ' + (s.roomIndex + 1) + ' of ' + B.run.rooms, 'ui_text'],
       ['Level ' + s.player.level + '   Kills ' + s.kills + '   ' + Math.floor(t / 60) + ':' + ('0' + t % 60).slice(-2), 'ui_dim'],
       ['Gear score ' + gs + '  (gear is kept)', 'ui_dim']];
     var next = B.run.tierGear[s.tier + 1];

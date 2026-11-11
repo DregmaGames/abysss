@@ -292,7 +292,8 @@
       if (Math.abs(p.x - e.x) < 9 && p.y < e.y + 9) {
         this.roomsCleared++;
         this.progress();
-        if (this.roomIndex === this.B.run.rooms - 1) { this.state = 'won'; this.emit({ t: 'won' }); }
+        if (this.testRoom >= 0) this.restartTestRoom();
+        else if (this.roomIndex === this.B.run.rooms - 1) { this.state = 'won'; this.emit({ t: 'won' }); }
         else this.loadRoom(this.roomIndex + 1);
       }
     }

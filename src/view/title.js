@@ -52,7 +52,10 @@
       y += tall ? 34 : 24;
       L.button(cx - 76, y, 74, 20, 'EQUIPMENT', function () { if (!G.Panels.isOpen()) G.Panels.openInventory(self); }, { name: 'title_gear' });
       L.button(cx + 2, y, 74, 20, 'SETTINGS', function () { if (!G.Panels.isOpen()) G.Panels.openSettings(self); }, { name: 'title_settings' });
-      y += 28;
+      y += tall ? 28 : 24;
+      // practice: one room with the crack network, restarted on every clear (also ?scene=game&room=test)
+      L.button(cx - 76, y, 152, 20, 'TEST ROOM (PRACTICE)', function () { if (self.input.activePointer.wasTouch) G.touch = true; self.start(true); }, { name: 'title_test', color: 'ui_good' });
+      y += tall ? 28 : 25;
       var help = G.touch ? ['Drag to move.  Buttons: dodge, pulse.'] : (V.W >= 300 ? ['WASD move    SPACE dodge    Q pulse    I inventory'] : ['WASD move   SPACE dodge', 'Q pulse   I inventory']);
       help.forEach(function (line, i) { if (y + i * 10 < V.H - 12) UI.centerX(L.text(0, y + i * 10, line, 'ui_dim'), cx); });
       this.refresh();
@@ -72,9 +75,10 @@
       this.seedText.x = cx - 64;
       this.btnStart.setEnabled(!locked);
     },
-    start: function () {
-      if (this.gearScore() < G.BAL.run.tierGear[G.tier]) return;
+    start: function (test) {
+      if (!test && this.gearScore() < G.BAL.run.tierGear[G.tier]) return;
       if (G.Panels.isOpen()) return;
+      G.testRoom = !!test;
       this.scene.stop('backdrop'); this.scene.start('game');
     },
     update: function () {}

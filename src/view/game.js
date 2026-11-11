@@ -5,6 +5,7 @@
   var SHADOW = { s: 'shadow_s', m: 'shadow_m', l: 'shadow_l' };
   var DIE_COLOR = { imp: 'ir2', bat: 'bt2', skeleton: 'sk2', hound: 'hd2', warden: 'wd2', tyrant: 'ty2' };
   var SHOT_FRAME = { bone: 'shot_bone', big: 'shot_big', orb: 'shot' };
+  var HOP_H = 12, ARC_LIFE = 30;          // dodge across a crack: hop height (px), trail fade (frames)
 
   G.GameScene = new Phaser.Class({
     Extends: Phaser.Scene,
@@ -20,7 +21,7 @@
       G.debug = P.get('debug') !== '0' && P.get('bot') !== '1';    // ?debug=0 hides the debug button
       this.speed = P.has('speed') ? parseFloat(P.get('speed')) : G.cheats.speed;
       G.manualLevel = P.get('manual') === '1';      // QA: level-up cards are clicked by the test, not auto-picked
-      this.sim = new G.Sim({ seed: G.runSeed, tier: G.tier, gear: G.save.gear, events: true, cheats: G.cheats });
+      this.sim = new G.Sim({ seed: G.runSeed, tier: G.tier, gear: G.save.gear, events: true, cheats: G.cheats, testRoom: !!G.testRoom });
       this.controls = new G.Controls(this);
       this.fx = new G.FX(this);
       this.fx.quiet = this.speed > 4;
@@ -28,6 +29,8 @@
       this.maps = { monsters: new Map(), bolts: new Map(), shots: new Map(), orbs: new Map(), drops: new Map() };
       this.acc = 0; this.frame = 0; this.ended = false; this.worstStuck = 0;
       this.groundG = this.add.graphics().setDepth(-700);     // cooldown rings, telegraphs
+      this.arcG = this.add.graphics().setDepth(7990);         // the hop arc of a dodge across a crack
+      this.hop = null; this.arc = []; this.bumpT = 0; this.bumpX = 0; this.bumpY = 0; this.blockN = 0;
       this.player = this.add.image(0, 0, 'atlas', 'mage_0').setOrigin(0.42, 1);
       this.playerShadow = this.add.image(0, 0, 'atlas', 'shadow_s').setDepth(-100);
       this.playerGlow = this.add.image(0, 0, 'atlas', 'glow').setDepth(-640).setBlendMode(ADD).setTint(UI.hex('mb2')).setAlpha(0.14);
@@ -55,6 +58,7 @@
       if (this.roomView) this.roomView.destroy();
       for (k in this.maps) { this.maps[k].forEach(function (s) { if (s.sh) s.sh.destroy(); if (s.gl) s.gl.destroy(); s.destroy(); }); this.maps[k].clear(); }
       this.fx.clear();
+      this.hop = null; this.arc.length = 0; this.blockN = 0;
       this.roomView = new G.RoomView(this, room);
       this.door.setPosition(room.exit.tx * 16 + 8, 32);
       this.doorGlow.setPosition(room.exit.tx * 16 + 8, 40);
@@ -133,7 +137,21 @@
             fx.burst(e.x, e.y, 'orb', 16, 150, 0.3);
             fx.shake(0.3);
             break;
-          case 'dodge': fx.burst(e.x, e.y, 'mb3', 8, 50, 0.3); this.dashTrail = 10; break;
+          case 'dodge':
+            fx.burst(e.x, e.y, 'mb3', 8, 50, 0.3); this.dashTrail = 10;
+            // across an open crack: the mage hops in an arc and leaves a dotted trail of it
+            if (e.cross) { this.hop = { dur: e.dur }; this.planArc(e); }
+            break;
+          case 'land':
+            if (e.cross) { fx.burst(e.x, e.y + 5, 'ui_dim', 6, 40, 0.3); fx.ring(e.x, e.y + 5, 2, 10, 0.25, 'mb3', 0.5); }
+            break;
+          case 'blocked':
+            // pushing into an open crack: sparks where the mage touches it, the lip flares, the mage recoils
+            fx.burst(e.x, e.y, 'em4', 4, 40, 0.25);
+            this.roomView.bump(e.x, e.y, this.sim.tick);
+            this.bumpT = 6; this.bumpX = -e.dx; this.bumpY = -e.dy;
+            if (this.blockN++ % 4 === 0) fx.number(this.sim.player.x, this.sim.player.y - 22, 'DODGE TO CROSS', 'ui_warn');
+            break;
           case 'windup': s = this.maps.monsters.get(e.id); if (s) s.wind = Math.round(e.dur * 60); break;
           case 'puff': fx.burst(e.x, e.y, 'ui_dim', 3, 30, 0.2); break;
           case 'slam': fx.ring(e.x, e.y, 8, e.r, 0.3, 'em3'); fx.burst(e.x, e.y, 'em2', 30, 140, 0.5); fx.shake(0.9); break;
@@ -161,8 +179,17 @@
       // player
       var walk = p.moving ? [1, 0, 2, 0][(tick >> 3) & 3] : 0;
       this.player.setFrame('mage_' + walk).setFlipX(p.face < 0).setOrigin(p.face < 0 ? 0.58 : 0.42, 1);
-      this.player.setPosition(p.x, p.y + p.r + 1).setDepth(p.y + p.r);
-      this.playerShadow.setPosition(p.x, p.y + p.r);
+      // hop: height of the dodge arc over a crack (0 outside it); bump: a 1 px recoil off the edge
+      var lift = 0, bx = 0, by = 0;
+      if (this.hop) {
+        var k = p.dashT > 0 ? 1 - p.dashT / this.hop.dur : 1;
+        lift = Math.round(Math.sin(Math.PI * Math.min(1, k)) * HOP_H);
+        if (p.dashT <= 0) this.hop = null;
+      }
+      if (this.bumpT > 0) { this.bumpT--; bx = Math.round(this.bumpX); by = Math.round(this.bumpY); }
+      this.player.setPosition(p.x + bx, p.y + p.r + 1 - lift + by).setDepth(p.y + p.r + (lift ? 400 : 0));
+      this.playerShadow.setPosition(p.x, p.y + p.r).setScale(1 - lift / (HOP_H * 2.5));
+      this.drawArc();
       this.playerGlow.setPosition(p.x, p.y);
       this.player.setVisible(sim.state !== 'dead');
       if (this.hurtFlash > 0) { this.hurtFlash--; this.player.setTintFill(0xffffff); }
@@ -219,6 +246,34 @@
       this.door.setFrame(sim.exit.open ? 'door_open' : 'door_closed');
       this.doorGlow.setAlpha(sim.exit.open ? 0.35 + ((tick >> 3) % 3) * 0.04 : 0);
       this.drawGround(tick);
+    },
+
+    // the arc of a dodge across a crack, drawn whole when the dodge starts: from the mage's feet to
+    // where the dash will stop (walls shorten it), as a dotted parabola that fades after landing
+    planArc: function (e) {
+      var sim = this.sim, r = sim.player.r, D = sim.B.player.dodgeDist, d = 0, a = this.arc;
+      while (d < D && !sim.boxHits(e.x + e.dx * (d + 1), e.y + e.dy * (d + 1), r)) d++;
+      a.length = 0;
+      for (var j = 0; j <= d; j++) {
+        var q = j / Math.max(1, d);
+        a.push({ x: Math.round(e.x + e.dx * j), y: Math.round(e.y + r + e.dy * j - Math.sin(Math.PI * q) * HOP_H) });
+      }
+      this.arcLife = ARC_LIFE;
+    },
+    drawArc: function () {
+      var g = this.arcG, a = this.arc, i;
+      if (!this.hop && this.arcLife > 0) this.arcLife--;
+      g.clear();
+      if (!a.length || (!this.hop && this.arcLife <= 0)) { a.length = 0; return; }
+      var alpha = this.hop ? 0.9 : 0.9 * this.arcLife / ARC_LIFE, c = UI.hex('mb3'), c2 = UI.hex('mb2');
+      for (i = 0; i < a.length; i++) {
+        g.fillStyle((i >> 1) % 2 ? c2 : c, alpha);
+        g.fillRect(a[i].x, a[i].y, 1, 1);
+      }
+      // landing mark: a small bracket on the floor where the dash ends
+      var L = a[a.length - 1];
+      g.fillStyle(c, alpha);
+      g.fillRect(L.x - 4, L.y, 3, 1); g.fillRect(L.x + 2, L.y, 3, 1); g.fillRect(L.x - 4, L.y - 1, 1, 1); g.fillRect(L.x + 4, L.y - 1, 1, 1);
     },
 
     list: function (name, arr, make, update) {
@@ -286,7 +341,7 @@
       out.sim = { state: sim.state, room: sim.roomIndex, phase: sim.phase, tick: sim.tick, hp: Math.round(p.hp), maxHp: p.maxHp, level: p.level,
         kills: sim.kills, rooms: sim.roomsCleared, stuck: +sim.stuckSeconds().toFixed(1), worstStuck: +gs.worstStuck.toFixed(1),
         monsters: sim.monsters.length, bag: sim.gear.bag.length, gearScore: G.gearScore(sim.gear), hash: sim.room.hash,
-        objective: sim.objective(), fissures: sim.fissures.map(function (f) { return f.state; }), x: Math.round(p.x), y: Math.round(p.y) };
+        objective: sim.objective(), test: sim.testRoom >= 0, loops: sim.loops, touch: !!G.touch, fissures: sim.fissures.map(function (f) { return f.state; }), x: Math.round(p.x), y: Math.round(p.y) };
     }
     return out;
   };

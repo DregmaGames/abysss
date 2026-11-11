@@ -15,6 +15,7 @@
         if (G.params.get('fresh') === '1') G.save = G.newSave();
         if (G.params.has('zoom')) G.save.settings.zoom = parseInt(G.params.get('zoom'), 10) || 0;
         G.touch = G.params.get('touch') === '1';
+        G.testRoom = G.params.get('room') === 'test';     // ?scene=game&room=test, or the TEST ROOM button
         G.applyView();
         self.scene.start(G.params.get('scene') === 'game' ? 'game' : 'title');
       }

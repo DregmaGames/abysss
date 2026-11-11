@@ -54,6 +54,7 @@ node tools/sim_bot.js --career 14           # consecutive runs keeping gear, tie
 node qa/bot.js --seeds 1-12                 # bot plays the real game in headless Chromium:
                                             #   no console errors, no softlock, must match Node
 node qa/screens.js both                     # screenshots of every screen at 960x540 and 540x960
+node qa/test_room.js [dir]                  # test room: edge, blocked step, dodge arc, touch, restart; 2 shots
 node qa/session.js --minutes 10             # scripted real-time session with rotation, menus, restarts
 ```
 

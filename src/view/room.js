@@ -2,6 +2,7 @@
 // torches with additive light, and the fissures (per-pixel textures redrawn when they change).
 (function (G) {
   var UI = G.UI, T = 16, fissSeq = 0;
+  var FLASH_T = 24, FLASH_R = 18;        // bump flare: sim ticks, px radius
 
   G.RoomView = function (scene, room) {
     var W = room.w, H = room.h, ground = [], shade = [], x, y, i;
@@ -51,6 +52,9 @@
     }
     if (simFissures) for (i = 0; i < this.fissures.length; i++) this.fissures[i].update(simFissures[i], simTick);
   };
+  G.RoomView.prototype.bump = function (x, y, tick) {
+    for (var i = 0; i < this.fissures.length; i++) this.fissures[i].bump(x, y, tick);
+  };
   G.RoomView.prototype.destroy = function () {
     this.items.forEach(function (o) { o.destroy(); });
     this.fissures.forEach(function (f) { f.destroy(); });
@@ -62,9 +66,24 @@
   // that cools but never fully fades. Dormant (super fissure only): a hairline crack.
   function FissureView(scene, f) {
     var cells = f.cells, n = cells.length, i, minX = 0, minY = 0, maxX = 0, maxY = 0;
+    // barrier edge: a 1 px dark halo just outside the ember rim, drawn while a segment is open,
+    // so the line the mage cannot walk over reads against any floor
+    var seen = {}, halo = [];
+    for (i = 0; i < n; i++) seen[cells[i].x + ',' + cells[i].y] = 1;
     for (i = 0; i < n; i++) {
-      minX = Math.min(minX, cells[i].x); maxX = Math.max(maxX, cells[i].x);
-      minY = Math.min(minY, cells[i].y); maxY = Math.max(maxY, cells[i].y);
+      if (cells[i].core) continue;
+      for (var hy = -1; hy <= 1; hy++) for (var hx = -1; hx <= 1; hx++) {
+        var kk0 = (cells[i].x + hx) + ',' + (cells[i].y + hy);
+        if (seen[kk0]) continue;
+        seen[kk0] = 1;
+        halo.push({ x: cells[i].x + hx, y: cells[i].y + hy, o: cells[i].o, seg: cells[i].seg });
+      }
+    }
+    this.halo = halo;
+    for (i = 0; i < n + halo.length; i++) {
+      var cc0 = i < n ? cells[i] : halo[i - n];
+      minX = Math.min(minX, cc0.x); maxX = Math.max(maxX, cc0.x);
+      minY = Math.min(minY, cc0.y); maxY = Math.max(maxY, cc0.y);
     }
     this.w = maxX - minX + 1; this.h = maxY - minY + 1; this.ox = minX; this.oy = minY;
     // depth of each core cell = steps to the nearest rim cell (drives the inner colour bands)
@@ -84,7 +103,8 @@
     this.depth = cells.map(function (cl) { return grid[(cl.y - minY) * w + (cl.x - minX)]; });
     this.hash = cells.map(function (cl) { return (((cl.x * 73856093) ^ (cl.y * 19349663)) >>> 0) % 64; });
     this.key = 'fiss' + (fissSeq++);
-    this.scene = scene; this.big = f.big;
+    this.scene = scene; this.big = f.big; this.fx0 = f.x; this.fy0 = f.y;
+    this.flash = null;                   // { x, y, tick }: where the mage last bumped into this crack
     this.tex = scene.textures.createCanvas(this.key, Math.max(1, this.w), Math.max(1, this.h));
     this.ctx = this.tex.getContext();
     this.img = this.ctx.createImageData(Math.max(1, this.w), Math.max(1, this.h));
@@ -99,7 +119,9 @@
   // a crack of the network: each segment is open (rift light) or dark (a scar that cools)
   FissureView.prototype.updateNet = function (f, tick) {
     var st = f.state, sh = tick >> 3, s, cool = [], minCool = 1, opening = st === 'opening';
-    var key = st + '|' + (opening ? Math.round(f.reveal * 80) : (f.litN ? sh : 0));
+    var fl = this.flash, flA = fl ? 1 - (tick - fl.tick) / FLASH_T : 0;
+    if (flA <= 0) { flA = 0; this.flash = fl = null; }
+    var key = st + '|' + (opening ? Math.round(f.reveal * 80) : (f.litN ? sh : 0)) + '|' + Math.round(flA * 12);
     for (s = 0; s < f.nSeg; s++) {
       var cv = f.dark[s] ? Math.min(1, (tick - f.darkTick[s]) / 480) : -1;
       cool.push(cv);
@@ -114,11 +136,20 @@
     this.last = key;
     var cells = this.cells, n = cells.length, d = this.img.data, C = this.C, w = this.w, ox = this.ox, oy = this.oy, i;
     d.fill(0);
+    var flR2 = fl ? FLASH_R * FLASH_R * flA : 0, flx = fl ? fl.x : 0, fly = fl ? fl.y : 0, halo = this.halo;
+    for (i = 0; i < halo.length; i++) {
+      var hc = halo[i];
+      if (!(cool[hc.seg] < 0) || (opening && hc.o > f.reveal)) continue;
+      var hd = (hc.x - flx) * (hc.x - flx) + (hc.y - fly) * (hc.y - fly), hcol = fl && hd < flR2 ? C.em3 : C.outline;
+      var hp = ((hc.y - oy) * w + (hc.x - ox)) * 4;
+      d[hp] = hcol[0]; d[hp + 1] = hcol[1]; d[hp + 2] = hcol[2]; d[hp + 3] = 255;
+    }
     for (i = 0; i < n; i++) {
       var c = cells[i], h = this.hash[i], dep = this.depth[i], col = null, cs = cool[c.seg];
       if (cs < 0 && (!opening || c.o <= f.reveal)) {
         if (opening && f.reveal - c.o < 0.07) col = c.core ? C.rg4 : C.em4;
-        else if (!c.core) col = (h + sh) % 13 === 0 ? C.em4 : (h % 5 === 0 ? C.em3 : (h % 3 === 0 ? C.em1 : C.em2));
+        else if (fl && !c.core && (c.x - flx) * (c.x - flx) + (c.y - fly) * (c.y - fly) < flR2) col = h % 3 ? C.rg4 : C.em4;   // bumped: the lip flares
+        else if (!c.core) col = (h + sh) % 11 === 0 ? C.em4 : (h % 4 === 0 ? C.em2 : C.em3);   // steady hot rim = the edge
         else if (dep <= 1) col = C.rg0;
         else if (dep === 2) col = h % 4 === 0 ? C.rg2 : C.rg1;
         else if (dep === 3) col = (h + sh) % 9 === 0 ? C.rg3 : C.rg2;
@@ -136,6 +167,13 @@
     this.tex.refresh();
   };
 
+  // the mage pushed into this crack at room pixel (x, y): flare the lip around that point
+  FissureView.prototype.bump = function (x, y, tick) {
+    var lx = x - this.fx0, ly = y - this.fy0, m = FLASH_R;
+    if (this.big || lx < this.ox - m || ly < this.oy - m || lx > this.ox + this.w + m || ly > this.oy + this.h + m) return false;
+    this.flash = { x: lx, y: ly, tick: tick };
+    return true;
+  };
   FissureView.prototype.update = function (f, tick) {
     if (!f.big) { this.updateNet(f, tick); return; }
     var st = f.state, cooling = st === 'scar' ? Math.min(1, (tick - (f.scarTick || tick)) / 480) : 0, sh = tick >> 3;

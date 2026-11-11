@@ -220,12 +220,12 @@
       if (L.xp !== xp) { L.xp = xp; this.xpFill.setDisplaySize(Math.max(0.01, xp), 3); }
 
       var fp = sim.fissureProgress(), obj = sim.objective();
-      var okey = obj + '|' + fp.states.join(',') + '|' + sim.phase + '|' + sim.roomIndex;
+      var okey = obj + '|' + fp.states.join(',') + '|' + sim.phase + '|' + sim.roomIndex + '|' + sim.loops;
       if (L.obj !== okey) {
         L.obj = okey;
         this.objText.setText(obj);
         var showBar = sim.phase === 'super', n = fp.total + 1, pipsW = fp.total * 8 + 10, rowW = showBar ? 72 : pipsW;
-        var room = 'Room ' + (sim.roomIndex + 1) + '/' + sim.B.run.rooms;
+        var room = sim.testRoom >= 0 ? 'Test #' + (sim.loops + 1) : 'Room ' + (sim.roomIndex + 1) + '/' + sim.B.run.rooms;
         this.roomText.setText(room);
         var w = Math.min(O.w, Math.max(this.objText.width, rowW + this.roomText.width + 8) + 14), x0 = O.x + Math.round((O.w - w) / 2);
         // centre on the screen when the free area allows it
