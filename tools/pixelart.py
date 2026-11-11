@@ -17,7 +17,7 @@ Outputs (all in assets/):
 Sprites dropped into assets/imported/*.png by tools/import_asset.py are packed into the
 atlas too (frame name = file name), and override a code-drawn frame of the same name.
 """
-import json, os, random, sys
+import json, math, os, random, sys
 from PIL import Image
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -734,6 +734,162 @@ cdrrrrdc
 
 
 # ----------------------------------------------------------------------------- icons
+# ------------------------------------------------------------------------ city (step 8)
+def city():
+    """Ground tiles, walls, four stalls, three townsfolk, the cage, the portal, a sign and a crate. Same palette and pixel size as the dungeon."""
+
+    def tile(base, mortar, hi, seed, moss=False):
+        im = Image.new('RGBA', (16, 16), rgb(base))
+        r = random.Random(seed)
+        for y in (0, 8):                                   # two courses of slabs, joints offset
+            for x in range(16):
+                im.putpixel((x, y), rgb(mortar))
+        for (x0, y0) in ((r.choice([4, 5, 6]), 1), (r.choice([10, 11, 12]), 9)):
+            for y in range(y0, y0 + 7):
+                im.putpixel((x0, y), rgb(mortar))
+        for _ in range(7):
+            im.putpixel((r.randrange(16), r.randrange(16)), rgb(hi))
+        for _ in range(2 if moss else 0):
+            im.putpixel((r.randrange(16), r.randrange(16)), rgb('moss'))
+        return im
+    for i in range(4):
+        add('c_floor%d' % i, tile('f2', 'f1', 'f3', 31 + i, moss=(i == 3)))
+    add('c_path', tile('f3', 'f2', 'f4', 77))
+    w = Image.new('RGBA', (16, 16), rgb('wb1'))            # wall block: brick face with a lit top edge
+    for y in range(16):
+        for x in range(16):
+            if y % 5 == 4 or (x + (y // 5) * 5) % 10 == 9:
+                w.putpixel((x, y), rgb('wb0'))
+            elif y % 5 == 0:
+                w.putpixel((x, y), rgb('wb2'))
+    rect(w, 0, 0, 16, 1, 'wb3')
+    add('c_wall', w)
+
+    def stall(c1, c2, wear=False):
+        im = blank(48, 40)
+        for x in range(48):                                  # striped canopy with a scalloped edge
+            col = c1 if (x // 4) % 2 == 0 else c2
+            rect(im, x, 0, 1, 12 + (1 if (x // 4) % 2 == 0 else 0), col)
+        rect(im, 0, 0, 48, 1, c2)
+        rect(im, 2, 12, 2, 24, 'wood_d'); rect(im, 44, 12, 2, 24, 'wood_d')   # posts
+        rect(im, 4, 13, 40, 14, 'f0')                         # dark back of the stall
+        rect(im, 0, 27, 48, 10, 'ch1'); rect(im, 0, 27, 48, 2, 'ch2'); rect(im, 0, 35, 48, 2, 'ch0')   # counter
+        for x in range(4, 48, 8):
+            rect(im, x, 30, 1, 5, 'ch0')
+        if wear:                                              # torn and bare, a web in the corner
+            for x in range(5, 9):
+                rect(im, x, 13, 1, 9 - (x - 5) * 2, 'ui_dim')
+            for x in range(13, 48, 11):
+                rect(im, x, 10, 3, 3, 'f0')
+        return im
+    sm = stall('ir1', 'ir2')
+    rect(sm, 6, 14, 9, 11, 'em1'); rect(sm, 8, 17, 5, 8, 'em2'); rect(sm, 9, 21, 3, 4, 'em3')           # forge glow behind the counter
+    rect(sm, 18, 22, 12, 5, 'iron1'); rect(sm, 20, 20, 8, 2, 'iron2'); rect(sm, 18, 22, 12, 1, 'iron3')  # anvil on the counter
+    rect(sm, 34, 20, 2, 7, 'wood'); rect(sm, 32, 18, 6, 3, 'iron2')                                      # hammer
+    rect(sm, 40, 22, 4, 5, 'iron2'); rect(sm, 40, 22, 4, 1, 'iron3')                                     # helmet on show
+    add('stall_smith', outline(sm))
+    ap = stall('tome1', 'tome2')
+    rect(ap, 8, 18, 10, 9, 'cloth1'); rect(ap, 8, 18, 10, 1, 'cloth2'); rect(ap, 10, 20, 6, 1, 'ui_text'); rect(ap, 10, 23, 6, 1, 'ui_text')   # open ledger
+    ellipse(ap, 28, 22, 4, 4, 'orb'); ellipse(ap, 27, 21, 2, 2, 'orb_c'); rect(ap, 25, 26, 6, 1, 'gold_d')   # crystal ball
+    rect(ap, 36, 17, 8, 1, 'gold'); rect(ap, 39, 17, 2, 9, 'gold_d'); rect(ap, 36, 18, 2, 3, 'gold'); rect(ap, 42, 18, 2, 3, 'gold')   # scales
+    add('stall_appr', outline(ap))
+    tr = stall('rg1', 'rg2')
+    for x in (8, 14, 20):                                                                                  # a rack of practice swords
+        rect(tr, x, 15, 2, 11, 'iron2'); rect(tr, x, 15, 1, 11, 'iron3'); rect(tr, x - 1, 24, 4, 2, 'wood_d')
+    rect(tr, 30, 14, 14, 12, 'wood_d'); ellipse(tr, 37, 20, 4, 4, 'ir1'); ellipse(tr, 37, 20, 2, 2, 'ui_text'); ellipse(tr, 37, 20, 1, 1, 'ir1')   # target board
+    add('stall_trainer', outline(tr))
+    add('stall_empty', outline(stall('wb1', 'wb2', wear=True)))
+    # a fenced empty plot (the Mage quarter): ground, posts and a rope
+    pf = blank(48, 32)
+    for y in range(32):
+        for x in range(48):
+            pf.putpixel((x, y), rgb('ch0') if (x * 7 + y * 13) % 11 else rgb('ch1'))
+    for x in (0, 22, 44):
+        for y in (0, 28):
+            rect(pf, x, y, 4, 4, 'wood_d'); rect(pf, x, y, 4, 1, 'wood')
+    for x in range(4, 44):
+        if not 22 <= x < 26:
+            pf.putpixel((x, 1), rgb('boot')); pf.putpixel((x, 29), rgb('boot'))
+    for y in range(4, 28):
+        pf.putpixel((1, y), rgb('boot')); pf.putpixel((45, y), rgb('boot'))
+    add('plot_fence', outline(pf))
+    sg = blank(16, 22)                                        # the sign
+    rect(sg, 7, 8, 2, 14, 'wood_d'); rect(sg, 1, 1, 14, 9, 'wood'); rect(sg, 1, 1, 14, 1, 'ch2'); rect(sg, 1, 9, 14, 1, 'wood_d')
+    rect(sg, 3, 4, 10, 1, 'wood_d'); rect(sg, 3, 6, 7, 1, 'wood_d')
+    add('c_sign', outline(sg))
+    cr = blank(12, 12)
+    rect(cr, 0, 0, 12, 12, 'ch1'); rect(cr, 0, 0, 12, 2, 'ch2'); rect(cr, 0, 5, 12, 1, 'ch0'); rect(cr, 5, 0, 2, 12, 'ch0'); rect(cr, 0, 10, 12, 2, 'ch0')
+    add('c_crate', outline(cr))
+
+    # townsfolk: the merchant's body plan, own colours and a mark each
+    body = """
+....aaaaaa....
+...abbbbbba...
+..abbbbbbbba..
+..abbssssbba..
+..abstsstsba..
+..abbssssbba..
+...abbbbbba...
+.xxabbbbbbaxx.
+xxwabbccbbawxx
+xwwabbccbbawwx
+xwwabbbbbbawwx
+.xwabbggbbawx.
+..xabbbbbbax..
+...abbccbba...
+...abbbbbba...
+...aaaaaaaa...
+...kk....kk...
+...kk....kk...
+"""
+    def folk(name, pal, mark):
+        im = parse(body, pal + ' s=skin t=skin_d g=gold h=gold_d w=wood x=wood_d k=boot')
+        mark(im)
+        add(name + '_0', outline(im)); add(name + '_1', outline(bob(im, 2)))
+    def smith_mark(im):
+        rect(im, 4, 6, 6, 2, 'wood_d'); rect(im, 5, 8, 4, 1, 'wood_d')       # beard
+        rect(im, 3, 10, 8, 5, 'ch1'); rect(im, 4, 10, 6, 1, 'ch2')          # leather apron
+    def appr_mark(im):
+        rect(im, 3, 4, 3, 1, 'gold'); rect(im, 8, 4, 3, 1, 'gold'); im.putpixel((6, 4), rgb('gold'))   # spectacles
+        rect(im, 5, 11, 4, 3, 'ui_text')                                    # a scroll in the hands
+    def trainer_mark(im):
+        rect(im, 3, 2, 8, 1, 'ir1'); rect(im, 3, 3, 8, 1, 'ir2')            # red headband
+        rect(im, 4, 10, 6, 2, 'iron2')                                      # bracers
+    folk('npc_smith', 'a=iron0 b=iron1 c=iron2', smith_mark)
+    folk('npc_appr', 'a=tome0 b=tome1 c=tome2', appr_mark)
+    folk('npc_trainer', 'a=rg0 b=rg1 c=rg2', trainer_mark)
+
+    # the cage: iron bars round a hooded prisoner (the Appraiser); 2 frames, he fidgets
+    for f in range(2):
+        cg = blank(18, 22)
+        rect(cg, 4, 6 + f, 10, 13 - f, 'tome1'); rect(cg, 5, 3 + f, 8, 5, 'tome1'); rect(cg, 6, 5 + f, 6, 3, 'skin'); rect(cg, 7, 6 + f, 1, 1, 'f0'); rect(cg, 10, 6 + f, 1, 1, 'f0')
+        rect(cg, 4, 6 + f, 10, 1, 'tome2')
+        rect(cg, 0, 18, 18, 4, 'iron1'); rect(cg, 0, 18, 18, 1, 'iron2'); rect(cg, 0, 21, 18, 1, 'iron0')
+        rect(cg, 0, 1, 18, 2, 'iron1'); rect(cg, 0, 1, 18, 1, 'iron2')
+        for x in (1, 5, 9, 13, 16):
+            rect(cg, x, 3, 1, 15, 'iron2')
+            if x < 16:
+                rect(cg, x + 1, 3, 1, 15, 'iron0')
+        add('cage_%d' % f, outline(cg))
+
+    # the portal: a stone arch round a swirling rift, 3 frames
+    for f in range(3):
+        pt = blank(36, 44)
+        rect(pt, 2, 40, 32, 4, 'wb1'); rect(pt, 2, 40, 32, 1, 'wb3')                                    # step
+        for y in range(4, 40):
+            for x in range(36):
+                dx, dy = (x + 0.5 - 18) / 12.0, (y + 0.5 - 22) / 18.0
+                d = dx * dx + dy * dy
+                if d <= 1:
+                    ang = math.atan2(dy, dx)
+                    v = (math.sin(ang * 3 + d * 6 - f * 2.1) + 1) / 2 * 0.7 + (1 - d) * 0.6
+                    pt.putpixel((x, y), rgb(('rg0', 'rg1', 'rg2', 'rg3', 'rg4')[min(4, int(v * 3.2))]))
+                elif d <= 1.45:
+                    k = 'wb2' if dy < -0.2 or dx < 0 else 'wb1'
+                    pt.putpixel((x, y), rgb(k if d < 1.38 else 'wb3' if dy < 0 else 'wb0'))
+        add('portal_%d' % f, outline(pt))
+
+
 def icons():
     # 7 equipment slots, 14x14, shared iron/cloth/gold materials
     L = ('a=iron0 b=iron1 c=iron2 d=iron3 g=gold G=gold_d p=cloth0 q=cloth1 r=cloth2 w=wood W=wood_d '
@@ -1606,7 +1762,7 @@ def main():
     os.makedirs(OUT, exist_ok=True)
     with open(os.path.join(OUT, 'palette.json'), 'w') as f:
         json.dump(PALETTE, f, indent=0)
-    characters(); objects(); icons(); ui(); logo()
+    characters(); objects(); city(); icons(); ui(); logo()
     f = font()
     t = tiles()
     a = pack()

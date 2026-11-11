@@ -17,7 +17,8 @@
         G.touch = G.params.get('touch') === '1';
         G.testRoom = G.params.get('room') === 'test';     // ?scene=game&room=test, or the TEST ROOM button
         G.applyView();
-        self.scene.start(G.params.get('scene') === 'game' ? 'game' : 'title');
+        var sc = G.params.get('scene');
+        self.scene.start(sc === 'game' ? 'game' : sc === 'city' ? 'city' : 'title');
       }
       ['atlas', 'tiles', 'font'].forEach(function (k) {
         var im = new Image();

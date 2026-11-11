@@ -11,6 +11,7 @@
   function Bot(sim, buildId, opts) {
     this.leaveAt = opts && +opts.leave > 0 ? +opts.leave : 0; this.lowHp = opts && opts.lowHp > 0 ? +opts.lowHp : 0;
     this.pushHp = opts && opts.pushHp > 0 ? +opts.pushHp : 0; this.pushGear = opts && opts.pushGear > 0 ? +opts.pushGear : 0;
+    this.rescue = !!(opts && opts.rescue); this.freed = 0;      // step 8: careers free the caged Appraiser like a player would (off by default: fresh-gear runs stay as they were)
     // class hint (BAL.classes.<id>.bot): keep-away multiplier
     this.melee = sim.cls.attack.kind === 'arc'; this.keep = sim.cls.bot.keep;
     var builds = sim.B.builds && sim.B.builds[sim.clsId];
@@ -245,6 +246,18 @@
     return this.pathDir(m.x, m.y);
   };
 
+  // The caged Appraiser (careers only): after the chest, walk to the cage and free him. Gives up after 15 s.
+  Bot.prototype.cageStep = function () {
+    var sim = this.sim, c = sim.cage;
+    if (!this.rescue || !c || sim.phase !== 'exit') return null;
+    for (var i = 0; i < sim.drops.length; i++) if (!(sim.drops[i].kind === 'item' && sim.bag.length >= sim.B.loot.bagSize)) return null;
+    var key = sim.roomIndex + ':' + sim.room.seed;
+    if (this.cageKey !== key) { this.cageKey = key; this.cageTicks = 0; }
+    if (++this.cageTicks > 900) return null;
+    if (sim.canFree() && sim.freeCaged()) { this.freed++; return null; }
+    return this.pathDir(c.x, c.y);
+  };
+
   Bot.prototype.update = function () {
     var sim = this.sim;
     if (sim.state !== 'play') return;
@@ -252,6 +265,11 @@
     if (sim.merchant) {
       var md = this.merchantStep();
       if (md) { sim.input.mx = this.mx = md.x; sim.input.my = this.my = md.y; sim.input.dodge = false; sim.input.pulse = false; this.thinkTick = -999; return; }
+      if (sim.state !== 'play') return;
+    }
+    if (sim.cage) {
+      var cd = this.cageStep();
+      if (cd) { sim.input.mx = this.mx = cd.x; sim.input.my = this.my = cd.y; sim.input.dodge = false; sim.input.pulse = false; this.thinkTick = -999; return; }
       if (sim.state !== 'play') return;
     }
     var p = sim.player, s = sim.stats, K = sim.cls.skill, inp = sim.input, i;
@@ -371,7 +389,7 @@
   G.botRun = function (seed, opts) {
     opts = opts || {};
     var gear = opts.gear || G.newGear();
-    var sim = new G.Sim({ seed: seed, gear: gear, bal: opts.bal, cls: opts.cls }), bot = new Bot(sim, opts.build, { leave: opts.leave, lowHp: opts.lowHp, pushHp: opts.pushHp, pushGear: opts.pushGear });
+    var sim = new G.Sim({ seed: seed, gear: gear, bal: opts.bal, cls: opts.cls }), bot = new Bot(sim, opts.build, { leave: opts.leave, lowHp: opts.lowHp, pushHp: opts.pushHp, pushGear: opts.pushGear, rescue: opts.rescue });
     var maxTicks = (opts.maxSeconds || 1200) * 60, softlock = false, worstStuck = 0, roomTicks = [], last = 0, lastRoom = 0, minHp = sim.B.run.roomMult.map(function () { return 1; });
     while (sim.tick < maxTicks && (sim.state === 'play' || sim.state === 'levelup' || sim.state === 'choice' || sim.state === 'merchant')) {
       if (sim.state === 'merchant') { sim.closeMerchant(); continue; }

@@ -7,10 +7,10 @@
   G.newGear = function () {
     var eq = {};
     SLOTS.forEach(function (s) { eq[s] = null; });
-    return { equipped: eq, bag: [], nextId: 1, scrolls: 0, gold: 0, ranks: {}, shop: null };
+    return { equipped: eq, bag: [], nextId: 1, scrolls: 0, gold: 0, ranks: {}, shop: null, city: { appraiser: false } };
   };
   G.newSave = function () {
-    return { v: 6, gears: {}, settings: { zoom: 0, shake: 100 }, stats: { runs: 0, wins: 0, best: 0 } };
+    return { v: 7, gears: {}, settings: { zoom: 0, shake: 100 }, stats: { runs: 0, wins: 0, best: 0 } };
   };
   // the gear (worn items and kept bag) of a class; the sim takes this object as its `gear` option
   G.gearOf = function (save, clsId) {
@@ -24,7 +24,7 @@
       if (raw) {
         var s = JSON.parse(raw), d = G.newSave(), B = G.BAL;
         var ok = function (it) { return it && typeof it === 'object' && SLOTS.indexOf(it.slot) >= 0 && it.stats && typeof it.rarity === 'number'; };
-        if (s && (s.v === 4 || s.v === 5 || s.v === 6) && s.gears && typeof s.gears === 'object') {
+        if (s && (s.v === 4 || s.v === 5 || s.v === 6 || s.v === 7) && s.gears && typeof s.gears === 'object') {
           Object.keys(s.gears).forEach(function (id) {       // v4: sanitize each class's gear
             var g = s.gears[id], n = G.newGear();
             if (!B.classes[id] || !g || typeof g !== 'object') { delete s.gears[id]; return; }
@@ -41,9 +41,10 @@
             var sh = g.shop;
             n.shop = sh && sh.rolls >= 0 && Array.isArray(sh.stock) && sh.stock.length === E.shop.rarities.length &&
               sh.stock.every(function (it) { return it === null || ok(it); }) ? { rolls: Math.floor(sh.rolls), stock: sh.stock } : null;
+            n.city.appraiser = !!(g.city && g.city.appraiser === true);      // v7: city state per character (v6 and older: not rescued yet; nothing else changes)
             s.gears[id] = n;
           });
-          s.v = 6;
+          s.v = 7;
           s.settings = Object.assign(d.settings, s.settings || {});
           s.stats = Object.assign(d.stats, s.stats || {});
           return s;

@@ -41,6 +41,8 @@
     this.testRoom = opts.testRoom ? B.run.testRoom : -1;   // test room: one room, restarted on clear
     this.loops = 0;
     this.merchantAt = this.testRoom >= 0 ? [] : G.merchantRooms(this.seed, B);
+    this.cageAt = this.testRoom >= 0 ? -1 : G.cageRoom(this.seed, B, this.gear);   // step 8: the caged Appraiser, in one room of some runs
+    this.cage = null; this.rescued = false;
     this.loadRoom(this.testRoom >= 0 ? this.testRoom : 0);
   }
   var S = Sim.prototype;
@@ -123,6 +125,8 @@
     var mp = this.merchantAt.indexOf(index) >= 0 ? G.merchantSpot(room, B) : null, MS = B.economy.merchant;
     if (mp) this.merchantsMet = (this.merchantsMet | 0) + 1;
     this.merchant = mp ? { x: mp.x, y: mp.y, stock: { scroll: MS.scroll.stock, potion: MS.potion.stock } } : null;
+    var cs = this.cageAt === index && !this.rescued ? G.cageSpot(room, B, this.merchant) : null;
+    this.cage = cs ? { x: cs.x, y: cs.y } : null;
     this.setupFissures(room);           // src/sim/fissures.js
     this.phase = 'fissures';             // fissures | super | chest | exit
     this.roomTick = this.tick; this.spawnCd = F.firstDelay;
@@ -151,7 +155,7 @@
       r.goldKept = G.bankGold(this.gear, this.gold, B);
     } else r.lost = n;
     r.goldLost = this.gold - r.goldKept;
-    this.bag = []; this.scrolls = 0; this.gold = 0; this.goldFrac = 0; this.merchant = null;
+    this.bag = []; this.scrolls = 0; this.gold = 0; this.goldFrac = 0; this.merchant = null; this.cage = null;
     this.result = r;
     this.state = kind;
     this.emit({ t: kind === 'dead' ? 'dead' : kind });
@@ -451,6 +455,22 @@
     this.emit({ t: 'merchant', open: false });
     return true;
   };
+  // The caged Appraiser (step 8): tap him (or the key) within reach to free him. Permanent at once, saved on the character (gear.city.appraiser);
+  // dying later does not undo it. No state change, the run goes on.
+  S.canFree = function () {
+    var c = this.cage, p = this.player;
+    if (this.state !== 'play' || !c) return false;
+    var dx = p.x - c.x, dy = p.y - c.y, r = this.B.economy.appraiser.cage.freeR;
+    return dx * dx + dy * dy <= r * r;
+  };
+  S.freeCaged = function () {
+    if (!this.canFree()) return false;
+    if (!this.gear.city) this.gear.city = { appraiser: false };
+    this.gear.city.appraiser = true; this.rescued = true;
+    var c = this.cage; this.cage = null;
+    this.emit({ t: 'rescue', x: c.x, y: c.y });
+    return true;
+  };
   // kind: 'scroll' | 'potion'. Paid from the run's sealed gold. A scroll is sealed like a found one; a potion heals at once.
   S.merchantBuy = function (kind) {
     var M = this.B.economy.merchant, m = this.merchant, d = M[kind];
@@ -514,6 +534,12 @@
     var M = this.B.economy.merchant, sp = G.merchantSpot(this.room, this.B) || { x: this.player.x + 20, y: this.player.y };
     this.merchant = { x: sp.x, y: sp.y, stock: { scroll: M.scroll.stock, potion: M.potion.stock } };
     this.gold += 200;
+  };
+  // debug: a cage beside the hero (only when the character has not freed him)
+  S.cheatCage = function () {
+    if (this.gear.city && this.gear.city.appraiser) return;
+    this.cageAt = this.roomIndex; this.rescued = false;
+    this.cage = G.cageSpot(this.room, this.B, this.merchant) || { x: this.player.x + 20, y: this.player.y + 8 };
   };
   S.cheatLoot = function () {
     var p = this.player;

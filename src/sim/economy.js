@@ -130,6 +130,38 @@
   };
   G.rankTotal = function (gear) { var n = 0; for (var k in (gear.ranks || {})) n += gear.ranks[k] | 0; return n; };
 
+  // ------------------------------------------------------------------ the Appraiser (step 8)
+  // fee for identifying one item of the kept bag (gold). The same identification as a scroll: clears `unid`, never rerolls.
+  G.appraiseFee = function (B) { var A = E(B).appraiser; return Math.round(E(B).shop.scroll * A.feeMult); };
+  G.canAppraise = function (gear, idx, B) {
+    var it = gear.bag[idx];
+    return !!(gear.city && gear.city.appraiser && it && it.unid && (gear.gold | 0) >= G.appraiseFee(B));
+  };
+  G.appraiseAt = function (gear, idx, B) {
+    if (!G.canAppraise(gear, idx, B)) return null;
+    gear.gold -= G.appraiseFee(B);
+    gear.bag[idx].unid = false;
+    return gear.bag[idx];
+  };
+  // the room index of the cage in the run of this seed (or -1): a pure function of the seed; none once the character freed him
+  G.cageRoom = function (seed, B, gear) {
+    var C = E(B).appraiser.cage;
+    if (gear && gear.city && gear.city.appraiser) return -1;
+    if (G.hash32(seed >>> 0, 8080) / 4294967296 >= C.chance) return -1;
+    return C.lo + G.hash32(seed >>> 0, 8081) % (C.hi - C.lo + 1);
+  };
+  G.cageSpot = function (room, B, avoid) {
+    var C = E(B).appraiser.cage, sx = Math.floor(room.start.x / T), sy = Math.floor(room.start.y / T);
+    for (var i = 0; i < C.spots.length; i++) {
+      var tx = sx + C.spots[i][0], ty = sy + C.spots[i][1];
+      if (tx < 0 || ty < 0 || tx >= room.w || ty >= room.h || room.tiles[ty * room.w + tx]) continue;
+      var x = tx * T + 8, y = ty * T + 8;
+      if (avoid && Math.abs(avoid.x - x) < 20 && Math.abs(avoid.y - y) < 20) continue;
+      return { x: x, y: y };
+    }
+    return null;
+  };
+
   // ------------------------------------------------------------------ the merchant (pure functions of the seed and the room)
   G.merchantRooms = function (seed, B) {
     var M = E(B).merchant, out = [];

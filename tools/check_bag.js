@@ -132,7 +132,7 @@ const ids = o => Object.keys(o).map(k => o[k] && o[k].id).join(',');
   const total = g => g.bag.length + Object.values(g.equipped).filter(Boolean).length;
   store.data[KEY] = old(2);
   let s = G.loadSave();
-  check('save: v2 loads as v6, gear goes to mage (default), 24 items + 1 worn, junk dropped', s.v === 6 && total(s.gears.mage) === 25 && s.gears.mage.bag[0].name === 'Old helmet' && !s.gear);
+  check('save: v2 loads as v7, gear goes to mage (default), 24 items + 1 worn, junk dropped', s.v === 7 && total(s.gears.mage) === 25 && s.gears.mage.bag[0].name === 'Old helmet' && !s.gear);
   check('save: other classes start empty (none stored, gearOf makes empty)', !s.gears.warrior && total(G.gearOf(s, 'warrior')) === 0 && total(G.gearOf(s, 'archer')) === 0);
   check('save: worn gear, settings and stats survive', s.gears.mage.equipped.helmet.id === 40 && s.settings.zoom === 1 && s.stats.runs === 7);
   check('save: item ids cannot collide with new drops (nextId raised)', s.gears.mage.nextId >= 41, 'nextId ' + s.gears.mage.nextId);
@@ -152,13 +152,13 @@ const ids = o => Object.keys(o).map(k => o[k] && o[k].id).join(',');
   store.data[KEY] = JSON.stringify({ v: 2, gear: { equipped: {} } });
   check('save: a v2 save with no bag field loads', Array.isArray(G.loadSave().gears.mage.bag));
   store.data[KEY] = '{not json';
-  check('save: corrupt data gives a fresh save', G.loadSave().v === 6);
+  check('save: corrupt data gives a fresh save', G.loadSave().v === 7);
   // a full round trip: a run that leaves writes the bag to the save of the class that played
   store.data[KEY] = old(2);
   const sv = G.loadSave(), g = G.gearOf(sv, 'warrior'), sim = new G.Sim({ seed: 2, gear: g, cls: 'warrior' });
   sim.bag.push(G.rollItem(sim.rngRoom, 1, 0, sim.B, g, sim.cls)); sim.cheatChoice(); sim.leave(); G.storeSave(sv);
   const st = JSON.parse(store.data[KEY]);
-  check('save: banking goes to the playing class (warrior 1 item, mage still 25)', st.v === 6 && total(st.gears.warrior) === 1 && total(st.gears.mage) === 25);
+  check('save: banking goes to the playing class (warrior 1 item, mage still 25)', st.v === 7 && total(st.gears.warrior) === 1 && total(st.gears.mage) === 25);
   const sv2 = G.loadSave();
   check('save: v4 round trips; switching class shows the other stash', total(G.gearOf(sv2, 'warrior')) === 1 && total(G.gearOf(sv2, 'mage')) === 25 && total(G.gearOf(sv2, 'archer')) === 0);
   // equipping in one class does not touch another
@@ -217,7 +217,7 @@ const ids = o => Object.keys(o).map(k => o[k] && o[k].id).join(',');
   check('save: items of an old save are identified (rare, no unid flag), scrolls 0, all on the archer', ag.equipped.armor.rarity === 3 && !ag.equipped.armor.unid && !ag.bag[0].unid && ag.scrolls === 0 && G.canEquipNow(ag.bag[0], B, 'archer'));
   store.data[KEY] = JSON.stringify({ v: 4, gears: { mage: { equipped: {}, bag: [it], nextId: 9 } }, settings: {} });
   sv = G.loadSave();
-  check('save: a v4 save loads as v6, its items identified, scrolls 0', sv.v === 6 && sv.gears.mage.scrolls === 0 && !sv.gears.mage.bag[0].unid);
+  check('save: a v4 save loads as v7, its items identified, scrolls 0', sv.v === 7 && sv.gears.mage.scrolls === 0 && !sv.gears.mage.bag[0].unid);
   G.gearOf(sv, 'warrior').scrolls = 4; sv.gears.mage.bag.push(Object.assign({}, it, { id: 10, unid: true })); G.storeSave(sv);
   const sv3 = G.loadSave();
   check('save: scrolls and unidentified items round trip, per class', G.gearOf(sv3, 'warrior').scrolls === 4 && G.gearOf(sv3, 'mage').scrolls === 0 && sv3.gears.mage.bag[1].unid === true);
@@ -372,7 +372,7 @@ const ids = o => Object.keys(o).map(k => o[k] && o[k].id).join(',');
   const L = load(store), KEY = 'riftscar.save.v2', item = { id: 3, slot: 'armor', rarity: 3, ilvl: 4, name: 'Old armor', stats: { armor: 9, hp: 4 }, power: 20 };
   store.data[KEY] = JSON.stringify({ v: 5, gears: { mage: { equipped: {}, bag: [item], nextId: 9, scrolls: 2 } }, settings: {} });
   let sv = L.loadSave();
-  check('save: v5 loads as v6 with 0 gold, no ranks, no stock, nothing lost', sv.v === 6 && sv.gears.mage.gold === 0 && Object.keys(sv.gears.mage.ranks).length === 0 && sv.gears.mage.shop === null && sv.gears.mage.bag.length === 1 && sv.gears.mage.scrolls === 2);
+  check('save: v5 loads as v7 with 0 gold, no ranks, no stock, nothing lost', sv.v === 7 && sv.gears.mage.gold === 0 && Object.keys(sv.gears.mage.ranks).length === 0 && sv.gears.mage.shop === null && sv.gears.mage.bag.length === 1 && sv.gears.mage.scrolls === 2);
   const shopOk = L.newGear(); L.restockShop(shopOk, L.BAL, 'mage');
   store.data[KEY] = JSON.stringify({ v: 6, gears: { mage: { equipped: {}, bag: [item], nextId: 9, scrolls: 0, gold: 321.9, ranks: { might: 9, bogus: 2, guard: 2, haste: -1, vitality: 'x' }, shop: shopOk.shop }, warrior: { equipped: {}, bag: [], nextId: 1, gold: -5, ranks: [], shop: { rolls: 1, stock: [1, 2] } } }, settings: {} });
   sv = L.loadSave();
@@ -381,11 +381,77 @@ const ids = o => Object.keys(o).map(k => o[k] && o[k].id).join(',');
   sv.gears.mage.gold = 40; L.storeSave(sv); const sv2 = L.loadSave();
   check('save: gold and stock round trip', sv2.gears.mage.gold === 40 && sv2.gears.mage.shop.stock.length === 7);
   store.data[KEY] = JSON.stringify({ v: 3, gear: { equipped: { armor: item }, bag: [item], nextId: 5 }, settings: {} });
-  sv = L.loadSave(); check('save: a v3 save gets the economy defaults, items kept', sv.v === 6 && sv.gears.mage.gold === 0 && sv.gears.mage.shop === null && sv.gears.mage.bag.length === 1);
+  sv = L.loadSave(); check('save: a v3 save gets the economy defaults, items kept', sv.v === 7 && sv.gears.mage.gold === 0 && sv.gears.mage.shop === null && sv.gears.mage.bag.length === 1);
   // the bot's visit
   const vg = L.newGear(); vg.gold = 400; vg.bag.push(it(1, 3, { unid: true, stats: { armor: 30 } }), it(0, 1));
   const log = L.Bot.shopVisit(vg, L.BAL, 'mage');
   check('bot: shopVisit identifies (buys a scroll), equips the worthy item, sells the rest, spends gold', !!vg.equipped.armor && !vg.equipped.armor.unid && log.scrollsBought >= 1 && log.sold >= 1 && vg.shop && vg.shop.rolls >= 1);
+})();
+
+// step 8: the city (the Appraiser, the cage, the city save)
+(function city() {
+  const G = load(), B = G.BAL, E = B.economy, A = E.appraiser;
+  check('appraise: fee = round(town scroll price x feeMult) = 1.5 x 15 -> 23', G.appraiseFee(B) === Math.round(E.shop.scroll * A.feeMult) && G.appraiseFee(B) === 23);
+  const g = G.newGear(), rng = new G.RNG(11), cls = G.classDef(B, 'mage');
+  const ui = G.rollItem(rng, 3, 2, B, g, cls); ui.unid = true;
+  const stats0 = JSON.stringify(ui.stats), ilvl0 = ui.ilvl, name0 = ui.name;
+  g.bag.push(ui); g.gold = 100;
+  check('appraise: refused until the Appraiser is rescued', !G.canAppraise(g, 0, B) && G.appraiseAt(g, 0, B) === null && g.gold === 100 && ui.unid === true);
+  g.city.appraiser = true;
+  const res = G.appraiseAt(g, 0, B);
+  check('appraise: pays the fee, clears unid, never rerolls (stats, level, name unchanged)', res === ui && !ui.unid && g.gold === 100 - 23 && JSON.stringify(ui.stats) === stats0 && ui.ilvl === ilvl0 && ui.name === name0);
+  check('appraise: an identified item is refused and costs nothing', G.appraiseAt(g, 0, B) === null && g.gold === 77);
+  const poor = G.newGear(); poor.city.appraiser = true; const u2 = G.rollItem(rng, 3, 2, B, poor, cls); u2.unid = true; poor.bag.push(u2); poor.gold = 22;
+  check('appraise: 22 gold is not enough, the item stays unidentified', !G.canAppraise(poor, 0, B) && G.appraiseAt(poor, 0, B) === null && u2.unid === true && poor.gold === 22);
+  // the cage: a pure function of the seed, none once rescued, at most one per run, in the allowed rooms, never in the test room
+  const fresh = G.newGear(); let withCage = 0, bad = 0, rooms = new Set();
+  for (let seed = 1; seed <= 400; seed++) {
+    const r1 = G.cageRoom(seed, B, fresh), r2 = G.cageRoom(seed, B, G.newGear());
+    if (r1 !== r2 || (r1 >= 0 && (r1 < A.cage.lo || r1 > A.cage.hi))) bad++;
+    if (r1 >= 0) { withCage++; rooms.add(r1); }
+    if (G.cageRoom(seed, B, g) !== -1) bad++;       // g has him rescued
+  }
+  check('cage: deterministic per seed, in rooms ' + A.cage.lo + '-' + A.cage.hi + ', none when rescued', bad === 0, '(' + withCage + ' of 400 seeds have one, rooms ' + Array.from(rooms).sort().join(',') + ')');
+  check('cage: share of runs matches the chance (' + A.cage.chance + ')', Math.abs(withCage / 400 - A.cage.chance) < 0.1);
+  // a run on a seed with a cage: it exists in exactly one room, tapping frees him, saved on the character, the sim goes on
+  let seed = 1; while (G.cageRoom(seed, B, G.newGear()) < 0) seed++;
+  const cg = G.newGear(), sim = new G.Sim({ seed, gear: cg, events: true }), room = G.cageRoom(seed, B, cg);
+  check('cage: not in room 0 unless the seed says so; none before its room', sim.cage === null || room === 0);
+  sim.cheatRoom(room);
+  check('cage: present in its room, away from the hero at first, not rescued', !!sim.cage && !sim.rescued && !cg.city.appraiser);
+  const spot = sim.cage; sim.player.x = spot.x + 60; sim.player.y = spot.y;
+  check('cage: cannot be freed from far away', !sim.canFree() && !sim.freeCaged() && !cg.city.appraiser);
+  sim.player.x = spot.x + 10; sim.player.y = spot.y;
+  check('cage: freed in reach: saved on the character, event, cage gone', sim.canFree() && sim.freeCaged() && cg.city.appraiser === true && sim.cage === null && sim.events.some(e => e.t === 'rescue'));
+  sim.cheatRoom(room + 1 <= 9 ? room + 1 : room - 1); sim.cheatRoom(room);
+  check('cage: does not come back in this run once freed', sim.cage === null);
+  check('cage: later runs of the same character have none', G.cageRoom(seed, B, cg) === -1 && new G.Sim({ seed, gear: cg }).cageAt === -1);
+  // dying after freeing him keeps him
+  const dg = G.newGear(), ds = new G.Sim({ seed, gear: dg }); ds.cheatRoom(room); ds.player.x = ds.cage.x; ds.player.y = ds.cage.y; ds.freeCaged(); while (ds.state === 'play') ds.hurtPlayer(9999);
+  check('cage: dying after freeing him does not undo it', ds.state === 'dead' && dg.city.appraiser === true);
+  // test room: no cage
+  check('cage: none in the test room', new G.Sim({ seed, gear: G.newGear(), testRoom: true }).cageAt === -1);
+  // the sim is the same with or without a cage when the bot ignores it (fresh-gear runs): positions of monsters do not depend on it
+  const a = G.botRun(seed, { gear: G.newGear() }), b = G.botRun(seed, { gear: (() => { const x = G.newGear(); x.city.appraiser = true; return x; })() });
+  check('cage: a bot that ignores it plays the same run as one with the cage already freed', a.result === b.result && a.rooms === b.rooms && a.kills === b.kills && a.seconds === b.seconds, '(' + a.result + ', ' + a.rooms + ' rooms, ' + a.kills + ' kills)');
+  // the career bot frees him
+  const rg = G.newGear(), rr = G.botRun(seed, { gear: rg, rescue: true, leave: Math.max(room + 2, 3) });
+  check('cage: the career bot walks to the cage and frees him (room ' + (room + 1) + ')', rg.city.appraiser === true || rr.rooms < room, '(' + rr.result + ', ' + rr.rooms + ' rooms)');
+  // the city save
+  const store = { data: {}, getItem(k) { return this.data[k] === undefined ? null : this.data[k]; }, setItem(k, v) { this.data[k] = v; } };
+  const L = load(store), KEY = 'riftscar.save.v2', item = { id: 3, slot: 'armor', rarity: 3, ilvl: 4, name: 'Old armor', stats: { armor: 9, hp: 4 }, power: 20, unid: true };
+  store.data[KEY] = JSON.stringify({ v: 6, gears: { mage: { equipped: {}, bag: [item], nextId: 9, scrolls: 1, gold: 50, ranks: { might: 2 } }, warrior: { equipped: {}, bag: [], nextId: 1 } }, settings: {} });
+  let sv = L.loadSave();
+  check('city save: v6 loads as v7 with the Appraiser not rescued, items, gold, ranks untouched (an unidentified item stays unidentified)', sv.v === 7 && sv.gears.mage.city.appraiser === false && sv.gears.warrior.city.appraiser === false && sv.gears.mage.bag.length === 1 && sv.gears.mage.bag[0].unid === true && sv.gears.mage.gold === 50 && sv.gears.mage.ranks.might === 2 && sv.gears.mage.scrolls === 1);
+  sv.gears.mage.city.appraiser = true; L.storeSave(sv);
+  const sv3 = L.loadSave();
+  check('city save: the rescue is per character and round trips (mage yes, warrior no)', sv3.v === 7 && sv3.gears.mage.city.appraiser === true && sv3.gears.warrior.city.appraiser === false);
+  store.data[KEY] = JSON.stringify({ v: 7, gears: { mage: { equipped: {}, bag: [], nextId: 1, city: { appraiser: 'yes' } }, warrior: { equipped: {}, bag: [], nextId: 1, city: 5 }, archer: { equipped: {}, bag: [], nextId: 1 } }, settings: {} });
+  sv = L.loadSave();
+  check('city save: a malformed city state counts as not rescued (only true counts)', sv.gears.mage.city.appraiser === false && sv.gears.warrior.city.appraiser === false && sv.gears.archer.city.appraiser === false);
+  store.data[KEY] = JSON.stringify({ v: 3, gear: { equipped: { armor: item }, bag: [item], nextId: 5 }, settings: {} });
+  sv = L.loadSave(); check('city save: a v3 save gets the city state and keeps all items', sv.v === 7 && sv.gears.mage.city.appraiser === false && sv.gears.mage.bag.length === 1 && sv.gears.mage.equipped.armor);
+  check('city save: a fresh save is v7', L.newSave().v === 7 && L.newGear().city.appraiser === false);
 })();
 
 console.log(fails ? fails + ' check(s) FAILED' : 'all checks passed');

@@ -21,12 +21,31 @@ Design decisions live in the plan doc (the user has it); this file is what an ag
 - Step 7 (economy) on branch `step-7-economy`: **done** (spec `docs/specs/economy.md` with "Decisions by the user" and "Implementation notes"; data in
   `src/balance.js` `economy`; code in `src/sim/economy.js`, `core.js`, `combat.js`, `fissures.js`, `src/save.js` v6, `src/qa/bot.js` `shopVisit`, shop panel in
   `src/view/panels.js`, merchant in `hud.js` / `game.js`). Gold is sealed per run (banked on leave / win, lost on death), per class; shop (BUY / SELL / UPGRADE / RANKS)
-  on the title screen until step 8; the shop sells commons, magic and ONE rare (250 / 400 / 550 gold), never epic or better; the merchant in rooms sells scrolls and potions.
+  in the city (Blacksmith and Trainer) since step 8; the shop sells commons, magic and ONE rare (250 / 400 / 550 gold), never epic or better; the merchant in rooms sells scrolls and potions.
 - Difficulty tiers removed (2026-11-11, user decision): no `tierMult`, `tierGear`, `ilvlTier`, `gold.tier`, `sim.tier`, `shopTier`, `?tier=`, title tier picker or save `shop.tier`.
   Monsters, item level, gold and shop numbers equal what tier 1 gave (drop ilvl = 1 + floor(room / 3), shop ilvl 2, gold x room only). Difficulty = room number + doors.
   `run.gearK` kept: it is now the only rule where gear score raises monster strength (+0.5 % per point; gear 100 = x1.5), and the title shows it ("Monsters x1.xx").
   Decide in step 10 whether it stays. Old saves load as they are (the stored shop tier is ignored; save stays v6).
+- Step 8 (city) on branch `step-8-city`: **done**. Title ("ENTER THE CITY", the class picker row stays on the title) -> the walkable city of the selected class. The title no longer has EQUIPMENT or SHOP.
+  City = `src/view/city.js` (`CityScene` world + `CityHudScene` overlay), 26 x 15 tiles, art in `tools/pixelart.py` `city()`. Stalls: Blacksmith (BUY with the scrolls, SELL, UPGRADE; `Panels.openShop(scene, false, 'smith')`),
+  Trainer on the Neutral quarter's plot (permanent RANKS; `'trainer'`), Appraiser (identifies the kept bag, `Panels.openAppraiser`), Mage quarter = fenced empty plot with a sign, the Rift portal (walk into it = run).
+  Equipping and the kept bag: the inventory button / I in the city. Result screen: RUN AGAIN and BACK TO CITY. QUIT RUN (settings) goes to the city; END (city) goes to the title; the test room is still on the title.
+  Appraiser: fee `economy.appraiser.feeMult` 1.5 x town scroll 15 = 23 gold per item (user can change it), same identification as a scroll (clears `unid`, never rerolls), kept bag only. Rescue: a cage
+  (`G.cageRoom(seed, B, gear)`, pure function of the run seed: 50 % of runs, rooms 1-8, none once freed, none in the test room) with `sim.cage`; tap it or press I within 22 px: `Sim.freeCaged` sets
+  `gear.city.appraiser` at once (kept even if the hero dies later). Saved PER CHARACTER (each class has its own city state; account-wide would need a shared save field). Save v7 adds `gears[c].city = { appraiser }`;
+  v4-v6 saves load as not rescued, nothing else changes. Debug panel CAGE puts one beside the hero. The career bot (`opts.rescue`, on in `sim_bot --career`) walks to the cage after the chest; it never appraises (scrolls are cheaper).
 - `main` is the working base. One branch per step: `step-N-<slug>`.
+
+## Last measured (2026-11-11, step 8: city)
+
+- `sim_bot --seeds 1-10 --json` mage / warrior / archer: identical to main field by field (0 / 1 / 2 wins; the cage does not touch the sim and the fresh-gear bot ignores it). Career warrior (`--career 10 --seeds 1-10`): identical
+  to main run by run (5 wins, first at run 5, 4 left, 0 dead-lock) even with the bot freeing the Appraiser. `determinism.js` passes (adds a rescue run twice); `check_bag.js` passes (adds appraise fee / refusal / no reroll, cage per seed,
+  free in reach, saved per character, v6 -> v7, malformed city state). `contrast.js` 0 failing.
+- Browser (script outside the repo, `qa/lib.js`, 960x540 and 540x960, 0 console errors): title -> class -> city -> walk to the Blacksmith -> buy a scroll (15) -> portal -> run -> debug CAGE, free him with I (saved) -> leave with the sealed bag
+  (banked) -> result -> BACK TO CITY (Appraiser now in his stall) -> sell an item -> Trainer rank -> Appraiser identifies an item (23 gold, reveal) -> inventory button -> portal -> die -> RUN AGAIN (new seed). Screenshots
+  `/tmp/step8_city_landscape.png`, `/tmp/step8_city_portrait.png`.
+- Rough: touch not tested (the stick is a copy of the run's); tapping a stall from afar only says "Walk closer"; the reveal is plain (icon, name, stat lines one by one); the cage appears in 50 % of runs until freed (a guess); in portrait the city scrolls
+  sideways and edge labels can be cut; the city has no music or ambient life; `qa/session.js` and `qa/screens.js` still use the old title buttons (`res_gear`, `title_shop`) and are stale; the bot never uses the Appraiser.
 
 ## Last measured (2026-11-11, tiers removed)
 
@@ -280,7 +299,7 @@ View (Phaser):
 - `src/view/game.js`: scene, fixed 60 Hz stepping, sim events to effects, `G.qa.state()`.
 - `src/view/room.js`: tiles and `FissureView` (per-pixel crack renderer, `updateNet`; dark halo =
   barrier edge, `bump` flares the lip). Dodge arc and recoil: `planArc`/`drawArc` in `game.js`.
-- `src/view/hud.js`, `src/view/panels.js` (inventory, settings, debug, result), `src/view/ui.js`
+- `src/view/city.js` (city world and overlay), `src/view/hud.js`, `src/view/panels.js` (inventory, settings, debug, result), `src/view/ui.js`
   (UI toolkit, `UI.hit` names for QA clicks), `title.js`, `input.js`, `fx.js`, `boot.js`, `main.js`.
 
 Tools:

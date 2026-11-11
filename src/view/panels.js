@@ -11,7 +11,7 @@
   P.close = function (silent) {
     if (P.L) P.L.destroy();
     P.L = null; P.current = null;
-    if (!silent) { G.paused = false; if (G.screen !== 'title') G.screen = 'game'; }
+    if (!silent) { G.paused = false; if (G.screen !== 'title' && G.screen !== 'city') G.screen = 'game'; else if (G.screen === 'city') G.screen = 'city'; }
     G.storeSave(G.save);
   };
   P.relayout = function (scene) {
@@ -25,8 +25,9 @@
     else if (c === 'debug') P.openDebug(scene);
     else if (c === 'abilities') P.openAbilities(scene);
     else if (c === 'shop') P.openShop(scene, true);
+    else if (c === 'appraiser') P.openAppraiser(scene, true);
   };
-  function sim() { return G.gameScene && G.screen !== 'title' ? G.gameScene.sim : null; }
+  function sim() { return G.gameScene && G.screen !== 'title' && G.screen !== 'city' ? G.gameScene.sim : null; }
   function gear() { var s = sim(); return s ? s.gear : G.gearOf(G.save, G.cls); }
   function fmt(v, d) { return d ? v.toFixed(d) : '' + Math.round(v); }
   function statText(k, v) { var lab = G.STAT_LABEL[k]; return '+' + (k === 'regen' ? v.toFixed(1) : v) + lab[1] + ' ' + lab[0]; }
@@ -93,7 +94,7 @@
     if (P.L) P.L.destroy();
     var V = G.view, g = gear(), B = G.BAL, s = sim(), wide = V.W >= 300;
     P.current = 'inventory'; P.scene = scene; G.paused = true;
-    if (G.screen !== 'title') G.screen = 'inventory';
+    if (G.screen !== 'title' && G.screen !== 'city') G.screen = 'inventory';
     if (!keepSel) P.sel = null;
     var pw = wide ? Math.min(V.W - 8, 340) : Math.min(V.W - 8, 264), ph = wide ? Math.min(V.H - 8, 200) : Math.min(V.H - 8, 340);
     var L = P.L = UI.modal(scene, pw, ph, s ? 'GEAR' : 'EQUIPMENT');
@@ -227,26 +228,30 @@
 
 
   // ------------------------------------------------------------------ shop
-  // The town shop (title screen until step 8 builds the town): BUY, SELL, UPGRADE and RANKS for the selected class. Sim functions: src/sim/economy.js.
-  P.shop = { tab: 'buy', sel: null };
-  P.openShop = function (scene, keep) {
+  // The city's stalls (step 8). who 'smith': the Blacksmith (BUY with the scrolls, SELL, UPGRADE); who 'trainer': the Trainer (permanent RANKS, shared passives).
+  // For the selected class. Sim functions: src/sim/economy.js.
+  P.shop = { tab: 'buy', sel: null, who: 'smith' };
+  P.openShop = function (scene, keep, who) {
     if (P.L) P.L.destroy();
+    if (who) P.shop.who = who;
+    who = P.shop.who;
     var V = G.view, B = G.BAL, E = B.economy, g = G.gearOf(G.save, G.cls), cls = G.cls, wide = V.W >= 300, st = P.shop, i;
     G.ensureShop(g, B, cls);
     P.current = 'shop'; P.scene = scene; G.paused = true;
-    if (!keep) { st.tab = 'buy'; st.sel = null; }
+    if (!keep) { st.tab = who === 'trainer' ? 'ranks' : 'buy'; st.sel = null; }
     var pw = wide ? Math.min(V.W - 8, 340) : Math.min(V.W - 8, 264), ph = wide ? Math.min(V.H - 8, 226) : Math.min(V.H - 8, 400);
-    var L = P.L = UI.modal(scene, pw, ph, 'SHOP'), x0 = L.x, y0 = L.y;
+    var L = P.L = UI.modal(scene, pw, ph, who === 'trainer' ? 'TRAINER' : 'BLACKSMITH'), x0 = L.x, y0 = L.y;
     L.button(x0 + pw - 22, y0 + 3, 18, 16, '', function () { P.close(); }, { icon: 'i_close', name: 'shop_close' });
     L.image(x0 + 50, y0 + 10, 'i_gold');
     L.text(x0 + 58, y0 + 6, '' + (g.gold | 0), 'gold');
     L.text(x0 + 100, y0 + 6, G.classDef(B, cls).name, 'ui_dim');
     function refresh() { G.storeSave(G.save); P.openShop(scene, true); }
-    var tabs = [['buy', 'BUY', 'shop_buy'], ['sell', 'SELL', 'shop_sell'], ['up', 'UPGRADE', 'shop_up'], ['ranks', 'RANKS', 'shop_ranks']], tw = Math.floor((pw - 16 - 9) / 4);
+    var tabs = [['buy', 'BUY', 'shop_buy'], ['sell', 'SELL', 'shop_sell'], ['up', 'UPGRADE', 'shop_up']], tw = Math.floor((pw - 16 - 6) / 3);
+    if (who === 'trainer') tabs = [];
     tabs.forEach(function (t, k) {
       L.button(x0 + 8 + k * (tw + 3), y0 + 22, tw, 16, t[1], function () { st.tab = t[0]; st.sel = null; P.openShop(scene, true); }, { name: t[2], color: st.tab === t[0] ? 'ui_warn' : 'ui_text' });
     });
-    var cy = y0 + 42;
+    var cy = who === 'trainer' ? y0 + 26 : y0 + 42;
 
     // grid of cells (same look as the inventory); returns the geometry for the detail panel
     var cols = wide ? 5 : Math.max(5, Math.min(10, Math.floor((pw - 14) / 22))), bx = wide ? x0 + 8 : x0 + 8;
@@ -325,7 +330,7 @@
         var sp = G.sellPrice(item, B);
         if (item.unid) L.text(b.ix + 5, b.iy + b.ih - 36, 'Sells for ' + sp + ' (' + G.sellPrice(Object.assign({}, item, { unid: false }), B) + ' if identified)', 'ui_dim').setMaxWidth(b.iw - 10);
         L.button(b.ix + 5, b.iy + b.ih - 22, b.iw - 10, 18, 'SELL ' + sp + 'g', function () { G.sellFromBag(g, +st.sel.slice(1), B); st.sel = null; refresh(); }, { name: 'shop_sell_item', color: 'gold' });
-      } else L.text(b.ix + 5, b.iy + 5, 'Tap an item to sell it. Unidentified items sell for less.', 'ui_dim').setMaxWidth(b.iw - 10);
+      } else L.text(b.ix + 5, b.iy + 5, 'Tap an item to sell it. Unidentified items sell for less: the Appraiser can identify them.', 'ui_dim').setMaxWidth(b.iw - 10);
     } else if (st.tab === 'up') {
       var list = [];
       G.ITEM_SLOTS.forEach(function (k) { if (G.canUpgrade(g.equipped[k], B)) list.push({ key: 'w' + k, item: g.equipped[k], where: { slot: k }, worn: true }); });
@@ -361,12 +366,72 @@
     }
   };
 
+  // ------------------------------------------------------------------ appraiser
+  // The Appraiser (step 8): identifies items of the kept bag for gold, one at a time, with a short reveal. It is the same identification as a scroll
+  // (clears `unid`, the stats were rolled at the drop). Sim functions: G.appraiseFee, G.appraiseAt (src/sim/economy.js).
+  P.appr = { sel: null, reveal: null, n: 0 };
+  P.openAppraiser = function (scene, keep) {
+    if (P.L) P.L.destroy();
+    var V = G.view, B = G.BAL, g = G.gearOf(G.save, G.cls), st = P.appr, fee = G.appraiseFee(B);
+    P.current = 'appraiser'; P.scene = scene; G.paused = true;
+    if (!keep) { st.sel = null; st.reveal = null; st.n = 0; }
+    var pw = Math.min(V.W - 8, 260), ph = Math.min(V.H - 8, 236);
+    var L = P.L = UI.modal(scene, pw, ph, 'APPRAISER'), x0 = L.x, y0 = L.y;
+    L.button(x0 + pw - 22, y0 + 3, 18, 16, '', function () { st.reveal = null; P.close(); }, { icon: 'i_close', name: 'appr_close' });
+    L.image(x0 + 80, y0 + 10, 'i_gold');
+    L.text(x0 + 88, y0 + 6, '' + (g.gold | 0), 'gold');
+    L.text(x0 + 130, y0 + 6, 'Fee ' + fee + 'g each', 'ui_dim');
+    var bx = x0 + 8, iw = pw - 16;
+    if (st.reveal) {                                   // the reveal: the item shows, then its stats one line at a time
+      var it = st.reveal, col = UI.RARITY[it.rarity], cx = x0 + pw / 2, keys = G.STAT_ORDER.filter(function (k) { return it.stats[k] != null; });
+      L.panel(bx, y0 + 24, iw, ph - 24 - 6, 'inset', 1);
+      L.image(cx, y0 + 50, 'rar_' + it.rarity, 1); L.image(cx, y0 + 50, G.itemIcon(it), 2);
+      if (st.n < 1) L.image(cx, y0 + 50, 'i_unid', 3);
+      UI.centerX(L.text(0, y0 + 68, st.n < 1 ? 'Examining...' : it.name, st.n < 1 ? 'ui_dim' : col).setMaxWidth(iw - 8), cx);
+      if (st.n >= 1) {
+        UI.centerX(L.text(0, y0 + 80, UI.RARITY_NAME[it.rarity] + ' ' + (it.wtype ? it.wtype.charAt(0).toUpperCase() + it.wtype.slice(1) : G.SLOT_NAME[it.slot]) + '  Lv ' + it.ilvl, col), cx);
+        keys.forEach(function (k, i) { if (i < st.n - 1) UI.centerX(L.text(0, y0 + 96 + i * 11, statText(k, it.stats[k]), 'ui_text'), cx); });
+      }
+      var done = st.n - 1 >= keys.length;
+      if (done) L.button(bx + 6, y0 + ph - 28, iw - 12, 18, 'OK', function () { st.reveal = null; st.n = 0; st.sel = null; P.openAppraiser(scene, true); }, { name: 'appr_ok', color: 'ui_good' });
+      else scene.time.delayedCall(st.n < 1 ? 700 : 280, function () { if (P.current === 'appraiser' && st.reveal === it) { st.n++; P.openAppraiser(scene, true); } });
+      return;
+    }
+    var list = [];
+    g.bag.forEach(function (it, k) { if (it.unid) list.push(k); });
+    L.text(bx, y0 + 24, 'UNIDENTIFIED IN YOUR KEPT BAG: ' + list.length, 'ui_dim');
+    var cols = Math.max(5, Math.min(10, Math.floor((iw - 6) / 22))), gy = y0 + 36, rows = Math.max(1, Math.ceil(list.length / cols));
+    list.forEach(function (bi, k) {
+      var x = bx + (k % cols) * 22, y = gy + Math.floor(k / cols) * 22, it = g.bag[bi];
+      L.image(x + 10, y + 10, 'rar_' + it.rarity, 1); L.image(x + 10, y + 10, G.itemIcon(it), 2); L.image(x + 10, y + 10, 'i_unid', 3);
+      if (st.sel === bi) L.image(x + 10, y + 10, 'select', 3);
+      var hit = L.image(x + 10, y + 10, 'slot', 0).setAlpha(0.01); hit.setInteractive({ useHandCursor: true });
+      hit.on('pointerdown', function () { st.sel = bi; P.openAppraiser(scene, true); });
+      UI.hit('appr_item_' + k, x, y, 20, 20);
+    });
+    var by = gy + rows * 22 + 4, bh = y0 + ph - 6 - by;
+    L.panel(bx, by, iw, bh, 'inset', 1);
+    var sel = st.sel != null ? g.bag[st.sel] : null;
+    if (sel && !sel.unid) sel = null;
+    if (sel) {
+      var c2 = UI.RARITY[sel.rarity];
+      L.text(bx + 5, by + 5, sel.name, c2).setMaxWidth(iw - 10);
+      L.text(bx + 5, by + 17, UI.RARITY_NAME[sel.rarity] + ' ' + (sel.wtype ? sel.wtype.charAt(0).toUpperCase() + sel.wtype.slice(1) : G.SLOT_NAME[sel.slot]) + '  Lv ' + sel.ilvl, c2);
+      L.text(bx + 5, by + 29, 'Stats hidden. Sells for ' + G.sellPrice(sel, B) + 'g now, ' + G.sellPrice(Object.assign({}, sel, { unid: false }), B) + 'g identified.', 'ui_dim').setMaxWidth(iw - 10);
+      var si = st.sel;
+      L.button(bx + 5, by + bh - 24, iw - 10, 18, 'APPRAISE ' + fee + 'g', function () {
+        var done2 = G.appraiseAt(g, si, B);
+        if (done2) { G.storeSave(G.save); st.reveal = done2; st.n = 0; P.openAppraiser(scene, true); }
+      }, { name: 'appr_do', color: 'gold' }).setEnabled(G.canAppraise(g, si, B));
+    } else L.text(bx + 5, by + 5, list.length ? 'Tap an item. I name its stats for ' + fee + ' gold. The stats were rolled when it dropped; I only reveal them.' : 'Nothing to appraise. Items you find in a run come back unidentified.', 'ui_dim').setMaxWidth(iw - 10);
+  };
+
   // -------------------------------------------------------------- settings
   P.openSettings = function (scene, back) {
     if (P.L) P.L.destroy();
     var V = G.view, set = G.save.settings, inRun = !!sim();
     P.current = 'settings'; P.scene = scene; P.back = back || null; G.paused = true;
-    if (G.screen !== 'title') G.screen = 'settings';
+    if (G.screen !== 'title' && G.screen !== 'city') G.screen = 'settings';
     var pw = Math.min(V.W - 8, 190), ph = 132;
     var L = P.L = UI.modal(scene, pw, ph, 'SETTINGS'), x0 = L.x, y0 = L.y, sw = pw - 78;
     L.button(x0 + pw - 22, y0 + 3, 18, 16, '', function () { leave(); }, { icon: 'i_close', name: 'set_close' });
@@ -393,7 +458,7 @@
 
     var bw = Math.floor((pw - 22) / 2);
     L.button(x0 + 8, y0 + ph - 26, bw, 18, inRun ? 'RESUME' : 'CLOSE', leave, { name: 'set_resume' });
-    if (inRun) L.button(x0 + 14 + bw, y0 + ph - 26, bw, 18, 'QUIT RUN', function () { P.close(true); G.toTitle(); }, { name: 'set_quit', color: 'ui_bad' });
+    if (inRun) L.button(x0 + 14 + bw, y0 + ph - 26, bw, 18, 'QUIT RUN', function () { P.close(true); G.toCity(); }, { name: 'set_quit', color: 'ui_bad' });
     else L.button(x0 + 14 + bw, y0 + ph - 26, bw, 18, 'RESET SAVE', function () {
       var keep = G.save.settings; G.save = G.newSave(); G.save.settings = keep; G.storeSave(G.save); P.close(true); G.toTitle();
     }, { name: 'set_reset', color: 'ui_bad' });
@@ -428,6 +493,7 @@
       ['GIVE LOOT', act(function () { s.cheatLoot(); }), 'dbg_loot'],
       ['DOORS', act(function () { s.cheatChoice(); }), 'dbg_doors'],
       ['MERCHANT', act(function () { s.cheatMerchant(); }), 'dbg_merchant'],
+      ['CAGE', act(function () { s.cheatCage(); }), 'dbg_cage'],
       ['ABILITIES', act(function () { s.cheatAbilities(s.defaultActives()); }), 'dbg_abil'],
       ['RESUME', function () { P.close(); }, 'dbg_resume']
     ];
@@ -461,10 +527,9 @@
       s.testRoom >= 0 ? ['Gear score ' + gs, 'ui_dim'] : (state === 'dead' ? [R.goldLost ? 'Gold: ' + R.goldLost + ' lost' : 'Gold: none earned', 'ui_bad'] : ['Gold: +' + R.goldKept + ' kept', 'gold']),
       ['Gear score ' + gs, 'ui_dim']];
     lines.forEach(function (l, i) { UI.centerX(L.text(0, y0 + 34 + i * 12, l[0], l[1]).setMaxWidth(pw - 12), cx); });
-    var bw = Math.floor((pw - 28) / 3);
-    L.button(x0 + 8, y0 + ph - 28, bw, 20, 'AGAIN', function () { P.counted = false; P.close(true); G.restartRun(); }, { name: 'res_again', color: 'ui_good' });
-    L.button(x0 + 14 + bw, y0 + ph - 28, bw, 20, 'GEAR', function () { P.counted = false; P.close(true); G.toTitle(true); }, { name: 'res_gear' });
-    L.button(x0 + 20 + bw * 2, y0 + ph - 28, bw, 20, 'TITLE', function () { P.counted = false; P.close(true); G.toTitle(); }, { name: 'res_title' });
+    var bw = Math.floor((pw - 24) / 2);
+    L.button(x0 + 8, y0 + ph - 28, bw, 20, 'RUN AGAIN', function () { P.counted = false; P.close(true); G.restartRun(); }, { name: 'res_again', color: 'ui_good' });
+    L.button(x0 + 16 + bw, y0 + ph - 28, bw, 20, 'BACK TO CITY', function () { P.counted = false; P.close(true); G.toCity(); }, { name: 'res_city', color: 'gold' });
   };
 
   G.restartRun = function () {
@@ -473,9 +538,14 @@
     G.paused = false;
     g.stop('hud'); g.stop('game'); g.start('game');
   };
+  G.toCity = function () {
+    var g = G.game.scene;
+    G.paused = false; G.runSeed = (G.runSeed + 1) >>> 0;      // a new seed for the next run from the portal
+    g.stop('hud'); g.stop('game'); g.start('city');
+  };
   G.toTitle = function (openGear) {
     var g = G.game.scene;
     G.paused = false; G.openGearOnTitle = !!openGear;
-    g.stop('hud'); g.stop('game'); g.start('title');
+    g.stop('hud'); g.stop('game'); g.stop('cityhud'); g.stop('city'); g.start('title');
   };
 })(globalThis.G = globalThis.G || {});

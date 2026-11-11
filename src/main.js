@@ -4,7 +4,7 @@
   G.params = new URLSearchParams(location.search);
   G.view = G.computeView(window.innerWidth, window.innerHeight, 0);
   window.addEventListener('error', function (e) { G.qa.errors.push(String(e.message)); });
-  var scenes = [G.BootScene, G.BackdropScene, G.TitleScene, G.GameScene, G.HudScene].filter(Boolean);
+  var scenes = [G.BootScene, G.BackdropScene, G.TitleScene, G.CityScene, G.CityHudScene, G.GameScene, G.HudScene].filter(Boolean);
   G.game = new Phaser.Game({
     type: Phaser.WEBGL,
     parent: 'game',
