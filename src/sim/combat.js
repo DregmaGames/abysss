@@ -164,7 +164,7 @@
     for (i = 0; i < parts; i++) this.spawnOrb('exp', m.x, m.y, def.exp / parts);
     if (rng.chance(L.healOrb) || def.elite || def.boss) this.spawnOrb('heal', m.x, m.y, L.healOrbPct * (def.boss ? 3 : 1));
     var gearP = def.boss ? 1 : (def.elite ? L.eliteGear : L.killGear);
-    if (rng.chance(gearP)) this.spawnItem(m.x, m.y, def.boss ? L.luck.boss : (def.elite ? L.luck.elite : L.luck.kill));
+    if (rng.chance(this.lootP(gearP))) this.spawnItem(m.x, m.y, def.boss ? L.luck.boss : (def.elite ? L.luck.elite : L.luck.kill));
     if (!def.boss && rng.chance(L.killTome)) this.spawnDrop('tome', m.x, m.y, null);
     if (this.stats.leech) this.heal(this.stats.leech);
     if (src !== 'kfx' && this.fxOn.kill.length) this.runFx('kill', m, this.baseDmg(), null);
@@ -180,8 +180,10 @@
     this.drops.push({ id: this.nextId++, kind: kind, x: nx, y: ny, item: item, age: 0 });
     this.emit({ t: 'drop', x: nx, y: ny, kind: kind, rarity: item ? item.rarity : 2 });
   };
+  // door loot bonus: a share more gear drops, and rarity luck
+  S.lootP = function (p) { return Math.min(1, p * (1 + this.lootBonus)); };
   S.spawnItem = function (x, y, luck) {
-    this.spawnDrop('item', x, y, G.rollItem(this.rngRoom, this.ilvl, luck, this.B, this.gear, this.cls));
+    this.spawnDrop('item', x, y, G.rollItem(this.rngRoom, this.ilvl, luck + this.lootBonus, this.B, this.gear, this.cls));
   };
 
   // direction a monster walks to reach the player: straight when it can see them, else along the
@@ -394,9 +396,9 @@
         p.tomes++;
         this.emit({ t: 'pickup', kind: 'tome' });
         if (this.state === 'play' && p.pending === 0) { this.openLevelUp(true); return; }
-      } else if (this.gear.bag.length < this.B.loot.bagSize) {
+      } else if (this.bag.length < this.B.loot.bagSize) {
         this.drops.splice(i, 1);
-        this.gear.bag.push(dr.item);
+        this.bag.push(dr.item);
         this.emit({ t: 'pickup', kind: 'item', item: dr.item });
       } else if (this.tick - this.msgTick > 120) {
         this.msgTick = this.tick;

@@ -22,7 +22,27 @@
       roomMult: [1.05, 1.3, 1.55, 1.8, 2.1, 2.4, 2.75, 3.1, 3.5, 3.0],   // monster hp/dmg multiplier per room
       gearK: 0.005,                   // +0.5 % monster hp/dmg per point of gear score ("gear level scales the room")
       ilvlTier: 3, ilvlRooms: 3,      // item level = 1 + tier * ilvlTier + floor(room / ilvlRooms)
-      testRoom: 1                     // ?room=test / TEST ROOM button: this room, restarted on every clear
+      testRoom: 1,                    // ?room=test / TEST ROOM button: this room, restarted on every clear
+      // Dying empties the sealed bag. Whether the equipped gear survives is a design assumption the user has not confirmed:
+      // true = it is kept; false = dying also strips every equipped item. This is the only place the rule lives.
+      deathKeepsEquipped: true
+    },
+
+    // Doors (step 6). After every room but the last: leave with the sealed bag, or go on through one of two doors.
+    // The two doors after room N depend only on the run seed and N (G.doorsFor); each is a fissure modifier for the
+    // next room and pays `loot`: +that share of gear drop chances and +that much rarity luck (0.25 = +25 %).
+    // Modifier fields (all optional): crackLen (x the arm length), extraCracks (added to the crack count),
+    // spawnEvery (x the pause between packs; below 1 = faster), aliveThreat (x the cap on network monsters alive at once),
+    // extraElite (monster id added to the super fissure wave), threat (x monster hp and damage).
+    doors: {
+      mods: {
+        longCracks: { name: 'Long cracks',   loot: 0.25, crackLen: 1.4 },
+        manyCracks: { name: 'More cracks',   loot: 0.30, extraCracks: 1 },
+        fastSpawns: { name: 'Fast spawns',   loot: 0.20, spawnEvery: 0.5 },
+        crowd:      { name: 'Crowded',       loot: 0.20, aliveThreat: 1.6 },
+        elite:      { name: 'Extra elite',   loot: 0.30, extraElite: 'warden' },
+        hardened:   { name: 'Hardened foes', loot: 0.25, threat: 1.2 }
+      }
     },
 
     // shared by every class (class numbers live in `classes` below)
@@ -156,7 +176,8 @@
       rarity: [62, 26, 9, 2.5, 0.5],
       // rarity "luck" by source: shifts weight toward the right
       luck: { kill: 0, close: 0.2, elite: 0.4, super: 0.6, chest: 0.8, boss: 1.2 },
-      bagSize: 20,
+      bagSize: 20,                    // the sealed bag of one run (items picked up in the run)
+      stashSize: 30,                  // the bag kept between runs (equip and discard there)
       // weapon drops: any monster, chest or crack can drop any type, equal weight (one rng draw). `cls` = the only class that
       // can equip it (others keep it in the bag as loot). item: base name; itemRare (rarity >= 2): name instead. worn: 'Worn ' prefix when common.
       weaponTypes: [
@@ -661,7 +682,8 @@
     return cells;
   }
 
-  G.genRoom = function (runSeed, index, B) {
+  // `mod`: optional door modifier id (BAL.doors.mods): crackLen and extraCracks change the cracks only; the walls are the same
+  G.genRoom = function (runSeed, index, B, mod) {
     var seed = G.hash32(runSeed >>> 0, index * 7919 + 13);
     var rng = new G.RNG(seed);
     var boss = index === B.run.rooms - 1;
@@ -757,7 +779,8 @@
     rng.shuffle(cand);
     // The crack network: `count` long cracks, closer together than single fissures used to be.
     // Some branch off an earlier crack: joined cracks form a cluster that shares one kill meter.
-    var F = B.fissure, want = F.count[index], fissures = [];
+    var F = B.fissure, dm = (mod && B.doors.mods[mod]) || {}, want = F.count[index] + (dm.extraCracks || 0), fissures = [];
+    var cLo = Math.round(F.crackLen[0] * (dm.crackLen || 1)), cHi = Math.round(F.crackLen[1] * (dm.crackLen || 1));
     var sxp = sx * T + 8, syp = sy * T + 8, exp_ = ex * T + 8, cxp = cx * T + 8, cyp = cy * T + 8;
     function zone(px, py, m) {                     // reserved areas, grown by a margin of m px
       if (Math.abs(px - sxp) <= 40 + m && Math.abs(py - syp) <= 34 + m) return true;   // start
@@ -798,14 +821,14 @@
         if (mids.length) {
           var m0 = mids[rng.int(0, mids.length - 1)], away = G.M.atan2(m0.y, m0.x) + (rng.chance(0.5) ? 1 : -1) * rng.range(0.7, 1.3);
           var bxp = par.x + m0.x, byp = par.y + m0.y;
-          made = { x: bxp, y: byp, cl: par.cl, cells: place(bxp, byp, genFissure(rng, false, rng.int(F.crackLen[0], F.crackLen[1]), true, away, clearOf(bxp, byp))) };
+          made = { x: bxp, y: byp, cl: par.cl, cells: place(bxp, byp, genFissure(rng, false, rng.int(cLo, cHi), true, away, clearOf(bxp, byp))) };
         }
       }
       if (!made) {
         for (; ci < cand.length && !made; ci++) {
           var fx = cand[ci][0] * T + 8, fy = cand[ci][1] * T + 8, far = true;
           for (k2 = 0; k2 < fissures.length; k2++) if (Math.abs(fissures[k2].x - fx) + Math.abs(fissures[k2].y - fy) < gap * T) far = false;
-          if (far && siteFree(fx, fy)) made = { x: fx, y: fy, cl: -1, cells: place(fx, fy, genFissure(rng, false, rng.int(F.crackLen[0], F.crackLen[1]), false, 0, clearOf(fx, fy))) };
+          if (far && siteFree(fx, fy)) made = { x: fx, y: fy, cl: -1, cells: place(fx, fy, genFissure(rng, false, rng.int(cLo, cHi), false, 0, clearOf(fx, fy))) };
         }
         if (!made) { if (gap > 3) { gap--; ci = 0; continue; } break; }
       }
@@ -947,10 +970,46 @@
 
   G.unequip = function (gear, key, B) {
     var it = gear.equipped[key];
-    if (!it || gear.bag.length >= B.loot.bagSize) return false;
+    if (!it || gear.bag.length >= B.loot.stashSize) return false;
     gear.equipped[key] = null;
     gear.bag.push(it);
     return true;
+  };
+
+  // bag outcomes of a run (step 6). The sealed bag of a run goes into the kept bag (gear.bag) on leaving or winning,
+  // best items first while there is room; what does not fit is lost. Returns { kept, lost }.
+  G.bankItems = function (gear, items, B) {
+    var order = items.slice().sort(function (a, b) { return G.itemValue(b, B) - G.itemValue(a, B) || a.id - b.id; }), kept = 0;
+    order.forEach(function (it) { if (gear.bag.length < B.loot.stashSize) { gear.bag.push(it); kept++; } });
+    return { kept: kept, lost: items.length - kept };
+  };
+  // best rarity in a list of items (-1 when empty)
+  G.bestRarity = function (items) {
+    var b = -1;
+    for (var i = 0; i < items.length; i++) if (items[i].rarity > b) b = items[i].rarity;
+    return b;
+  };
+
+  // The doors offered after room N: two different modifiers, a pure function of the run seed and N.
+  G.doorsFor = function (seed, roomIndex, B) {
+    var ids = Object.keys(B.doors.mods), rng = new G.RNG(G.hash32(seed >>> 0, 5150 + roomIndex * 31));
+    rng.shuffle(ids);
+    return ids.slice(0, B.doors.offer || 2);
+  };
+  // the modifier for `id` (null for none)
+  G.doorMod = function (B, id) { return id ? B.doors.mods[id] || null : null; };
+  // what a door does, in words, built from its numbers: [text, ...]
+  G.doorEffects = function (B, id) {
+    var m = G.doorMod(B, id), out = [];
+    if (!m) return out;
+    function pct(x) { return Math.round(Math.abs(x - 1) * 100) + '%'; }
+    if (m.crackLen) out.push('Cracks ' + pct(m.crackLen) + ' ' + (m.crackLen > 1 ? 'longer' : 'shorter'));
+    if (m.extraCracks) out.push(m.extraCracks > 0 ? '+' + m.extraCracks + ' crack' + (m.extraCracks > 1 ? 's' : '') : m.extraCracks + ' cracks');
+    if (m.spawnEvery) out.push('Monsters come ' + (m.spawnEvery < 1 ? Math.round((1 / m.spawnEvery - 1) * 100) + '% faster' : pct(m.spawnEvery) + ' slower'));
+    if (m.aliveThreat) out.push(pct(m.aliveThreat) + ' ' + (m.aliveThreat > 1 ? 'more' : 'fewer') + ' monsters alive at once');
+    if (m.extraElite) out.push('An extra ' + m.extraElite + ' in the super fissure');
+    if (m.threat) out.push('Monsters ' + pct(m.threat) + ' ' + (m.threat > 1 ? 'stronger' : 'weaker'));
+    return out;
   };
 
   G.dropFromBag = function (gear, idx) { return gear.bag.splice(idx, 1)[0] || null; };
@@ -1080,7 +1139,11 @@
     this.events = [];
     this.input = { mx: 0, my: 0, dodge: false, pulse: false };
     this.tick = 0;
-    this.state = 'play';                 // play | levelup | dead | won
+    this.state = 'play';                 // play | levelup | choice (after a room: leave or a door) | dead | won | left
+    this.bag = [];                       // the sealed bag: gear found in this run; kept on leave / win, lost on death (finishRun)
+    this.mod = null;                     // the door modifier of the current room (BAL.doors.mods id)
+    this.doors = [];                     // the doors offered now (state 'choice'); doorLog: the ids taken, in order
+    this.doorLog = []; this.lootBonus = 0; this.result = null;
     this.kills = 0; this.roomsCleared = 0; this.nextId = 1;
     this.rngCombat = new G.RNG(G.hash32(this.seed, 9001));
     this.rngLevel = new G.RNG(G.hash32(this.seed, 4242));
@@ -1166,11 +1229,14 @@
     this.compileFx();
   };
 
-  S.loadRoom = function (index) {
-    var B = this.B, room = this.room = G.genRoom(this.seed, index, B), F = B.fissure, self = this;
+  // `mod`: the door modifier of this room (an id of BAL.doors.mods, or none)
+  S.loadRoom = function (index, mod) {
+    var B = this.B, room = this.room = G.genRoom(this.seed, index, B, mod), F = B.fissure, self = this, dm = G.doorMod(B, mod) || {};
     this.roomIndex = index;
+    this.mod = mod && B.doors.mods[mod] ? mod : null;
+    this.modDef = dm; this.lootBonus = dm.loot || 0;
     this.rngRoom = new G.RNG(G.hash32(room.seed, 77));
-    this.threat = B.run.tierMult[this.tier] * B.run.roomMult[index] * (1 + B.run.gearK * G.gearScore(this.gear));
+    this.threat = B.run.tierMult[this.tier] * B.run.roomMult[index] * (dm.threat || 1) * (1 + B.run.gearK * G.gearScore(this.gear));
     this.ilvl = 1 + this.tier * B.run.ilvlTier + Math.floor(index / B.run.ilvlRooms);
     this.player.x = room.start.x; this.player.y = room.start.y;
     this.player.dashT = 0;
@@ -1187,7 +1253,45 @@
     this.flowTile = -1; this.flowTick = -999;
     this.msgTick = -999;
     this.progress();
-    this.emit({ t: 'room', index: index });
+    this.emit({ t: 'room', index: index, mod: this.mod });
+  };
+
+  // ------------------------------------------------------------ run end and doors (step 6)
+  // The run is over: 'dead' empties the sealed bag (and, if BAL.run.deathKeepsEquipped is false, strips the equipped gear);
+  // 'won' and 'left' put the sealed bag into the kept bag (gear.bag). this.result says what happened to the items.
+  S.finishRun = function (kind) {
+    var B = this.B, n = this.bag.length, best = G.bestRarity(this.bag), r = { kind: kind, items: n, best: best, kept: 0, lost: 0 };
+    if (kind === 'dead') {
+      r.lost = n;
+      if (!B.run.deathKeepsEquipped) for (var k in this.gear.equipped) this.gear.equipped[k] = null;
+    } else if (this.testRoom < 0) {
+      var b = G.bankItems(this.gear, this.bag, B); r.kept = b.kept; r.lost = b.lost;
+    } else r.lost = n;
+    this.bag = [];
+    this.result = r;
+    this.state = kind;
+    this.emit({ t: kind === 'dead' ? 'dead' : kind });
+  };
+  // after a room is cleared: the choice (leave, or one of two doors for the next room)
+  S.enterChoice = function () {
+    this.state = 'choice';
+    this.doors = G.doorsFor(this.seed, this.roomIndex, this.B);
+    this.progress();
+    this.emit({ t: 'choice', doors: this.doors.slice() });
+  };
+  S.leave = function () {
+    if (this.state !== 'choice') return false;
+    this.finishRun('left');
+    return true;
+  };
+  // i: index into this.doors. The chosen door is part of the run's inputs (doorLog).
+  S.takeDoor = function (i) {
+    if (this.state !== 'choice' || !this.doors[i]) return false;
+    var id = this.doors[i];
+    this.doorLog.push(id); this.doors = [];
+    this.state = 'play';
+    this.loadRoom(this.roomIndex + 1, id);
+    return true;
   };
 
   // ---------------------------------------------------------------- geometry
@@ -1316,7 +1420,7 @@
     p.hp -= dmg;
     p.iframes = this.B.player.hurtIframes;
     this.emit({ t: 'phit', x: p.x, y: p.y, dmg: dmg });
-    if (p.hp <= 0) { p.hp = 0; this.state = 'dead'; this.emit({ t: 'dead' }); }
+    if (p.hp <= 0) { p.hp = 0; this.finishRun('dead'); }
     return true;
   };
   S.heal = function (amount) {
@@ -1408,17 +1512,8 @@
   };
 
   // ---------------------------------------------------------------- inventory
-  S.equip = function (bagIdx) {
-    var key = G.equipFromBag(this.gear, bagIdx, this.B, this.clsId);
-    if (key) { this.recalc(); this.emit({ t: 'equip', slot: key }); }
-    return key;
-  };
-  S.unequip = function (key) {
-    var ok = G.unequip(this.gear, key, this.B);
-    if (ok) { this.recalc(); this.emit({ t: 'equip', slot: key }); }
-    return ok;
-  };
-  S.dropItem = function (bagIdx) { return G.dropFromBag(this.gear, bagIdx); };
+  // No equipping inside a run: the gear a run starts with stays on all run. Equip and discard happen between runs
+  // (title screen) on gear.bag, with G.equipFromBag / G.unequip / G.dropFromBag.
 
   // ------------------------------------------------------------------ cheats
   // Debug panel actions, to reach any part of a run fast. They go through the normal sim paths
@@ -1451,6 +1546,12 @@
     this.loops++;
     this.player.hp = this.player.maxHp;
     this.loadRoom(this.roomIndex);
+  };
+  // jump to the after-room choice (as if this room had just been cleared)
+  S.cheatChoice = function () {
+    if (this.testRoom >= 0 || this.roomIndex >= this.B.run.rooms - 1 || this.state !== 'play') return;
+    this.roomsCleared++;
+    this.enterChoice();
   };
   S.cheatRoom = function (index) {
     index = Math.max(0, Math.min(this.B.run.rooms - 1, index));
@@ -2014,7 +2115,7 @@
     for (i = 0; i < parts; i++) this.spawnOrb('exp', m.x, m.y, def.exp / parts);
     if (rng.chance(L.healOrb) || def.elite || def.boss) this.spawnOrb('heal', m.x, m.y, L.healOrbPct * (def.boss ? 3 : 1));
     var gearP = def.boss ? 1 : (def.elite ? L.eliteGear : L.killGear);
-    if (rng.chance(gearP)) this.spawnItem(m.x, m.y, def.boss ? L.luck.boss : (def.elite ? L.luck.elite : L.luck.kill));
+    if (rng.chance(this.lootP(gearP))) this.spawnItem(m.x, m.y, def.boss ? L.luck.boss : (def.elite ? L.luck.elite : L.luck.kill));
     if (!def.boss && rng.chance(L.killTome)) this.spawnDrop('tome', m.x, m.y, null);
     if (this.stats.leech) this.heal(this.stats.leech);
     if (src !== 'kfx' && this.fxOn.kill.length) this.runFx('kill', m, this.baseDmg(), null);
@@ -2030,8 +2131,10 @@
     this.drops.push({ id: this.nextId++, kind: kind, x: nx, y: ny, item: item, age: 0 });
     this.emit({ t: 'drop', x: nx, y: ny, kind: kind, rarity: item ? item.rarity : 2 });
   };
+  // door loot bonus: a share more gear drops, and rarity luck
+  S.lootP = function (p) { return Math.min(1, p * (1 + this.lootBonus)); };
   S.spawnItem = function (x, y, luck) {
-    this.spawnDrop('item', x, y, G.rollItem(this.rngRoom, this.ilvl, luck, this.B, this.gear, this.cls));
+    this.spawnDrop('item', x, y, G.rollItem(this.rngRoom, this.ilvl, luck + this.lootBonus, this.B, this.gear, this.cls));
   };
 
   // direction a monster walks to reach the player: straight when it can see them, else along the
@@ -2244,9 +2347,9 @@
         p.tomes++;
         this.emit({ t: 'pickup', kind: 'tome' });
         if (this.state === 'play' && p.pending === 0) { this.openLevelUp(true); return; }
-      } else if (this.gear.bag.length < this.B.loot.bagSize) {
+      } else if (this.bag.length < this.B.loot.bagSize) {
         this.drops.splice(i, 1);
-        this.gear.bag.push(dr.item);
+        this.bag.push(dr.item);
         this.emit({ t: 'pickup', kind: 'item', item: dr.item });
       } else if (this.tick - this.msgTick > 120) {
         this.msgTick = this.tick;
@@ -2276,7 +2379,7 @@
     this.crackLit = 0;
     this.fissures = room.fissures.map(function (f, id) {
       var queue = [];
-      if (f.big) queue = F.superWave[index].slice();
+      if (f.big) { queue = F.superWave[index].slice(); if (self.modDef.extraElite) queue.push(self.modDef.extraElite); }
       else {
         var budget = F.budget[index], pool = F.pool[index], types = Object.keys(pool);
         while (budget > 0) {
@@ -2441,9 +2544,9 @@
           var m = this.monsters[i];
           if (!m.dead && !fs[m.fid].big) live += m.def.threat;
         }
-        if (best && (!live || live + this.B.monsters[best.queue[0]].threat <= F.aliveThreat * F.budget[this.roomIndex])) {
+        if (best && (!live || live + this.B.monsters[best.queue[0]].threat <= F.aliveThreat * (this.modDef.aliveThreat || 1) * F.budget[this.roomIndex])) {
           this.spawnFromCluster(best);
-          this.spawnCd = F.spawnEvery;
+          this.spawnCd = F.spawnEvery * (this.modDef.spawnEvery || 1);
         } else this.spawnCd = 0.1;
       }
       if (!open) {
@@ -2483,7 +2586,7 @@
     f.scarTick = this.tick;
     for (i = 0; i < n; i++) this.spawnOrb('exp', f.x, f.y, F.closeExp * (f.big ? 3 : 1) / n);
     this.heal(this.player.maxHp * (f.big ? F.superHeal : F.closeHeal));
-    if (rng.chance(f.big ? L.superGear : L.closeGear)) this.spawnItem(f.x, f.y, f.big ? L.luck.super : L.luck.close);
+    if (rng.chance(this.lootP(f.big ? L.superGear : L.closeGear))) this.spawnItem(f.x, f.y, f.big ? L.luck.super : L.luck.close);
     if (f.big && rng.chance(L.superTome)) this.spawnDrop('tome', f.x, f.y, null);
     for (i = 0; i < this.orbs.length; i++) this.orbs[i].magnet = true;
     this.emit({ t: 'fissure', id: f.id, state: 'scar', big: f.big, x: f.x, y: f.y });
@@ -2552,8 +2655,8 @@
         this.roomsCleared++;
         this.progress();
         if (this.testRoom >= 0) this.restartTestRoom();
-        else if (this.roomIndex === this.B.run.rooms - 1) { this.state = 'won'; this.emit({ t: 'won' }); }
-        else this.loadRoom(this.roomIndex + 1);
+        else if (this.roomIndex === this.B.run.rooms - 1) this.finishRun('won');
+        else this.enterChoice();
       }
     }
   };
@@ -2628,7 +2731,8 @@
   for (var i = 0; i < 16; i++) DIRS.push({ x: G.M.cos(i / 16 * 6.2832), y: G.M.sin(i / 16 * 6.2832) });
 
   // buildId: one of BAL.builds[cls] (default: the first)
-  function Bot(sim, buildId) {
+  function Bot(sim, buildId, opts) {
+    this.leaveAt = opts && +opts.leave > 0 ? +opts.leave : 0;
     // class hint (BAL.classes.<id>.bot): keep-away multiplier
     this.melee = sim.cls.attack.kind === 'arc'; this.keep = sim.cls.bot.keep;
     var builds = sim.B.builds && sim.B.builds[sim.clsId];
@@ -2662,24 +2766,37 @@
     return { i: best, slot: sim.needsSlot(best) ? worst : 0 };
   };
 
-  Bot.prototype.manageGear = function () {
-    var sim = this.sim, g = sim.gear, B = sim.B, i, changed = true, guard = 0;
-    while (changed && guard++ < 30) {
+  // Between runs (never inside one: a run's gear is fixed): equip what is better for the class, then discard
+  // other classes' weapons first, then the weakest, until there is room for a full sealed bag.
+  Bot.prepareGear = function (gear, B, clsId) {
+    var g = gear, i, changed = true, guard = 0;
+    while (changed && guard++ < 60) {
       changed = false;
       for (i = 0; i < g.bag.length; i++) {
         var it = g.bag[i], cur = g.equipped[G.targetSlot(g, it, B)];
-        if (!G.canEquip(it, B, sim.clsId)) continue;      // another class's weapon: loot, never equipped
-        if (!cur || G.itemValue(it, B) > G.itemValue(cur, B) + 0.01) { sim.equip(i); changed = true; break; }
+        if (!G.canEquip(it, B, clsId)) continue;
+        if (!cur || G.itemValue(it, B) > G.itemValue(cur, B) + 0.01) { G.equipFromBag(g, i, B, clsId); changed = true; break; }
       }
     }
-    while (g.bag.length > B.loot.bagSize - 3) {       // keep room for new drops: discard the weakest
+    while (g.bag.length > B.loot.stashSize - B.loot.bagSize) {
       var worst = 0;
-      for (i = 1; i < g.bag.length; i++) {      // other classes' weapons go first
-        var fi = G.canEquip(g.bag[i], B, sim.clsId) ? 0 : 1, fw = G.canEquip(g.bag[worst], B, sim.clsId) ? 0 : 1;
+      for (i = 1; i < g.bag.length; i++) {
+        var fi = G.canEquip(g.bag[i], B, clsId) ? 0 : 1, fw = G.canEquip(g.bag[worst], B, clsId) ? 0 : 1;
         if (fi > fw || (fi === fw && G.itemValue(g.bag[i], B) < G.itemValue(g.bag[worst], B))) worst = i;
       }
-      sim.dropItem(worst);
+      G.dropFromBag(g, worst);
     }
+  };
+
+  // After a room is cleared (sim.state 'choice'): -1 = leave with the sealed bag, else the index of the door to take.
+  // Policy: leave once `leave` rooms are cleared (opts.leave, 1-based; default: never, go on to the boss). Door rule: the one
+  // paying the smaller loot bonus (the milder fissure), the first on a tie.
+  Bot.prototype.afterRoom = function () {
+    var sim = this.sim, B = sim.B;
+    if (this.leaveAt && sim.roomIndex + 1 >= this.leaveAt) return -1;
+    var best = 0, i;
+    for (i = 1; i < sim.doors.length; i++) if (B.doors.mods[sim.doors[i]].loot < B.doors.mods[sim.doors[best]].loot) best = i;
+    return best;
   };
 
   Bot.prototype.pathDir = function (gx, gy) {
@@ -2714,7 +2831,6 @@
   Bot.prototype.update = function () {
     var sim = this.sim;
     if (sim.state !== 'play') return;
-    if (sim.tick % 30 === 0) this.manageGear();
     var p = sim.player, s = sim.stats, K = sim.cls.skill, inp = sim.input, i;
     // Human-like reaction time: in a fight the bot only re-decides every `reactionTicks`
     // and holds its last decision in between. Out of combat it steers every tick.
@@ -2777,7 +2893,7 @@
       var want = null, best = 1e9;
       for (i = 0; i < sim.drops.length; i++) {
         var dr = sim.drops[i];
-        if (dr.kind === 'item' && sim.gear.bag.length >= sim.B.loot.bagSize) continue;
+        if (dr.kind === 'item' && sim.bag.length >= sim.B.loot.bagSize) continue;
         var dd = Math.abs(dr.x - p.x) + Math.abs(dr.y - p.y);
         if (dd < best && (!nearest || dd < 90)) { best = dd; want = dr; }
       }
@@ -2832,9 +2948,10 @@
   G.botRun = function (seed, opts) {
     opts = opts || {};
     var gear = opts.gear || G.newSave().gear;
-    var sim = new G.Sim({ seed: seed, tier: opts.tier || 0, gear: gear, bal: opts.bal, cls: opts.cls }), bot = new Bot(sim, opts.build);
+    var sim = new G.Sim({ seed: seed, tier: opts.tier || 0, gear: gear, bal: opts.bal, cls: opts.cls }), bot = new Bot(sim, opts.build, { leave: opts.leave });
     var maxTicks = (opts.maxSeconds || 1200) * 60, softlock = false, worstStuck = 0, roomTicks = [], last = 0, lastRoom = 0, minHp = sim.B.run.roomMult.map(function () { return 1; });
-    while (sim.tick < maxTicks && (sim.state === 'play' || sim.state === 'levelup')) {
+    while (sim.tick < maxTicks && (sim.state === 'play' || sim.state === 'levelup' || sim.state === 'choice')) {
+      if (sim.state === 'choice') { var ch = bot.afterRoom(); if (ch < 0) sim.leave(); else sim.takeDoor(ch); continue; }
       if (sim.state === 'levelup') {
         var pk = bot.pickAbility(); sim.chooseAbility(pk.i, pk.slot);
         continue;
@@ -2850,9 +2967,9 @@
     }
     // the build and what it came to
     var abilInfo = { build: bot.buildId, slots: sim.player.slots.slice(), abil: Object.assign({}, sim.player.abil), fams: G.familyCounts(sim.player.abil, sim.B) };
-    return Object.assign({ seed: seed, cls: sim.clsId, result: softlock ? 'softlock' : (sim.state === 'won' ? 'win' : (sim.state === 'dead' ? 'dead' : 'timeout')),
+    return Object.assign({ seed: seed, cls: sim.clsId, result: softlock ? 'softlock' : (sim.state === 'won' ? 'win' : (sim.state === 'left' ? 'left' : (sim.state === 'dead' ? 'dead' : 'timeout'))),
       room: sim.roomIndex, phase: sim.phase, rooms: sim.roomsCleared, seconds: Math.round(sim.tick / 60), level: sim.player.level,
-      kills: sim.kills, hp: Math.round(sim.player.hp), gearScore: G.gearScore(gear), worstStuck: Math.round(worstStuck), minHp: minHp, roomSeconds: roomTicks.map(function (t) { return Math.round(t / 60); }) }, abilInfo);
+      kills: sim.kills, hp: Math.round(sim.player.hp), gearScore: G.gearScore(gear), bag: sim.result, doors: sim.doorLog.slice(), worstStuck: Math.round(worstStuck), minHp: minHp, roomSeconds: roomTicks.map(function (t) { return Math.round(t / 60); }) }, abilInfo);
   };
 })(globalThis.G = globalThis.G || {});
 
@@ -2865,15 +2982,24 @@
   G.newSave = function () {
     var eq = {};
     SLOTS.forEach(function (s) { eq[s] = null; });
-    return { v: 2, gear: { equipped: eq, bag: [], nextId: 1 }, settings: { zoom: 0, shake: 100 }, stats: { runs: 0, wins: 0, best: 0 } };
+    return { v: 3, gear: { equipped: eq, bag: [], nextId: 1 }, settings: { zoom: 0, shake: 100 }, stats: { runs: 0, wins: 0, best: 0 } };
   };
   G.loadSave = function () {
     try {
       var raw = globalThis.localStorage && localStorage.getItem(KEY);
       if (raw) {
         var s = JSON.parse(raw), d = G.newSave();
-        if (s && s.v === 2 && s.gear && s.gear.equipped) {
-          SLOTS.forEach(function (k) { if (!(k in s.gear.equipped)) s.gear.equipped[k] = null; });
+        // v2 -> v3 (step 6): gear.bag used to fill during runs; it is now the bag kept between runs (equip and discard on the
+        // title screen). An old save's bag becomes the kept bag as it is: bad entries dropped, the rest cut to the stash size.
+        if (s && (s.v === 2 || s.v === 3) && s.gear && s.gear.equipped) {
+          var B = G.BAL, ok = function (it) { return it && typeof it === 'object' && SLOTS.indexOf(it.slot) >= 0 && it.stats && typeof it.rarity === 'number'; };
+          s.gear.bag = (Array.isArray(s.gear.bag) ? s.gear.bag : []).filter(ok).slice(0, B ? B.loot.stashSize : 30);
+          SLOTS.forEach(function (k) { if (!(k in s.gear.equipped) || !ok(s.gear.equipped[k])) s.gear.equipped[k] = null; });
+          s.v = 3;
+          if (!s.gear.nextId) s.gear.nextId = 1;
+          var top = 0;
+          s.gear.bag.concat(SLOTS.map(function (k) { return s.gear.equipped[k]; })).forEach(function (it) { if (it && it.id >= top) top = it.id + 1; });
+          if (s.gear.nextId < top) s.gear.nextId = top;
           s.settings = Object.assign(d.settings, s.settings || {});
           s.stats = Object.assign(d.stats, s.stats || {});
           return s;
@@ -3619,7 +3745,7 @@
       this.controls = new G.Controls(this);
       this.fx = new G.FX(this);
       this.fx.quiet = this.speed > 4;
-      this.bot = P.get('bot') === '1' && G.Bot ? new G.Bot(this.sim, P.get('build')) : null;   // ?build=<id>: the bot's ability build
+      this.bot = P.get('bot') === '1' && G.Bot ? new G.Bot(this.sim, P.get('build'), { leave: P.get('leave') }) : null;   // ?build=<id>: the bot's ability build; ?leave=N: it leaves after room N
       this.maps = { monsters: new Map(), bolts: new Map(), shots: new Map(), orbs: new Map(), drops: new Map() };
       this.acc = 0; this.frame = 0; this.ended = false; this.worstStuck = 0;
       this.groundG = this.add.graphics().setDepth(-700);     // cooldown rings, telegraphs
@@ -4040,7 +4166,7 @@
       var p = sim.player;
       out.sim = { state: sim.state, room: sim.roomIndex, phase: sim.phase, tick: sim.tick, hp: Math.round(p.hp), maxHp: p.maxHp, level: p.level,
         kills: sim.kills, rooms: sim.roomsCleared, stuck: +sim.stuckSeconds().toFixed(1), worstStuck: +gs.worstStuck.toFixed(1),
-        monsters: sim.monsters.length, bag: sim.gear.bag.length, gearScore: G.gearScore(sim.gear), hash: sim.room.hash,
+        monsters: sim.monsters.length, bag: sim.bag.length, kept: sim.gear.bag.length, mod: sim.mod, doors: sim.doors.slice(), result: sim.result, gearScore: G.gearScore(sim.gear), hash: sim.room.hash,
         objective: sim.objective(), test: sim.testRoom >= 0, loops: sim.loops, touch: !!G.touch, fissures: sim.fissures.map(function (f) { return f.state; }), x: Math.round(p.x), y: Math.round(p.y) };
     }
     return out;
@@ -4062,7 +4188,7 @@
       G.hud = this;
       this.game_ = G.gameScene;
       this.L = null; this.level = null; this.toastT = 0; this.toastMsg = null; this.pickCard = -1; this.SL = null;
-      this.botWait = 0; this.endT = -1; this.stickId = null;
+      this.botWait = 0; this.endT = -1; this.stickId = null; this.choiceL = null;
       this.build();
       this.game.events.on('viewchange', this.onView, this);
 
@@ -4072,14 +4198,14 @@
       kb.on('keydown-TAB', function (e) { e.preventDefault(); self.toggleInventory(); });
       kb.on('keydown-ESC', function () {
         if (self.level && self.pickCard >= 0) { self.pickCard = -1; self.openLevel(); }      // slot picker: back to the cards
-        else if (G.Panels.isOpen()) G.Panels.close(); else if (!self.level) G.Panels.openSettings(self);
+        else if (G.Panels.isOpen()) G.Panels.close(); else if (!self.level && !self.choiceL) G.Panels.openSettings(self);
       });
       ['ONE', 'TWO', 'THREE'].forEach(function (k, i) { kb.on('keydown-' + k, function () { self.pickLevel(i); }); });
 
       // touch: a floating stick on the left 60 % of the screen
       this.input.on('pointerdown', function (p, over) {
         if (p.wasTouch && !G.touch) { G.touch = true; self.build(); }
-        if (!G.touch || over.length || G.paused || self.level || self.stickId != null) return;
+        if (!G.touch || over.length || G.paused || self.level || self.choiceL || self.stickId != null) return;
         var S = G.view.S;
         if (p.x / S > G.view.W * 0.6) return;
         self.stickId = p.id; self.stickX = p.x / S; self.stickY = p.y / S;
@@ -4112,6 +4238,7 @@
     onView: function () {
       this.build();
       if (this.level) this.openLevel();
+      if (this.choiceL) this.openChoice();
       G.Panels.relayout(this);
     },
 
@@ -4138,7 +4265,8 @@
 
       // inventory button (top-right)
       this.invBtn = L.button(V.W - X - 26, Y, 26, 26, '', function () { self.toggleInventory(); }, { icon: 'i_bag', name: 'inv' });
-      this.invBadge = L.text(V.W - X - 8, Y - 1, '!', 'ui_warn').setVisible(false);
+      // the sealed bag: only the item count, tinted with the best rarity (bottom-right of the button)
+      this.invBadge = L.text(V.W - X - 4, Y + 18, '', 'ui_dim').setVisible(false);
       this.invBadge._dz = 4; this.invBadge.setDepth(L.depth + 4);
 
       // objective + fissure progress: top-centre, or a second row when the screen is narrow
@@ -4181,17 +4309,16 @@
       if (!G.debug || this.level) return;
       if (G.Panels.current === 'debug') { G.Panels.close(); return; }
       var st = this.game_.sim.state;
-      if (st === 'dead' || st === 'won') return;
+      if (st === 'dead' || st === 'won' || st === 'left' || st === 'choice') return;
       this.dropStick();
       G.Panels.openDebug(this);
     },
 
     toggleInventory: function () {
-      if (this.level) return;
+      if (this.level || this.choiceL) return;
       if (G.Panels.isOpen()) { G.Panels.close(); return; }
       var st = this.game_.sim.state;
-      if (st === 'dead' || st === 'won') return;
-      this.invBadge.setVisible(false);
+      if (st === 'dead' || st === 'won' || st === 'left') return;
       this.dropStick();
       G.Panels.openInventory(this);
     },
@@ -4205,13 +4332,62 @@
 
     onEvent: function (e) {
       if (e.t === 'pickup') {
-        if (e.item) { this.say(UI.RARITY_NAME[e.item.rarity] + ' ' + e.item.name, UI.RARITY[e.item.rarity]); this.invBadge.setVisible(true); }
-        else this.say('Ability tome', 'tome2');
+        if (!e.item) this.say('Ability tome', 'tome2');      // gear goes into the sealed bag: the counter shows it
       } else if (e.t === 'msg') this.say(e.text, 'ui_bad');
       else if (e.t === 'levelup') this.openLevel();
       else if (e.t === 'famTier' && e.tier > e.prev) this.say(this.game_.sim.B.families[e.fam].name + ' bonus ' + (e.tier === 2 ? 4 : 2) + '!', 'ui_good');
-      else if (e.t === 'dead' || e.t === 'won') this.endT = 50;
+      else if (e.t === 'choice') this.openChoice();
+      else if (e.t === 'dead' || e.t === 'won' || e.t === 'left') { this.endT = 50; if (e.t !== 'dead') G.storeSave(G.save); }      // the bag was banked: save it now
       else if (e.t === 'room') { this.last = {}; G.storeSave(G.save); }
+    },
+
+    // ------------------------------------------------- after a room: leave or a door
+    // Shown when sim.state is 'choice'. Door cards state the fissure modifier and the loot bonus it pays.
+    openChoice: function () {
+      var sim = this.game_.sim, self = this, B = sim.B, V = G.view, i;
+      if (this.choiceL) this.choiceL.destroy();
+      this.choiceL = null;
+      if (sim.state !== 'choice') return;
+      if (G.Panels.isOpen()) G.Panels.close(true);
+      this.dropStick();
+      G.screen = 'choice'; G.paused = true;
+      this.botWait = this.game_.speed > 4 ? 1 : 60;
+      var n = sim.doors.length, row = V.W >= 300, gap = 6, mw = row ? Math.min(V.W - 8, 330) : Math.min(V.W - 8, 264), inner = mw - 16;
+      var cw = row ? Math.floor((inner - gap * (n - 1)) / n) : inner, ch = 0, lines = [];
+      for (i = 0; i < n; i++) {      // measure the cards: tallest one sets the height
+        var fx = G.doorEffects(B, sim.doors[i]), h = 24, tmp = UI.text(this, 0, 0, fx.join('\n'), 'ui_text').setMaxWidth(cw - 10);
+        h += tmp.height + 4; tmp.destroy(); lines.push(fx); ch = Math.max(ch, h);
+      }
+      var cardsH = row ? ch : n * ch + (n - 1) * 4, mh = 20 + 22 + cardsH + 8 + 20 + (row ? 14 : 24);
+      var m = this.choiceL = UI.modal(this, mw, mh, 'ROOM ' + (sim.roomIndex + 1) + ' CLEARED'), x0 = m.x + 8, y = m.y + 18;
+      var best = G.bestRarity(sim.bag), cnt = sim.bag.length;
+      m.text(x0, y + 1, 'Sealed bag: ' + cnt + (cnt === 1 ? ' item' : ' items'), 'ui_text');
+      if (best >= 0) { var bt = m.text(0, y + 1, 'best: ' + UI.RARITY_NAME[best], UI.RARITY[best]); bt.x = x0 + inner - bt.width; }
+      y += 14;
+      for (i = 0; i < n; i++) {
+        (function (k) {
+          var id = sim.doors[k], def = B.doors.mods[id], cx = row ? x0 + k * (cw + gap) : x0, cy = row ? y : y + k * (ch + 4);
+          var card = m.button(cx, cy, cw, ch, '', function () { self.pickDoor(k); }, { name: 'door_' + k });
+          void card;
+          m.text(cx + 5, cy + 4, def.name, 'ui_warn');
+          var kt = m.text(0, cy + 4, '' + (k + 1), 'ui_dim'); kt.x = cx + cw - 5 - kt.width;
+          var t = m.text(cx + 5, cy + 15, lines[k].join('\n'), 'ui_text').setMaxWidth(cw - 10);
+          m.text(cx + 5, cy + 15 + t.height + 3, '+' + Math.round(def.loot * 100) + '% loot', 'ui_good');
+        })(i);
+      }
+      y += cardsH + 8;
+      m.button(x0, y, inner, 18, 'LEAVE WITH THE BAG', function () { self.pickDoor(n); }, { name: 'leave', color: 'ui_good' });
+      m.text(x0, y + 22, 'Leaving or winning keeps the bag. Dying loses it.', 'ui_dim').setMaxWidth(inner);
+    },
+    // i < number of doors: take that door; i === doors.length (the 3rd key with two doors): leave
+    pickDoor: function (i) {
+      var sim = this.game_.sim;
+      if (!this.choiceL || sim.state !== 'choice') return;
+      var leave = i >= sim.doors.length;
+      if (!leave && !sim.doors[i]) return;
+      this.choiceL.destroy(); this.choiceL = null;
+      G.screen = 'game'; G.paused = false;
+      if (leave) sim.leave(); else sim.takeDoor(i);
     },
 
     // ------------------------------------------------------- level-up choice
@@ -4225,6 +4401,7 @@
     },
     pickLevel: function (i) {
       var sim = this.game_.sim;
+      if (sim.state === 'choice') { this.pickDoor(i); return; }      // keys 1, 2: doors; 3: leave
       if (!this.level || sim.state !== 'levelup') return;
       if (this.pickCard >= 0) { if (i < 3) this.applyAbility(this.pickCard, i); return; }     // slot picker: i is the slot
       if (!sim.choices[i]) return;
@@ -4424,13 +4601,20 @@
       var xp = Math.round(44 * Math.min(1, p.exp / p.expNext));
       if (L.xp !== xp) { L.xp = xp; this.xpFill.setDisplaySize(Math.max(0.01, xp), 3); }
 
+      var bagKey = sim.bag.length + '/' + G.bestRarity(sim.bag);
+      if (L.bag !== bagKey) {
+        L.bag = bagKey;
+        var bb = G.bestRarity(sim.bag);
+        this.invBadge.setVisible(sim.bag.length > 0).setText('' + sim.bag.length).setTint(UI.hex(bb >= 0 ? UI.RARITY[bb] : 'ui_dim'));
+        this.invBadge.x = G.view.W - X - 4 - this.invBadge.width;
+      }
       var fp = sim.fissureProgress(), obj = sim.objective();
-      var okey = obj + '|' + fp.states.join(',') + '|' + sim.phase + '|' + sim.roomIndex + '|' + sim.loops;
+      var okey = obj + '|' + fp.states.join(',') + '|' + sim.phase + '|' + sim.roomIndex + '|' + sim.loops + '|' + sim.mod;
       if (L.obj !== okey) {
         L.obj = okey;
         this.objText.setText(obj);
         var showBar = sim.phase === 'super', n = fp.total + 1, pipsW = fp.total * 8 + 10, rowW = showBar ? 72 : pipsW;
-        var room = sim.testRoom >= 0 ? 'Test #' + (sim.loops + 1) : 'Room ' + (sim.roomIndex + 1) + '/' + sim.B.run.rooms;
+        var room = sim.testRoom >= 0 ? 'Test #' + (sim.loops + 1) : 'Room ' + (sim.roomIndex + 1) + '/' + sim.B.run.rooms + (sim.mod ? ' ' + sim.B.doors.mods[sim.mod].name : '');
         this.roomText.setText(room);
         var w = Math.min(O.w, Math.max(this.objText.width, rowW + this.roomText.width + 8) + 14), x0 = O.x + Math.round((O.w - w) / 2);
         // centre on the screen when the free area allows it
@@ -4478,6 +4662,8 @@
         if (this.toastT === 0) this.toast.setVisible(false);
       }
       if (sim.state === 'levelup' && !this.level) this.openLevel();
+      if (sim.state === 'choice' && !this.choiceL) this.openChoice();
+      if (this.choiceL && gs.bot && !G.manualLevel && --this.botWait <= 0) { var ch = gs.bot.afterRoom(); this.pickDoor(ch < 0 ? sim.doors.length : ch); }
       if (this.level && gs.bot && !G.manualLevel && --this.botWait <= 0) {
         var pk = gs.bot.pickAbility(); this.applyAbility(pk.i, pk.slot);
       }
@@ -4584,7 +4770,7 @@
     if (G.screen !== 'title') G.screen = 'inventory';
     if (!keepSel) P.sel = null;
     var pw = wide ? Math.min(V.W - 8, 340) : Math.min(V.W - 8, 264), ph = wide ? Math.min(V.H - 8, 200) : Math.min(V.H - 8, 340);
-    var L = P.L = UI.modal(scene, pw, ph, 'EQUIPMENT');
+    var L = P.L = UI.modal(scene, pw, ph, s ? 'GEAR (FIXED IN A RUN)' : 'EQUIPMENT');
     var x0 = L.x, y0 = L.y;
     L.button(x0 + pw - 22, y0 + 3, 18, 16, '', function () { P.close(); }, { icon: 'i_close', name: 'inv_close' });
     L.button(x0 + pw - 44, y0 + 3, 18, 16, '', function () { P.openSettings(scene, 'inventory'); }, { icon: 'i_gear', name: 'inv_settings' });
@@ -4600,8 +4786,8 @@
     function act() {
       var sl = P.sel;
       if (!sl) return;
-      if (sl.kind === 'bag') { if (s) s.equip(sl.key); else G.equipFromBag(g, sl.key, B, cls); }
-      else { if (s) s.unequip(sl.key); else G.unequip(g, sl.key, B); }
+      if (s) return;                  // inside a run the gear is fixed: equip and discard happen between runs
+      if (sl.kind === 'bag') G.equipFromBag(g, sl.key, B, cls); else G.unequip(g, sl.key, B);
       P.sel = null; G.storeSave(G.save); P.openInventory(scene, true);
     }
     function cell(x, y, item, slotKey, sel, name) {
@@ -4635,9 +4821,18 @@
 
     // bag
     var bx = wide ? x0 + 82 : x0 + 8, by = wide ? y0 + 20 : dy + 72;
-    var cols = wide ? 5 : Math.max(5, Math.min(10, Math.floor((pw - 14) / 22))), rowsN = Math.ceil(B.loot.bagSize / cols), i;
-    L.text(bx, by, 'BAG ' + g.bag.length + '/' + B.loot.bagSize, 'ui_dim');
-    for (i = 0; i < B.loot.bagSize; i++) cell(bx + (i % cols) * 22, by + 11 + Math.floor(i / cols) * 22, g.bag[i], null, { kind: 'bag', key: i }, 'bag_' + i);
+    var cols = wide ? 5 : Math.max(5, Math.min(10, Math.floor((pw - 14) / 22))), rowsN = s ? 2 : Math.ceil(B.loot.stashSize / cols), i;
+    if (s) {      // in a run: the bag is sealed, only its count and best rarity show
+      var bi = G.bestRarity(s.bag);
+      L.text(bx, by, 'SEALED BAG', 'ui_dim');
+      L.text(bx, by + 11, s.bag.length + (s.bag.length === 1 ? ' item' : ' items'), 'ui_text');
+      if (bi >= 0) L.text(bx, by + 21, 'Best: ' + UI.RARITY_NAME[bi], UI.RARITY[bi]);
+      L.text(bx, by + 33, 'Opens after the run.', 'ui_dim').setMaxWidth(wide ? cols * 22 : pw - 16);
+      rowsN = 2;
+    } else {
+      L.text(bx, by, 'BAG ' + g.bag.length + '/' + B.loot.stashSize, 'ui_dim');
+      for (i = 0; i < B.loot.stashSize; i++) cell(bx + (i % cols) * 22, by + 11 + Math.floor(i / cols) * 22, g.bag[i], null, { kind: 'bag', key: i }, 'bag_' + i);
+    }
 
     // item details
     var ix = wide ? bx + cols * 22 + 6 : x0 + 8, iy = wide ? y0 + 20 : by + 11 + rowsN * 22 + 4, iw = x0 + pw - 8 - ix, ih = y0 + ph - 6 - iy;
@@ -4645,7 +4840,7 @@
     var sl = P.sel, item = sl ? (sl.kind === 'bag' ? g.bag[sl.key] : g.equipped[sl.key]) : null;
     if (!item) {
       P.sel = null;
-      L.text(ix + 5, iy + 5, wide ? 'Tap an item to see its stats. Tap it again to equip.' : 'Tap an item for its stats. Tap again to equip.', 'ui_dim').setMaxWidth(iw - 10);
+      L.text(ix + 5, iy + 5, s ? 'Tap a slot for its stats.' : (wide ? 'Tap an item to see its stats. Tap it again to equip.' : 'Tap an item for its stats. Tap again to equip.'), 'ui_dim').setMaxWidth(iw - 10);
     } else {
       var col = UI.RARITY[item.rarity], ty = iy + 5;
       var nm = L.text(ix + 5, ty, item.name, col).setMaxWidth(iw - 10); ty += nm.height + 3;
@@ -4667,12 +4862,13 @@
         ty += 10;
       });
       var bw = Math.floor((iw - 14) / 2), byy = iy + ih - 22;
-      if (sl.kind === 'bag') {
+      if (s) { /* gear is fixed inside a run: no buttons */ }
+      else if (sl.kind === 'bag') {
         var better = !cur || G.itemValue(item, B) > G.itemValue(cur, B);
         L.button(ix + 5, byy, bw, 18, 'EQUIP', act, { name: 'equip', color: better ? 'ui_good' : 'ui_text' }).setEnabled(!foreign);
         L.button(ix + 9 + bw, byy, bw, 18, 'DROP', function () { G.dropFromBag(g, sl.key); P.sel = null; G.storeSave(G.save); P.openInventory(scene, true); }, { name: 'drop' });
       } else {
-        L.button(ix + 5, byy, Math.max(bw, 52), 18, 'UNEQUIP', act, { name: 'unequip' }).setEnabled(g.bag.length < B.loot.bagSize);
+        L.button(ix + 5, byy, Math.max(bw, 52), 18, 'UNEQUIP', act, { name: 'unequip' }).setEnabled(g.bag.length < B.loot.stashSize);
       }
     }
   };
@@ -4742,6 +4938,7 @@
         : ['NEXT ROOM', act(function () { s.cheatRoom(s.roomIndex + 1); }), 'dbg_next'],
       ['BOSS ROOM', act(function () { s.cheatRoom(s.B.run.rooms - 1); }), 'dbg_boss'],
       ['GIVE LOOT', act(function () { s.cheatLoot(); }), 'dbg_loot'],
+      ['DOORS', act(function () { s.cheatChoice(); }), 'dbg_doors'],
       ['ABILITIES', act(function () { s.cheatAbilities(s.defaultActives()); }), 'dbg_abil'],
       ['RESUME', function () { P.close(); }, 'dbg_resume']
     ];
@@ -4755,7 +4952,7 @@
   // ---------------------------------------------------------------- result
   P.openResult = function (scene, state) {
     if (P.L) P.L.destroy();
-    var V = G.view, s = G.gameScene.sim, B = s.B, won = state === 'won';
+    var V = G.view, s = G.gameScene.sim, B = s.B, won = state === 'won', left = state === 'left', R = s.result || { items: 0, kept: 0, lost: 0, best: -1 };
     if ((P.resultState !== state || !P.counted) && s.testRoom < 0) {      // test-room deaths are not runs
       P.counted = true;
       G.save.stats.runs++; if (won) G.save.stats.wins++;
@@ -4764,16 +4961,18 @@
     }
     P.current = 'result'; P.scene = scene; P.resultState = state; G.paused = true; G.screen = 'result';
     G.gameScene.ended = true;
-    var pw = Math.min(V.W - 8, 230), ph = 132;
+    var pw = Math.min(V.W - 8, 230), ph = 144;
     var L = P.L = UI.modal(scene, pw, ph, null), x0 = L.x, y0 = L.y, cx = V.W / 2;
-    UI.centerX(L.text(0, y0 + 9, won ? 'RIFT SEALED' : 'YOU DIED', won ? 'ui_good' : 'ui_bad', true), cx);
+    UI.centerX(L.text(0, y0 + 9, won ? 'RIFT SEALED' : (left ? 'YOU LEFT' : 'YOU DIED'), won ? 'ui_good' : (left ? 'ui_warn' : 'ui_bad'), true), cx);
     var t = Math.round(s.tick / 60), gs = G.gearScore(s.gear), lines = [
-      [won ? 'All ' + B.run.rooms + ' rooms cleared' : s.testRoom >= 0 ? 'Fell in the test room (clears: ' + s.loops + ')' : 'Fell in room ' + (s.roomIndex + 1) + ' of ' + B.run.rooms, 'ui_text'],
+      [won ? 'All ' + B.run.rooms + ' rooms cleared' : left ? 'Left after room ' + (s.roomIndex + 1) + ' of ' + B.run.rooms : s.testRoom >= 0 ? 'Fell in the test room (clears: ' + s.loops + ')' : 'Fell in room ' + (s.roomIndex + 1) + ' of ' + B.run.rooms, 'ui_text'],
       ['Level ' + s.player.level + '   Kills ' + s.kills + '   ' + Math.floor(t / 60) + ':' + ('0' + t % 60).slice(-2), 'ui_dim'],
-      ['Gear score ' + gs + '  (gear is kept)', 'ui_dim']];
+      state === 'dead' ? [R.items ? 'The bag was lost: ' + R.items + (R.items === 1 ? ' item' : ' items') + (B.run.deathKeepsEquipped ? '  (worn gear kept)' : '  (worn gear lost)') : 'The bag was empty', R.items ? 'ui_bad' : 'ui_dim']
+        : [R.kept + (R.kept === 1 ? ' item' : ' items') + ' kept in your bag' + (R.lost ? ', ' + R.lost + ' lost (bag full)' : ''), 'ui_good'],
+      ['Gear score ' + gs, 'ui_dim']];
     var next = B.run.tierGear[s.tier + 1];
     if (next != null) lines.push(gs >= next ? ['Tier ' + (s.tier + 2) + ' unlocked: harder rifts, better loot', 'ui_warn'] : ['Tier ' + (s.tier + 2) + ' needs gear score ' + next, 'ui_dim']);
-    lines.forEach(function (l, i) { UI.centerX(L.text(0, y0 + 34 + i * 12, l[0], l[1]), cx); });
+    lines.forEach(function (l, i) { UI.centerX(L.text(0, y0 + 34 + i * 12, l[0], l[1]).setMaxWidth(pw - 12), cx); });
     var bw = Math.floor((pw - 28) / 3);
     L.button(x0 + 8, y0 + ph - 28, bw, 20, 'AGAIN', function () { P.counted = false; P.close(true); G.restartRun(); }, { name: 'res_again', color: 'ui_good' });
     L.button(x0 + 14 + bw, y0 + ph - 28, bw, 20, 'GEAR', function () { P.counted = false; P.close(true); G.toTitle(true); }, { name: 'res_gear' });

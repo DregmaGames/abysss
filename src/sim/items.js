@@ -93,10 +93,46 @@
 
   G.unequip = function (gear, key, B) {
     var it = gear.equipped[key];
-    if (!it || gear.bag.length >= B.loot.bagSize) return false;
+    if (!it || gear.bag.length >= B.loot.stashSize) return false;
     gear.equipped[key] = null;
     gear.bag.push(it);
     return true;
+  };
+
+  // bag outcomes of a run (step 6). The sealed bag of a run goes into the kept bag (gear.bag) on leaving or winning,
+  // best items first while there is room; what does not fit is lost. Returns { kept, lost }.
+  G.bankItems = function (gear, items, B) {
+    var order = items.slice().sort(function (a, b) { return G.itemValue(b, B) - G.itemValue(a, B) || a.id - b.id; }), kept = 0;
+    order.forEach(function (it) { if (gear.bag.length < B.loot.stashSize) { gear.bag.push(it); kept++; } });
+    return { kept: kept, lost: items.length - kept };
+  };
+  // best rarity in a list of items (-1 when empty)
+  G.bestRarity = function (items) {
+    var b = -1;
+    for (var i = 0; i < items.length; i++) if (items[i].rarity > b) b = items[i].rarity;
+    return b;
+  };
+
+  // The doors offered after room N: two different modifiers, a pure function of the run seed and N.
+  G.doorsFor = function (seed, roomIndex, B) {
+    var ids = Object.keys(B.doors.mods), rng = new G.RNG(G.hash32(seed >>> 0, 5150 + roomIndex * 31));
+    rng.shuffle(ids);
+    return ids.slice(0, B.doors.offer || 2);
+  };
+  // the modifier for `id` (null for none)
+  G.doorMod = function (B, id) { return id ? B.doors.mods[id] || null : null; };
+  // what a door does, in words, built from its numbers: [text, ...]
+  G.doorEffects = function (B, id) {
+    var m = G.doorMod(B, id), out = [];
+    if (!m) return out;
+    function pct(x) { return Math.round(Math.abs(x - 1) * 100) + '%'; }
+    if (m.crackLen) out.push('Cracks ' + pct(m.crackLen) + ' ' + (m.crackLen > 1 ? 'longer' : 'shorter'));
+    if (m.extraCracks) out.push(m.extraCracks > 0 ? '+' + m.extraCracks + ' crack' + (m.extraCracks > 1 ? 's' : '') : m.extraCracks + ' cracks');
+    if (m.spawnEvery) out.push('Monsters come ' + (m.spawnEvery < 1 ? Math.round((1 / m.spawnEvery - 1) * 100) + '% faster' : pct(m.spawnEvery) + ' slower'));
+    if (m.aliveThreat) out.push(pct(m.aliveThreat) + ' ' + (m.aliveThreat > 1 ? 'more' : 'fewer') + ' monsters alive at once');
+    if (m.extraElite) out.push('An extra ' + m.extraElite + ' in the super fissure');
+    if (m.threat) out.push('Monsters ' + pct(m.threat) + ' ' + (m.threat > 1 ? 'stronger' : 'weaker'));
+    return out;
   };
 
   G.dropFromBag = function (gear, idx) { return gear.bag.splice(idx, 1)[0] || null; };

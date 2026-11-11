@@ -27,7 +27,7 @@
       this.controls = new G.Controls(this);
       this.fx = new G.FX(this);
       this.fx.quiet = this.speed > 4;
-      this.bot = P.get('bot') === '1' && G.Bot ? new G.Bot(this.sim, P.get('build')) : null;   // ?build=<id>: the bot's ability build
+      this.bot = P.get('bot') === '1' && G.Bot ? new G.Bot(this.sim, P.get('build'), { leave: P.get('leave') }) : null;   // ?build=<id>: the bot's ability build; ?leave=N: it leaves after room N
       this.maps = { monsters: new Map(), bolts: new Map(), shots: new Map(), orbs: new Map(), drops: new Map() };
       this.acc = 0; this.frame = 0; this.ended = false; this.worstStuck = 0;
       this.groundG = this.add.graphics().setDepth(-700);     // cooldown rings, telegraphs
@@ -448,7 +448,7 @@
       var p = sim.player;
       out.sim = { state: sim.state, room: sim.roomIndex, phase: sim.phase, tick: sim.tick, hp: Math.round(p.hp), maxHp: p.maxHp, level: p.level,
         kills: sim.kills, rooms: sim.roomsCleared, stuck: +sim.stuckSeconds().toFixed(1), worstStuck: +gs.worstStuck.toFixed(1),
-        monsters: sim.monsters.length, bag: sim.gear.bag.length, gearScore: G.gearScore(sim.gear), hash: sim.room.hash,
+        monsters: sim.monsters.length, bag: sim.bag.length, kept: sim.gear.bag.length, mod: sim.mod, doors: sim.doors.slice(), result: sim.result, gearScore: G.gearScore(sim.gear), hash: sim.room.hash,
         objective: sim.objective(), test: sim.testRoom >= 0, loops: sim.loops, touch: !!G.touch, fissures: sim.fissures.map(function (f) { return f.state; }), x: Math.round(p.x), y: Math.round(p.y) };
     }
     return out;

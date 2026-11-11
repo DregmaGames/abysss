@@ -78,7 +78,8 @@
     return cells;
   }
 
-  G.genRoom = function (runSeed, index, B) {
+  // `mod`: optional door modifier id (BAL.doors.mods): crackLen and extraCracks change the cracks only; the walls are the same
+  G.genRoom = function (runSeed, index, B, mod) {
     var seed = G.hash32(runSeed >>> 0, index * 7919 + 13);
     var rng = new G.RNG(seed);
     var boss = index === B.run.rooms - 1;
@@ -174,7 +175,8 @@
     rng.shuffle(cand);
     // The crack network: `count` long cracks, closer together than single fissures used to be.
     // Some branch off an earlier crack: joined cracks form a cluster that shares one kill meter.
-    var F = B.fissure, want = F.count[index], fissures = [];
+    var F = B.fissure, dm = (mod && B.doors.mods[mod]) || {}, want = F.count[index] + (dm.extraCracks || 0), fissures = [];
+    var cLo = Math.round(F.crackLen[0] * (dm.crackLen || 1)), cHi = Math.round(F.crackLen[1] * (dm.crackLen || 1));
     var sxp = sx * T + 8, syp = sy * T + 8, exp_ = ex * T + 8, cxp = cx * T + 8, cyp = cy * T + 8;
     function zone(px, py, m) {                     // reserved areas, grown by a margin of m px
       if (Math.abs(px - sxp) <= 40 + m && Math.abs(py - syp) <= 34 + m) return true;   // start
@@ -215,14 +217,14 @@
         if (mids.length) {
           var m0 = mids[rng.int(0, mids.length - 1)], away = G.M.atan2(m0.y, m0.x) + (rng.chance(0.5) ? 1 : -1) * rng.range(0.7, 1.3);
           var bxp = par.x + m0.x, byp = par.y + m0.y;
-          made = { x: bxp, y: byp, cl: par.cl, cells: place(bxp, byp, genFissure(rng, false, rng.int(F.crackLen[0], F.crackLen[1]), true, away, clearOf(bxp, byp))) };
+          made = { x: bxp, y: byp, cl: par.cl, cells: place(bxp, byp, genFissure(rng, false, rng.int(cLo, cHi), true, away, clearOf(bxp, byp))) };
         }
       }
       if (!made) {
         for (; ci < cand.length && !made; ci++) {
           var fx = cand[ci][0] * T + 8, fy = cand[ci][1] * T + 8, far = true;
           for (k2 = 0; k2 < fissures.length; k2++) if (Math.abs(fissures[k2].x - fx) + Math.abs(fissures[k2].y - fy) < gap * T) far = false;
-          if (far && siteFree(fx, fy)) made = { x: fx, y: fy, cl: -1, cells: place(fx, fy, genFissure(rng, false, rng.int(F.crackLen[0], F.crackLen[1]), false, 0, clearOf(fx, fy))) };
+          if (far && siteFree(fx, fy)) made = { x: fx, y: fy, cl: -1, cells: place(fx, fy, genFissure(rng, false, rng.int(cLo, cHi), false, 0, clearOf(fx, fy))) };
         }
         if (!made) { if (gap > 3) { gap--; ci = 0; continue; } break; }
       }

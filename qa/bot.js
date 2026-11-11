@@ -35,7 +35,7 @@ async function runSeed(browser, seed, a) {
     await page.waitForTimeout(400);
   }
   const s = st.sim, B = await page.evaluate(() => ({ rooms: G.BAL.run.rooms }));
-  const out = { seed, result: softlock ? 'softlock' : (st.screen !== 'result' ? 'timeout' : (s.state === 'won' ? 'win' : 'dead')),
+  const out = { seed, result: softlock ? 'softlock' : (st.screen !== 'result' ? 'timeout' : (s.state === 'won' ? 'win' : (s.state === 'left' ? 'left' : 'dead'))),
     room: s.room, rooms: s.rooms, level: s.level, kills: s.kills, seconds: Math.round(s.tick / 60), worstStuck: s.worstStuck,
     errors: page.errors.concat(st.errors), wall: +((Date.now() - t0) / 1000).toFixed(1), totalRooms: B.rooms };
   if (out.result === 'win' && a.shots) await Q.shot(page, `bot_win_seed${seed}_${a.size}`);

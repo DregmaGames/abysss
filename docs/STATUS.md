@@ -16,7 +16,39 @@ Design decisions live in the plan doc (the user has it); this file is what an ag
   3 active slots with the replace choice, ranks, families with bonuses at 2 and 4, monster statuses, all three class groups (mage,
   warrior with weapon overrides, archer) and the shared pool, every effect kind, level-up screen, bot builds, the ABILITIES page of the
   equipment panel. The old passives (table, files, flags) are gone.
+- Step 6 (doors and extraction) on branch `step-6-doors-extraction`: the after-room choice, door modifiers, the sealed bag, no in-run equipping.
+  Rules in `src/balance.js` (`doors`, `run.deathKeepsEquipped`, `loot.bagSize` = sealed bag of a run, `loot.stashSize` = kept bag).
 - `main` is the working base. One branch per step: `step-N-<slug>`.
+
+## Last measured (2026-11-11, step 6: doors and extraction)
+
+- How it works: after clearing any room but the last the sim enters state `choice` (`Sim.enterChoice`): `leave()` banks the sealed bag into the
+  kept bag (`gear.bag`, cap `stashSize` 30, best items first, the rest lost) and ends the run as `left`; `takeDoor(i)` loads the next room with the
+  door's modifier. Doors after room N = `G.doorsFor(seed, N)`, a pure function of the run seed and N (two different modifiers); the doors taken are
+  `sim.doorLog`. Winning banks the bag; dying empties it (`finishRun`). Quitting a run from the settings panel and the test room lose the bag.
+  `genRoom(seed, room, B, mod)`: crackLen and extraCracks change only the cracks, the walls stay.
+- Door modifiers (loot = +that share of gear drop chances and +that much rarity luck): Long cracks (arms x1.4) +25 %; More cracks (+1 crack) +30 %;
+  Fast spawns (pause between packs x0.5) +20 %; Crowded (alive cap x1.6) +20 %; Extra elite (+1 warden in the super fissure wave) +30 %;
+  Hardened foes (monster hp and damage x1.2) +25 %. The numbers are guesses, not balanced.
+- Bag and gear: loot goes to `sim.bag` (cap `bagSize` 20); the HUD shows count and best rarity on the inventory button. In a run the inventory
+  panel is read-only (no equip, unequip, drop: `Sim.equip/unequip/dropItem` are gone). Between runs (title, EQUIPMENT) the player equips and
+  discards from `gear.bag` (a class equips only its own weapons, as before). Save v3: key unchanged; a v2 save's bag becomes the kept bag
+  (bad entries dropped, cut to 30, `nextId` raised above every item id), equipped gear, settings, stats kept.
+- Bot: default goes on to room 10 and takes the door with the smaller loot bonus; `--leave N` (also `?leave=N` in the browser) leaves after room N.
+  `G.Bot.prepareGear` equips and discards between runs (used by `--career`). `sim_bot` reports `left` and bag items.
+- Checks: `node tools/determinism.js` passes (500 rooms, 1200 modified rooms, doors, seed 3 default and `--leave 5` twice, 9 builds twice);
+  `node tools/check_bag.js`: 33 checks pass (die / leave / win bag, full kept bag, test room, doors deterministic, each modifier, loot bonus
+  102 -> 137 item drops in 4800 imp kills, save migration).
+- Node bot seeds 1-10, first build, default policy: mage 0 wins (deaths by room 2:3 5:1 6:4 8:2), warrior 0 (6:2 7:1 8:6 9:1), archer 0 (3:2 4:2 5:3 6:3);
+  worst stuck 8 s, no softlocks. `--leave 5` mage: 6 left, 4 dead (3 in room 2, 1 in room 5), avg bag 13 items, 10.9 kept. Wins fell from 3-4 of 10 (step 5)
+  to 0 because a fresh-save run now starts with no gear and the bot cannot pick any up mid-run; with gear kept from earlier runs it is a different game
+  (`--career` was not run). Needs a balance pass when the city (step 8) gives gear a place.
+- Browser bot `qa/bot.js --seeds 3,4,5` (mage): 0 wins (dead in rooms 5, 4, 5), 0 errors, 0 softlocks, all match Node, through the HUD door choice.
+- By hand in the browser (script outside the repo): door choice at 960x540 and 540x960 (`/tmp/step6_landscape.png`, `/tmp/step6_portrait.png`), click a door
+  (next room has the modifier), click LEAVE (state left, bag banked), v2 save loads on the title and EQUIPMENT equips and drops from the kept bag, in-run
+  inventory is read-only, 0 errors.
+- Not run: `qa/screens.js`, `qa/session.js`, `qa/test_room.js`, `?leave=N` in the browser, the result screen after leave/death looked at (opens ~10 s later at
+  headless fps; the data was checked), touch on the choice, warrior and archer in the browser, the DBG DOORS button by click.
 
 ## Last measured (2026-11-11, step 5 batch B: warrior and archer abilities)
 
@@ -116,6 +148,10 @@ Design decisions live in the plan doc (the user has it); this file is what an ag
 
 ## Still rough
 
+- Step 6: bot win rate is 0 of 10 with a fresh save (no gear); door numbers are unbalanced; the choice modal is plain (no art on the cards); a full
+  sealed bag (20) just stops picking items up; the kept bag (30) drops the weakest new items when full; `qa/screens.js` and `qa/session.js` still
+  use `gear.bag` as the in-run bag and are stale; the objective plate does not say "choose" while the modal is up.
+
 - Step 5: abilities use family icons only (no per-ability icons); effect art is placeholder (rings, sparks, a gold bolt for Thunder Wave, no
   wave or whirl sprite); the numbers are balanced by 10-seed bot runs only; the bot wins in 300-400 s, short of the 480-600 s design target;
   Winter Hunter reaches Frost 4 in only 5 of 10 runs; the epic abilities are rarely taken.
@@ -136,7 +172,7 @@ Design decisions live in the plan doc (the user has it); this file is what an ag
 
 ## Design assumptions waiting for the user
 
-- Dying loses the sealed bag; equipped gear is kept.
+- Dying loses the sealed bag; equipped gear is kept (`BAL.run.deathKeepsEquipped`, `src/balance.js`: set it to false to strip worn gear on death; the only place the rule lives).
 - Bats fly over open cracks; the boss ignores them; other monsters walk around.
 - 3 active ability slots, family bonuses at 2 and 4. Split Shot is rare, not epic (see batch B notes).
 - Where the web version is published (needed before step 11).
@@ -154,7 +190,7 @@ Sim (no Phaser, deterministic, runs in Node):
 - `src/sim/fissures.js`: the crack network (`setupFissures`, `networkKill`, `darkenSeg`,
   `spawnFromCluster`, `crackHits`, `crackOnLine`), super fissure, chest, exit, objective.
 - `src/sim/combat.js`: auto-attack (`shootBolts` or `swing`, event `swing`), `castSkill` -> pulse, monster AI, `steer`, projectiles, pickups, kills.
-- `src/sim/boss.js`, `src/sim/items.js`, `src/save.js`.
+- `src/sim/boss.js`, `src/sim/items.js` (also `bankItems`, `doorsFor`, `doorEffects`), `src/save.js` (v3, migration). Run end and doors: `Sim.finishRun`, `enterChoice`, `leave`, `takeDoor` in `core.js`.
 - `src/sim/abilities.js`: pool, offers, family tiers, stats, card info. `src/sim/effects.js`: statuses, triggers, effect kinds, orbit, zones, echoes.
 - `src/qa/bot.js`: the bot (`G.Bot(sim, buildId)`, `G.botRun`); `crossDir` dodges across cracks; `pickAbility` follows a build.
 - Test room: `Sim({ testRoom: true })` loads `B.run.testRoom`; `restartTestRoom` reloads it on clear.
@@ -168,13 +204,13 @@ View (Phaser):
   (UI toolkit, `UI.hit` names for QA clicks), `title.js`, `input.js`, `fx.js`, `boot.js`, `main.js`.
 
 Tools:
-- `tools/build.py` builds `dist/riftscar.html`. `tools/determinism.js`. `tools/sim_bot.js`
-  (`--seeds`, `--class id`, `--build id`, `--json`, `--set path=value`, `--career N`). `tools/contrast.js`.
+- `tools/build.py` builds `dist/riftscar.html`. `tools/determinism.js`, `tools/check_bag.js`. `tools/sim_bot.js`
+  (`--seeds`, `--leave N`, `--class id`, `--build id`, `--json`, `--set path=value`, `--career N`). `tools/contrast.js`.
 - `qa/bot.js`, `qa/screens.js`, `qa/session.js`, `qa/test_room.js`, `qa/lib.js`: headless Chromium checks.
 - `tools/check_secrets.py`, `tools/clean_url.py`, `tools/hooks/`, `.claude/hooks/guard.py`.
 
 URL parameters: `seed`, `tier`, `class`, `build`, `speed`, `bot=1`, `manual=1`, `touch=1`, `fresh=1`, `scene`,
-`room=test`, `debug=0`.
+`room=test`, `debug=0`, `leave=N` (bot).
 
 ## Planned later
 

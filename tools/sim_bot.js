@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // Bulk bot runs of the sim under Node (same sim + bot code the browser runs, no rendering).
-//   node tools/sim_bot.js [--seeds 1-200] [--tier 0] [--class mage] [--build id] [--career N] [--json] [--set path=value ...]
+//   node tools/sim_bot.js [--seeds 1-200] [--tier 0] [--class mage] [--build id] [--leave N] [--career N] [--json] [--set path=value ...]
 // Reports win rate, deaths per room, softlocks, and the seeds used.
 // --career N: play N consecutive runs keeping gear (always the highest unlocked tier).
+// --leave N: the bot leaves with the sealed bag after clearing room N (default: it goes on to the boss; doors: the milder one, the smaller loot bonus).
 // --class id: play this class (BAL.classes; default BAL.defaultClass).
 // --build id: the bot's named ability build (BAL.builds.<class>.<id>; default: the class's first). 
 // --set classes.mage.base.hp=120: override a balance number for this invocation (for tuning experiments).
@@ -21,13 +22,14 @@ function load() {
 }
 
 function parseArgs(argv) {
-  const a = { seeds: '1-100', tier: 0, cls: null, build: null, career: 0, json: false, set: [] };
+  const a = { seeds: '1-100', tier: 0, cls: null, build: null, career: 0, leave: 0, json: false, set: [] };
   for (let i = 2; i < argv.length; i++) {
     const k = argv[i];
     if (k === '--seeds') a.seeds = argv[++i];
     else if (k === '--tier') a.tier = +argv[++i];
     else if (k === '--class') a.cls = argv[++i];
     else if (k === '--build') a.build = argv[++i];
+    else if (k === '--leave') a.leave = +argv[++i];
     else if (k === '--career') a.career = +argv[++i];
     else if (k === '--json') a.json = true;
     else if (k === '--set') a.set.push(argv[++i]);
@@ -61,22 +63,25 @@ function main() {
       const gs = G.gearScore(gear);
       let tier = 0;
       G.BAL.run.tierGear.forEach((need, t) => { if (gs >= need) tier = t; });
-      const r = G.botRun(seeds[i % seeds.length], { tier, gear, cls: args.cls, build: args.build });
+      G.Bot.prepareGear(gear, G.BAL, G.classDef(G.BAL, args.cls).id);      // between runs: equip, discard
+      const r = G.botRun(seeds[i % seeds.length], { tier, gear, cls: args.cls, build: args.build, leave: args.leave });
       r.tier = tier; r.gearBefore = gs;
       res.push(r);
     }
   } else {
-    for (const s of seeds) res.push(G.botRun(s, { tier: args.tier, cls: args.cls, build: args.build }));
+    for (const s of seeds) res.push(G.botRun(s, { tier: args.tier, cls: args.cls, build: args.build, leave: args.leave }));
   }
-  const wins = res.filter(r => r.result === 'win').length;
+  const wins = res.filter(r => r.result === 'win').length, lefts = res.filter(r => r.result === 'left');
   const soft = res.filter(r => r.result === 'softlock'), tout = res.filter(r => r.result === 'timeout');
   res.forEach(r => { if (r.result === 'dead') deaths[r.room]++; });
   const avg = k => (res.reduce((s, r) => s + r[k], 0) / res.length);
+  const avg2 = a => (a.reduce((t, v) => t + v, 0) / a.length).toFixed(1);
   const summary = {
-    runs: res.length, cls: res.length ? res[0].cls : null, tier: args.tier, seeds: args.seeds, wins, winRate: +(100 * wins / res.length).toFixed(1),
+    runs: res.length, cls: res.length ? res[0].cls : null, tier: args.tier, seeds: args.seeds, wins, left: lefts.length, winRate: +(100 * wins / res.length).toFixed(1),
     softlocks: soft.map(r => r.seed), timeouts: tout.map(r => r.seed), deathsByRoom: deaths,
     avgRoomsCleared: +avg('rooms').toFixed(2), avgSeconds: Math.round(avg('seconds')), avgLevel: +avg('level').toFixed(1),
     worstStuck: Math.max(...res.map(r => r.worstStuck)), winSeeds: res.filter(r => r.result === 'win').map(r => r.seed),
+    avgBagItems: +avg2(res.map(r => r.bag.items)), avgBagKept: +avg2(res.map(r => r.bag.kept)), avgBagLost: +avg2(res.map(r => r.bag.lost)),
     wallSeconds: +((Date.now() - t0) / 1000).toFixed(1)
   };
   if (res.length && res[0].build) {      // what the build came to
@@ -85,6 +90,7 @@ function main() {
     summary.avgWinSeconds = wr.length ? Math.round(wr.reduce((t, r) => t + r.seconds, 0) / wr.length) : null;
     summary.mainFamily4 = res.filter(r => (r.fams[fam] || 0) >= 4).length;
   }
+  summary.leave = args.leave || null;
   if (args.json) console.log(JSON.stringify({ summary, runs: res }));
   else {
     console.log(summary);

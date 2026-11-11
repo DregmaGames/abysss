@@ -12,7 +12,7 @@
       G.hud = this;
       this.game_ = G.gameScene;
       this.L = null; this.level = null; this.toastT = 0; this.toastMsg = null; this.pickCard = -1; this.SL = null;
-      this.botWait = 0; this.endT = -1; this.stickId = null;
+      this.botWait = 0; this.endT = -1; this.stickId = null; this.choiceL = null;
       this.build();
       this.game.events.on('viewchange', this.onView, this);
 
@@ -22,14 +22,14 @@
       kb.on('keydown-TAB', function (e) { e.preventDefault(); self.toggleInventory(); });
       kb.on('keydown-ESC', function () {
         if (self.level && self.pickCard >= 0) { self.pickCard = -1; self.openLevel(); }      // slot picker: back to the cards
-        else if (G.Panels.isOpen()) G.Panels.close(); else if (!self.level) G.Panels.openSettings(self);
+        else if (G.Panels.isOpen()) G.Panels.close(); else if (!self.level && !self.choiceL) G.Panels.openSettings(self);
       });
       ['ONE', 'TWO', 'THREE'].forEach(function (k, i) { kb.on('keydown-' + k, function () { self.pickLevel(i); }); });
 
       // touch: a floating stick on the left 60 % of the screen
       this.input.on('pointerdown', function (p, over) {
         if (p.wasTouch && !G.touch) { G.touch = true; self.build(); }
-        if (!G.touch || over.length || G.paused || self.level || self.stickId != null) return;
+        if (!G.touch || over.length || G.paused || self.level || self.choiceL || self.stickId != null) return;
         var S = G.view.S;
         if (p.x / S > G.view.W * 0.6) return;
         self.stickId = p.id; self.stickX = p.x / S; self.stickY = p.y / S;
@@ -62,6 +62,7 @@
     onView: function () {
       this.build();
       if (this.level) this.openLevel();
+      if (this.choiceL) this.openChoice();
       G.Panels.relayout(this);
     },
 
@@ -88,7 +89,8 @@
 
       // inventory button (top-right)
       this.invBtn = L.button(V.W - X - 26, Y, 26, 26, '', function () { self.toggleInventory(); }, { icon: 'i_bag', name: 'inv' });
-      this.invBadge = L.text(V.W - X - 8, Y - 1, '!', 'ui_warn').setVisible(false);
+      // the sealed bag: only the item count, tinted with the best rarity (bottom-right of the button)
+      this.invBadge = L.text(V.W - X - 4, Y + 18, '', 'ui_dim').setVisible(false);
       this.invBadge._dz = 4; this.invBadge.setDepth(L.depth + 4);
 
       // objective + fissure progress: top-centre, or a second row when the screen is narrow
@@ -131,17 +133,16 @@
       if (!G.debug || this.level) return;
       if (G.Panels.current === 'debug') { G.Panels.close(); return; }
       var st = this.game_.sim.state;
-      if (st === 'dead' || st === 'won') return;
+      if (st === 'dead' || st === 'won' || st === 'left' || st === 'choice') return;
       this.dropStick();
       G.Panels.openDebug(this);
     },
 
     toggleInventory: function () {
-      if (this.level) return;
+      if (this.level || this.choiceL) return;
       if (G.Panels.isOpen()) { G.Panels.close(); return; }
       var st = this.game_.sim.state;
-      if (st === 'dead' || st === 'won') return;
-      this.invBadge.setVisible(false);
+      if (st === 'dead' || st === 'won' || st === 'left') return;
       this.dropStick();
       G.Panels.openInventory(this);
     },
@@ -155,13 +156,62 @@
 
     onEvent: function (e) {
       if (e.t === 'pickup') {
-        if (e.item) { this.say(UI.RARITY_NAME[e.item.rarity] + ' ' + e.item.name, UI.RARITY[e.item.rarity]); this.invBadge.setVisible(true); }
-        else this.say('Ability tome', 'tome2');
+        if (!e.item) this.say('Ability tome', 'tome2');      // gear goes into the sealed bag: the counter shows it
       } else if (e.t === 'msg') this.say(e.text, 'ui_bad');
       else if (e.t === 'levelup') this.openLevel();
       else if (e.t === 'famTier' && e.tier > e.prev) this.say(this.game_.sim.B.families[e.fam].name + ' bonus ' + (e.tier === 2 ? 4 : 2) + '!', 'ui_good');
-      else if (e.t === 'dead' || e.t === 'won') this.endT = 50;
+      else if (e.t === 'choice') this.openChoice();
+      else if (e.t === 'dead' || e.t === 'won' || e.t === 'left') { this.endT = 50; if (e.t !== 'dead') G.storeSave(G.save); }      // the bag was banked: save it now
       else if (e.t === 'room') { this.last = {}; G.storeSave(G.save); }
+    },
+
+    // ------------------------------------------------- after a room: leave or a door
+    // Shown when sim.state is 'choice'. Door cards state the fissure modifier and the loot bonus it pays.
+    openChoice: function () {
+      var sim = this.game_.sim, self = this, B = sim.B, V = G.view, i;
+      if (this.choiceL) this.choiceL.destroy();
+      this.choiceL = null;
+      if (sim.state !== 'choice') return;
+      if (G.Panels.isOpen()) G.Panels.close(true);
+      this.dropStick();
+      G.screen = 'choice'; G.paused = true;
+      this.botWait = this.game_.speed > 4 ? 1 : 60;
+      var n = sim.doors.length, row = V.W >= 300, gap = 6, mw = row ? Math.min(V.W - 8, 330) : Math.min(V.W - 8, 264), inner = mw - 16;
+      var cw = row ? Math.floor((inner - gap * (n - 1)) / n) : inner, ch = 0, lines = [];
+      for (i = 0; i < n; i++) {      // measure the cards: tallest one sets the height
+        var fx = G.doorEffects(B, sim.doors[i]), h = 24, tmp = UI.text(this, 0, 0, fx.join('\n'), 'ui_text').setMaxWidth(cw - 10);
+        h += tmp.height + 4; tmp.destroy(); lines.push(fx); ch = Math.max(ch, h);
+      }
+      var cardsH = row ? ch : n * ch + (n - 1) * 4, mh = 20 + 22 + cardsH + 8 + 20 + (row ? 14 : 24);
+      var m = this.choiceL = UI.modal(this, mw, mh, 'ROOM ' + (sim.roomIndex + 1) + ' CLEARED'), x0 = m.x + 8, y = m.y + 18;
+      var best = G.bestRarity(sim.bag), cnt = sim.bag.length;
+      m.text(x0, y + 1, 'Sealed bag: ' + cnt + (cnt === 1 ? ' item' : ' items'), 'ui_text');
+      if (best >= 0) { var bt = m.text(0, y + 1, 'best: ' + UI.RARITY_NAME[best], UI.RARITY[best]); bt.x = x0 + inner - bt.width; }
+      y += 14;
+      for (i = 0; i < n; i++) {
+        (function (k) {
+          var id = sim.doors[k], def = B.doors.mods[id], cx = row ? x0 + k * (cw + gap) : x0, cy = row ? y : y + k * (ch + 4);
+          var card = m.button(cx, cy, cw, ch, '', function () { self.pickDoor(k); }, { name: 'door_' + k });
+          void card;
+          m.text(cx + 5, cy + 4, def.name, 'ui_warn');
+          var kt = m.text(0, cy + 4, '' + (k + 1), 'ui_dim'); kt.x = cx + cw - 5 - kt.width;
+          var t = m.text(cx + 5, cy + 15, lines[k].join('\n'), 'ui_text').setMaxWidth(cw - 10);
+          m.text(cx + 5, cy + 15 + t.height + 3, '+' + Math.round(def.loot * 100) + '% loot', 'ui_good');
+        })(i);
+      }
+      y += cardsH + 8;
+      m.button(x0, y, inner, 18, 'LEAVE WITH THE BAG', function () { self.pickDoor(n); }, { name: 'leave', color: 'ui_good' });
+      m.text(x0, y + 22, 'Leaving or winning keeps the bag. Dying loses it.', 'ui_dim').setMaxWidth(inner);
+    },
+    // i < number of doors: take that door; i === doors.length (the 3rd key with two doors): leave
+    pickDoor: function (i) {
+      var sim = this.game_.sim;
+      if (!this.choiceL || sim.state !== 'choice') return;
+      var leave = i >= sim.doors.length;
+      if (!leave && !sim.doors[i]) return;
+      this.choiceL.destroy(); this.choiceL = null;
+      G.screen = 'game'; G.paused = false;
+      if (leave) sim.leave(); else sim.takeDoor(i);
     },
 
     // ------------------------------------------------------- level-up choice
@@ -175,6 +225,7 @@
     },
     pickLevel: function (i) {
       var sim = this.game_.sim;
+      if (sim.state === 'choice') { this.pickDoor(i); return; }      // keys 1, 2: doors; 3: leave
       if (!this.level || sim.state !== 'levelup') return;
       if (this.pickCard >= 0) { if (i < 3) this.applyAbility(this.pickCard, i); return; }     // slot picker: i is the slot
       if (!sim.choices[i]) return;
@@ -374,13 +425,20 @@
       var xp = Math.round(44 * Math.min(1, p.exp / p.expNext));
       if (L.xp !== xp) { L.xp = xp; this.xpFill.setDisplaySize(Math.max(0.01, xp), 3); }
 
+      var bagKey = sim.bag.length + '/' + G.bestRarity(sim.bag);
+      if (L.bag !== bagKey) {
+        L.bag = bagKey;
+        var bb = G.bestRarity(sim.bag);
+        this.invBadge.setVisible(sim.bag.length > 0).setText('' + sim.bag.length).setTint(UI.hex(bb >= 0 ? UI.RARITY[bb] : 'ui_dim'));
+        this.invBadge.x = G.view.W - X - 4 - this.invBadge.width;
+      }
       var fp = sim.fissureProgress(), obj = sim.objective();
-      var okey = obj + '|' + fp.states.join(',') + '|' + sim.phase + '|' + sim.roomIndex + '|' + sim.loops;
+      var okey = obj + '|' + fp.states.join(',') + '|' + sim.phase + '|' + sim.roomIndex + '|' + sim.loops + '|' + sim.mod;
       if (L.obj !== okey) {
         L.obj = okey;
         this.objText.setText(obj);
         var showBar = sim.phase === 'super', n = fp.total + 1, pipsW = fp.total * 8 + 10, rowW = showBar ? 72 : pipsW;
-        var room = sim.testRoom >= 0 ? 'Test #' + (sim.loops + 1) : 'Room ' + (sim.roomIndex + 1) + '/' + sim.B.run.rooms;
+        var room = sim.testRoom >= 0 ? 'Test #' + (sim.loops + 1) : 'Room ' + (sim.roomIndex + 1) + '/' + sim.B.run.rooms + (sim.mod ? ' ' + sim.B.doors.mods[sim.mod].name : '');
         this.roomText.setText(room);
         var w = Math.min(O.w, Math.max(this.objText.width, rowW + this.roomText.width + 8) + 14), x0 = O.x + Math.round((O.w - w) / 2);
         // centre on the screen when the free area allows it
@@ -428,6 +486,8 @@
         if (this.toastT === 0) this.toast.setVisible(false);
       }
       if (sim.state === 'levelup' && !this.level) this.openLevel();
+      if (sim.state === 'choice' && !this.choiceL) this.openChoice();
+      if (this.choiceL && gs.bot && !G.manualLevel && --this.botWait <= 0) { var ch = gs.bot.afterRoom(); this.pickDoor(ch < 0 ? sim.doors.length : ch); }
       if (this.level && gs.bot && !G.manualLevel && --this.botWait <= 0) {
         var pk = gs.bot.pickAbility(); this.applyAbility(pk.i, pk.slot);
       }

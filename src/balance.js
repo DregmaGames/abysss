@@ -12,7 +12,27 @@
       roomMult: [1.05, 1.3, 1.55, 1.8, 2.1, 2.4, 2.75, 3.1, 3.5, 3.0],   // monster hp/dmg multiplier per room
       gearK: 0.005,                   // +0.5 % monster hp/dmg per point of gear score ("gear level scales the room")
       ilvlTier: 3, ilvlRooms: 3,      // item level = 1 + tier * ilvlTier + floor(room / ilvlRooms)
-      testRoom: 1                     // ?room=test / TEST ROOM button: this room, restarted on every clear
+      testRoom: 1,                    // ?room=test / TEST ROOM button: this room, restarted on every clear
+      // Dying empties the sealed bag. Whether the equipped gear survives is a design assumption the user has not confirmed:
+      // true = it is kept; false = dying also strips every equipped item. This is the only place the rule lives.
+      deathKeepsEquipped: true
+    },
+
+    // Doors (step 6). After every room but the last: leave with the sealed bag, or go on through one of two doors.
+    // The two doors after room N depend only on the run seed and N (G.doorsFor); each is a fissure modifier for the
+    // next room and pays `loot`: +that share of gear drop chances and +that much rarity luck (0.25 = +25 %).
+    // Modifier fields (all optional): crackLen (x the arm length), extraCracks (added to the crack count),
+    // spawnEvery (x the pause between packs; below 1 = faster), aliveThreat (x the cap on network monsters alive at once),
+    // extraElite (monster id added to the super fissure wave), threat (x monster hp and damage).
+    doors: {
+      mods: {
+        longCracks: { name: 'Long cracks',   loot: 0.25, crackLen: 1.4 },
+        manyCracks: { name: 'More cracks',   loot: 0.30, extraCracks: 1 },
+        fastSpawns: { name: 'Fast spawns',   loot: 0.20, spawnEvery: 0.5 },
+        crowd:      { name: 'Crowded',       loot: 0.20, aliveThreat: 1.6 },
+        elite:      { name: 'Extra elite',   loot: 0.30, extraElite: 'warden' },
+        hardened:   { name: 'Hardened foes', loot: 0.25, threat: 1.2 }
+      }
     },
 
     // shared by every class (class numbers live in `classes` below)
@@ -146,7 +166,8 @@
       rarity: [62, 26, 9, 2.5, 0.5],
       // rarity "luck" by source: shifts weight toward the right
       luck: { kill: 0, close: 0.2, elite: 0.4, super: 0.6, chest: 0.8, boss: 1.2 },
-      bagSize: 20,
+      bagSize: 20,                    // the sealed bag of one run (items picked up in the run)
+      stashSize: 30,                  // the bag kept between runs (equip and discard there)
       // weapon drops: any monster, chest or crack can drop any type, equal weight (one rng draw). `cls` = the only class that
       // can equip it (others keep it in the bag as loot). item: base name; itemRare (rarity >= 2): name instead. worn: 'Worn ' prefix when common.
       weaponTypes: [

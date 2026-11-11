@@ -17,7 +17,7 @@
     this.crackLit = 0;
     this.fissures = room.fissures.map(function (f, id) {
       var queue = [];
-      if (f.big) queue = F.superWave[index].slice();
+      if (f.big) { queue = F.superWave[index].slice(); if (self.modDef.extraElite) queue.push(self.modDef.extraElite); }
       else {
         var budget = F.budget[index], pool = F.pool[index], types = Object.keys(pool);
         while (budget > 0) {
@@ -182,9 +182,9 @@
           var m = this.monsters[i];
           if (!m.dead && !fs[m.fid].big) live += m.def.threat;
         }
-        if (best && (!live || live + this.B.monsters[best.queue[0]].threat <= F.aliveThreat * F.budget[this.roomIndex])) {
+        if (best && (!live || live + this.B.monsters[best.queue[0]].threat <= F.aliveThreat * (this.modDef.aliveThreat || 1) * F.budget[this.roomIndex])) {
           this.spawnFromCluster(best);
-          this.spawnCd = F.spawnEvery;
+          this.spawnCd = F.spawnEvery * (this.modDef.spawnEvery || 1);
         } else this.spawnCd = 0.1;
       }
       if (!open) {
@@ -224,7 +224,7 @@
     f.scarTick = this.tick;
     for (i = 0; i < n; i++) this.spawnOrb('exp', f.x, f.y, F.closeExp * (f.big ? 3 : 1) / n);
     this.heal(this.player.maxHp * (f.big ? F.superHeal : F.closeHeal));
-    if (rng.chance(f.big ? L.superGear : L.closeGear)) this.spawnItem(f.x, f.y, f.big ? L.luck.super : L.luck.close);
+    if (rng.chance(this.lootP(f.big ? L.superGear : L.closeGear))) this.spawnItem(f.x, f.y, f.big ? L.luck.super : L.luck.close);
     if (f.big && rng.chance(L.superTome)) this.spawnDrop('tome', f.x, f.y, null);
     for (i = 0; i < this.orbs.length; i++) this.orbs[i].magnet = true;
     this.emit({ t: 'fissure', id: f.id, state: 'scar', big: f.big, x: f.x, y: f.y });
@@ -293,8 +293,8 @@
         this.roomsCleared++;
         this.progress();
         if (this.testRoom >= 0) this.restartTestRoom();
-        else if (this.roomIndex === this.B.run.rooms - 1) { this.state = 'won'; this.emit({ t: 'won' }); }
-        else this.loadRoom(this.roomIndex + 1);
+        else if (this.roomIndex === this.B.run.rooms - 1) this.finishRun('won');
+        else this.enterChoice();
       }
     }
   };

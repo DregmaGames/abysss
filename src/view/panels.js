@@ -95,7 +95,7 @@
     if (G.screen !== 'title') G.screen = 'inventory';
     if (!keepSel) P.sel = null;
     var pw = wide ? Math.min(V.W - 8, 340) : Math.min(V.W - 8, 264), ph = wide ? Math.min(V.H - 8, 200) : Math.min(V.H - 8, 340);
-    var L = P.L = UI.modal(scene, pw, ph, 'EQUIPMENT');
+    var L = P.L = UI.modal(scene, pw, ph, s ? 'GEAR (FIXED IN A RUN)' : 'EQUIPMENT');
     var x0 = L.x, y0 = L.y;
     L.button(x0 + pw - 22, y0 + 3, 18, 16, '', function () { P.close(); }, { icon: 'i_close', name: 'inv_close' });
     L.button(x0 + pw - 44, y0 + 3, 18, 16, '', function () { P.openSettings(scene, 'inventory'); }, { icon: 'i_gear', name: 'inv_settings' });
@@ -111,8 +111,8 @@
     function act() {
       var sl = P.sel;
       if (!sl) return;
-      if (sl.kind === 'bag') { if (s) s.equip(sl.key); else G.equipFromBag(g, sl.key, B, cls); }
-      else { if (s) s.unequip(sl.key); else G.unequip(g, sl.key, B); }
+      if (s) return;                  // inside a run the gear is fixed: equip and discard happen between runs
+      if (sl.kind === 'bag') G.equipFromBag(g, sl.key, B, cls); else G.unequip(g, sl.key, B);
       P.sel = null; G.storeSave(G.save); P.openInventory(scene, true);
     }
     function cell(x, y, item, slotKey, sel, name) {
@@ -146,9 +146,18 @@
 
     // bag
     var bx = wide ? x0 + 82 : x0 + 8, by = wide ? y0 + 20 : dy + 72;
-    var cols = wide ? 5 : Math.max(5, Math.min(10, Math.floor((pw - 14) / 22))), rowsN = Math.ceil(B.loot.bagSize / cols), i;
-    L.text(bx, by, 'BAG ' + g.bag.length + '/' + B.loot.bagSize, 'ui_dim');
-    for (i = 0; i < B.loot.bagSize; i++) cell(bx + (i % cols) * 22, by + 11 + Math.floor(i / cols) * 22, g.bag[i], null, { kind: 'bag', key: i }, 'bag_' + i);
+    var cols = wide ? 5 : Math.max(5, Math.min(10, Math.floor((pw - 14) / 22))), rowsN = s ? 2 : Math.ceil(B.loot.stashSize / cols), i;
+    if (s) {      // in a run: the bag is sealed, only its count and best rarity show
+      var bi = G.bestRarity(s.bag);
+      L.text(bx, by, 'SEALED BAG', 'ui_dim');
+      L.text(bx, by + 11, s.bag.length + (s.bag.length === 1 ? ' item' : ' items'), 'ui_text');
+      if (bi >= 0) L.text(bx, by + 21, 'Best: ' + UI.RARITY_NAME[bi], UI.RARITY[bi]);
+      L.text(bx, by + 33, 'Opens after the run.', 'ui_dim').setMaxWidth(wide ? cols * 22 : pw - 16);
+      rowsN = 2;
+    } else {
+      L.text(bx, by, 'BAG ' + g.bag.length + '/' + B.loot.stashSize, 'ui_dim');
+      for (i = 0; i < B.loot.stashSize; i++) cell(bx + (i % cols) * 22, by + 11 + Math.floor(i / cols) * 22, g.bag[i], null, { kind: 'bag', key: i }, 'bag_' + i);
+    }
 
     // item details
     var ix = wide ? bx + cols * 22 + 6 : x0 + 8, iy = wide ? y0 + 20 : by + 11 + rowsN * 22 + 4, iw = x0 + pw - 8 - ix, ih = y0 + ph - 6 - iy;
@@ -156,7 +165,7 @@
     var sl = P.sel, item = sl ? (sl.kind === 'bag' ? g.bag[sl.key] : g.equipped[sl.key]) : null;
     if (!item) {
       P.sel = null;
-      L.text(ix + 5, iy + 5, wide ? 'Tap an item to see its stats. Tap it again to equip.' : 'Tap an item for its stats. Tap again to equip.', 'ui_dim').setMaxWidth(iw - 10);
+      L.text(ix + 5, iy + 5, s ? 'Tap a slot for its stats.' : (wide ? 'Tap an item to see its stats. Tap it again to equip.' : 'Tap an item for its stats. Tap again to equip.'), 'ui_dim').setMaxWidth(iw - 10);
     } else {
       var col = UI.RARITY[item.rarity], ty = iy + 5;
       var nm = L.text(ix + 5, ty, item.name, col).setMaxWidth(iw - 10); ty += nm.height + 3;
@@ -178,12 +187,13 @@
         ty += 10;
       });
       var bw = Math.floor((iw - 14) / 2), byy = iy + ih - 22;
-      if (sl.kind === 'bag') {
+      if (s) { /* gear is fixed inside a run: no buttons */ }
+      else if (sl.kind === 'bag') {
         var better = !cur || G.itemValue(item, B) > G.itemValue(cur, B);
         L.button(ix + 5, byy, bw, 18, 'EQUIP', act, { name: 'equip', color: better ? 'ui_good' : 'ui_text' }).setEnabled(!foreign);
         L.button(ix + 9 + bw, byy, bw, 18, 'DROP', function () { G.dropFromBag(g, sl.key); P.sel = null; G.storeSave(G.save); P.openInventory(scene, true); }, { name: 'drop' });
       } else {
-        L.button(ix + 5, byy, Math.max(bw, 52), 18, 'UNEQUIP', act, { name: 'unequip' }).setEnabled(g.bag.length < B.loot.bagSize);
+        L.button(ix + 5, byy, Math.max(bw, 52), 18, 'UNEQUIP', act, { name: 'unequip' }).setEnabled(g.bag.length < B.loot.stashSize);
       }
     }
   };
@@ -253,6 +263,7 @@
         : ['NEXT ROOM', act(function () { s.cheatRoom(s.roomIndex + 1); }), 'dbg_next'],
       ['BOSS ROOM', act(function () { s.cheatRoom(s.B.run.rooms - 1); }), 'dbg_boss'],
       ['GIVE LOOT', act(function () { s.cheatLoot(); }), 'dbg_loot'],
+      ['DOORS', act(function () { s.cheatChoice(); }), 'dbg_doors'],
       ['ABILITIES', act(function () { s.cheatAbilities(s.defaultActives()); }), 'dbg_abil'],
       ['RESUME', function () { P.close(); }, 'dbg_resume']
     ];
@@ -266,7 +277,7 @@
   // ---------------------------------------------------------------- result
   P.openResult = function (scene, state) {
     if (P.L) P.L.destroy();
-    var V = G.view, s = G.gameScene.sim, B = s.B, won = state === 'won';
+    var V = G.view, s = G.gameScene.sim, B = s.B, won = state === 'won', left = state === 'left', R = s.result || { items: 0, kept: 0, lost: 0, best: -1 };
     if ((P.resultState !== state || !P.counted) && s.testRoom < 0) {      // test-room deaths are not runs
       P.counted = true;
       G.save.stats.runs++; if (won) G.save.stats.wins++;
@@ -275,16 +286,18 @@
     }
     P.current = 'result'; P.scene = scene; P.resultState = state; G.paused = true; G.screen = 'result';
     G.gameScene.ended = true;
-    var pw = Math.min(V.W - 8, 230), ph = 132;
+    var pw = Math.min(V.W - 8, 230), ph = 144;
     var L = P.L = UI.modal(scene, pw, ph, null), x0 = L.x, y0 = L.y, cx = V.W / 2;
-    UI.centerX(L.text(0, y0 + 9, won ? 'RIFT SEALED' : 'YOU DIED', won ? 'ui_good' : 'ui_bad', true), cx);
+    UI.centerX(L.text(0, y0 + 9, won ? 'RIFT SEALED' : (left ? 'YOU LEFT' : 'YOU DIED'), won ? 'ui_good' : (left ? 'ui_warn' : 'ui_bad'), true), cx);
     var t = Math.round(s.tick / 60), gs = G.gearScore(s.gear), lines = [
-      [won ? 'All ' + B.run.rooms + ' rooms cleared' : s.testRoom >= 0 ? 'Fell in the test room (clears: ' + s.loops + ')' : 'Fell in room ' + (s.roomIndex + 1) + ' of ' + B.run.rooms, 'ui_text'],
+      [won ? 'All ' + B.run.rooms + ' rooms cleared' : left ? 'Left after room ' + (s.roomIndex + 1) + ' of ' + B.run.rooms : s.testRoom >= 0 ? 'Fell in the test room (clears: ' + s.loops + ')' : 'Fell in room ' + (s.roomIndex + 1) + ' of ' + B.run.rooms, 'ui_text'],
       ['Level ' + s.player.level + '   Kills ' + s.kills + '   ' + Math.floor(t / 60) + ':' + ('0' + t % 60).slice(-2), 'ui_dim'],
-      ['Gear score ' + gs + '  (gear is kept)', 'ui_dim']];
+      state === 'dead' ? [R.items ? 'The bag was lost: ' + R.items + (R.items === 1 ? ' item' : ' items') + (B.run.deathKeepsEquipped ? '  (worn gear kept)' : '  (worn gear lost)') : 'The bag was empty', R.items ? 'ui_bad' : 'ui_dim']
+        : [R.kept + (R.kept === 1 ? ' item' : ' items') + ' kept in your bag' + (R.lost ? ', ' + R.lost + ' lost (bag full)' : ''), 'ui_good'],
+      ['Gear score ' + gs, 'ui_dim']];
     var next = B.run.tierGear[s.tier + 1];
     if (next != null) lines.push(gs >= next ? ['Tier ' + (s.tier + 2) + ' unlocked: harder rifts, better loot', 'ui_warn'] : ['Tier ' + (s.tier + 2) + ' needs gear score ' + next, 'ui_dim']);
-    lines.forEach(function (l, i) { UI.centerX(L.text(0, y0 + 34 + i * 12, l[0], l[1]), cx); });
+    lines.forEach(function (l, i) { UI.centerX(L.text(0, y0 + 34 + i * 12, l[0], l[1]).setMaxWidth(pw - 12), cx); });
     var bw = Math.floor((pw - 28) / 3);
     L.button(x0 + 8, y0 + ph - 28, bw, 20, 'AGAIN', function () { P.counted = false; P.close(true); G.restartRun(); }, { name: 'res_again', color: 'ui_good' });
     L.button(x0 + 14 + bw, y0 + ph - 28, bw, 20, 'GEAR', function () { P.counted = false; P.close(true); G.toTitle(true); }, { name: 'res_gear' });

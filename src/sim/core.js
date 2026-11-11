@@ -13,7 +13,11 @@
     this.events = [];
     this.input = { mx: 0, my: 0, dodge: false, pulse: false };
     this.tick = 0;
-    this.state = 'play';                 // play | levelup | dead | won
+    this.state = 'play';                 // play | levelup | choice (after a room: leave or a door) | dead | won | left
+    this.bag = [];                       // the sealed bag: gear found in this run; kept on leave / win, lost on death (finishRun)
+    this.mod = null;                     // the door modifier of the current room (BAL.doors.mods id)
+    this.doors = [];                     // the doors offered now (state 'choice'); doorLog: the ids taken, in order
+    this.doorLog = []; this.lootBonus = 0; this.result = null;
     this.kills = 0; this.roomsCleared = 0; this.nextId = 1;
     this.rngCombat = new G.RNG(G.hash32(this.seed, 9001));
     this.rngLevel = new G.RNG(G.hash32(this.seed, 4242));
@@ -99,11 +103,14 @@
     this.compileFx();
   };
 
-  S.loadRoom = function (index) {
-    var B = this.B, room = this.room = G.genRoom(this.seed, index, B), F = B.fissure, self = this;
+  // `mod`: the door modifier of this room (an id of BAL.doors.mods, or none)
+  S.loadRoom = function (index, mod) {
+    var B = this.B, room = this.room = G.genRoom(this.seed, index, B, mod), F = B.fissure, self = this, dm = G.doorMod(B, mod) || {};
     this.roomIndex = index;
+    this.mod = mod && B.doors.mods[mod] ? mod : null;
+    this.modDef = dm; this.lootBonus = dm.loot || 0;
     this.rngRoom = new G.RNG(G.hash32(room.seed, 77));
-    this.threat = B.run.tierMult[this.tier] * B.run.roomMult[index] * (1 + B.run.gearK * G.gearScore(this.gear));
+    this.threat = B.run.tierMult[this.tier] * B.run.roomMult[index] * (dm.threat || 1) * (1 + B.run.gearK * G.gearScore(this.gear));
     this.ilvl = 1 + this.tier * B.run.ilvlTier + Math.floor(index / B.run.ilvlRooms);
     this.player.x = room.start.x; this.player.y = room.start.y;
     this.player.dashT = 0;
@@ -120,7 +127,45 @@
     this.flowTile = -1; this.flowTick = -999;
     this.msgTick = -999;
     this.progress();
-    this.emit({ t: 'room', index: index });
+    this.emit({ t: 'room', index: index, mod: this.mod });
+  };
+
+  // ------------------------------------------------------------ run end and doors (step 6)
+  // The run is over: 'dead' empties the sealed bag (and, if BAL.run.deathKeepsEquipped is false, strips the equipped gear);
+  // 'won' and 'left' put the sealed bag into the kept bag (gear.bag). this.result says what happened to the items.
+  S.finishRun = function (kind) {
+    var B = this.B, n = this.bag.length, best = G.bestRarity(this.bag), r = { kind: kind, items: n, best: best, kept: 0, lost: 0 };
+    if (kind === 'dead') {
+      r.lost = n;
+      if (!B.run.deathKeepsEquipped) for (var k in this.gear.equipped) this.gear.equipped[k] = null;
+    } else if (this.testRoom < 0) {
+      var b = G.bankItems(this.gear, this.bag, B); r.kept = b.kept; r.lost = b.lost;
+    } else r.lost = n;
+    this.bag = [];
+    this.result = r;
+    this.state = kind;
+    this.emit({ t: kind === 'dead' ? 'dead' : kind });
+  };
+  // after a room is cleared: the choice (leave, or one of two doors for the next room)
+  S.enterChoice = function () {
+    this.state = 'choice';
+    this.doors = G.doorsFor(this.seed, this.roomIndex, this.B);
+    this.progress();
+    this.emit({ t: 'choice', doors: this.doors.slice() });
+  };
+  S.leave = function () {
+    if (this.state !== 'choice') return false;
+    this.finishRun('left');
+    return true;
+  };
+  // i: index into this.doors. The chosen door is part of the run's inputs (doorLog).
+  S.takeDoor = function (i) {
+    if (this.state !== 'choice' || !this.doors[i]) return false;
+    var id = this.doors[i];
+    this.doorLog.push(id); this.doors = [];
+    this.state = 'play';
+    this.loadRoom(this.roomIndex + 1, id);
+    return true;
   };
 
   // ---------------------------------------------------------------- geometry
@@ -249,7 +294,7 @@
     p.hp -= dmg;
     p.iframes = this.B.player.hurtIframes;
     this.emit({ t: 'phit', x: p.x, y: p.y, dmg: dmg });
-    if (p.hp <= 0) { p.hp = 0; this.state = 'dead'; this.emit({ t: 'dead' }); }
+    if (p.hp <= 0) { p.hp = 0; this.finishRun('dead'); }
     return true;
   };
   S.heal = function (amount) {
@@ -341,17 +386,8 @@
   };
 
   // ---------------------------------------------------------------- inventory
-  S.equip = function (bagIdx) {
-    var key = G.equipFromBag(this.gear, bagIdx, this.B, this.clsId);
-    if (key) { this.recalc(); this.emit({ t: 'equip', slot: key }); }
-    return key;
-  };
-  S.unequip = function (key) {
-    var ok = G.unequip(this.gear, key, this.B);
-    if (ok) { this.recalc(); this.emit({ t: 'equip', slot: key }); }
-    return ok;
-  };
-  S.dropItem = function (bagIdx) { return G.dropFromBag(this.gear, bagIdx); };
+  // No equipping inside a run: the gear a run starts with stays on all run. Equip and discard happen between runs
+  // (title screen) on gear.bag, with G.equipFromBag / G.unequip / G.dropFromBag.
 
   // ------------------------------------------------------------------ cheats
   // Debug panel actions, to reach any part of a run fast. They go through the normal sim paths
@@ -384,6 +420,12 @@
     this.loops++;
     this.player.hp = this.player.maxHp;
     this.loadRoom(this.roomIndex);
+  };
+  // jump to the after-room choice (as if this room had just been cleared)
+  S.cheatChoice = function () {
+    if (this.testRoom >= 0 || this.roomIndex >= this.B.run.rooms - 1 || this.state !== 'play') return;
+    this.roomsCleared++;
+    this.enterChoice();
   };
   S.cheatRoom = function (index) {
     index = Math.max(0, Math.min(this.B.run.rooms - 1, index));

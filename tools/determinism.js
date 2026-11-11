@@ -30,9 +30,27 @@ for (let seed = 1; seed <= N; seed++) for (let i = 0; i < rooms; i++) {
   hashes.add(a); checked++;
 }
 console.log(`${checked} rooms generated twice: ${bad} mismatches; ${hashes.size} distinct layouts out of ${checked}`);
+// door modifiers: the same (seed, room, modifier) gives the same room; a modifier changes the cracks but not the walls;
+// the doors offered after room N depend only on the seed and N
+let modBad = 0, modChecked = 0;
+for (let seed = 1; seed <= Math.min(N, 20); seed++) for (let i = 0; i < rooms; i++) {
+  const base = G.genRoom(seed, i, G.BAL);
+  for (const mod of Object.keys(G.BAL.doors.mods)) {
+    const a = key(G.genRoom(seed, i, G.BAL, mod)), b = key(G2.genRoom(seed, i, G2.BAL, mod)), m = G.genRoom(seed, i, G.BAL, mod);
+    modChecked++;
+    if (a !== b || Array.from(m.tiles).join() !== Array.from(base.tiles).join()) { modBad++; console.log('MOD MISMATCH seed', seed, 'room', i, mod); }
+  }
+  const d1 = JSON.stringify(G.doorsFor(seed, i, G.BAL)), d2 = JSON.stringify(G2.doorsFor(seed, i, G2.BAL));
+  if (d1 !== d2 || G.doorsFor(seed, i, G.BAL).length !== 2 || G.doorsFor(seed, i, G.BAL)[0] === G.doorsFor(seed, i, G.BAL)[1]) { modBad++; console.log('DOORS MISMATCH', seed, i); }
+}
+console.log(`${modChecked} modified rooms generated twice (walls unchanged), doors offered twice: ${modBad} problems`);
 const r1 = G.botRun(3), r2 = G2.botRun(3);
 const same = JSON.stringify(r1) === JSON.stringify(r2);
 console.log(`bot run seed 3 twice: ${same ? 'identical' : 'DIFFERENT'} (${r1.result}, ${r1.rooms} rooms, level ${r1.level}, ${r1.kills} kills, ${r1.seconds} s)`);
+// a run that leaves after room 5 (doors chosen by the bot's rule), twice
+const l1 = G.botRun(3, { leave: 5 }), l2 = G2.botRun(3, { leave: 5 });
+console.log(`bot run seed 3 leave 5 twice: ${JSON.stringify(l1) === JSON.stringify(l2) ? 'identical' : 'DIFFERENT'} (${l1.result}, ${l1.rooms} rooms, doors ${l1.doors.join('>')}, bag ${JSON.stringify(l1.bag)})`);
+if (JSON.stringify(l1) !== JSON.stringify(l2)) bad++;
 // the ability system: each named build of every class played twice (a seed-3 run), with the inexact Math functions throwing
 let abilBad = 0;
 for (const cls of Object.keys(G.BAL.builds)) {
@@ -42,4 +60,4 @@ for (const cls of Object.keys(G.BAL.builds)) {
     console.log(`bot run ${cls}/${build} seed 3 twice: ${ok ? 'identical' : 'DIFFERENT'} (${a.result}, ${a.rooms} rooms, level ${a.level}, ${a.kills} kills, ${a.seconds} s)`);
   }
 }
-process.exit(bad || abilBad || !same || hashes.size !== checked ? 1 : 0);
+process.exit(bad || modBad || abilBad || !same || hashes.size !== checked ? 1 : 0);

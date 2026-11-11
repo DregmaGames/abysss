@@ -8,7 +8,8 @@
   for (var i = 0; i < 16; i++) DIRS.push({ x: G.M.cos(i / 16 * 6.2832), y: G.M.sin(i / 16 * 6.2832) });
 
   // buildId: one of BAL.builds[cls] (default: the first)
-  function Bot(sim, buildId) {
+  function Bot(sim, buildId, opts) {
+    this.leaveAt = opts && +opts.leave > 0 ? +opts.leave : 0;
     // class hint (BAL.classes.<id>.bot): keep-away multiplier
     this.melee = sim.cls.attack.kind === 'arc'; this.keep = sim.cls.bot.keep;
     var builds = sim.B.builds && sim.B.builds[sim.clsId];
@@ -42,24 +43,37 @@
     return { i: best, slot: sim.needsSlot(best) ? worst : 0 };
   };
 
-  Bot.prototype.manageGear = function () {
-    var sim = this.sim, g = sim.gear, B = sim.B, i, changed = true, guard = 0;
-    while (changed && guard++ < 30) {
+  // Between runs (never inside one: a run's gear is fixed): equip what is better for the class, then discard
+  // other classes' weapons first, then the weakest, until there is room for a full sealed bag.
+  Bot.prepareGear = function (gear, B, clsId) {
+    var g = gear, i, changed = true, guard = 0;
+    while (changed && guard++ < 60) {
       changed = false;
       for (i = 0; i < g.bag.length; i++) {
         var it = g.bag[i], cur = g.equipped[G.targetSlot(g, it, B)];
-        if (!G.canEquip(it, B, sim.clsId)) continue;      // another class's weapon: loot, never equipped
-        if (!cur || G.itemValue(it, B) > G.itemValue(cur, B) + 0.01) { sim.equip(i); changed = true; break; }
+        if (!G.canEquip(it, B, clsId)) continue;
+        if (!cur || G.itemValue(it, B) > G.itemValue(cur, B) + 0.01) { G.equipFromBag(g, i, B, clsId); changed = true; break; }
       }
     }
-    while (g.bag.length > B.loot.bagSize - 3) {       // keep room for new drops: discard the weakest
+    while (g.bag.length > B.loot.stashSize - B.loot.bagSize) {
       var worst = 0;
-      for (i = 1; i < g.bag.length; i++) {      // other classes' weapons go first
-        var fi = G.canEquip(g.bag[i], B, sim.clsId) ? 0 : 1, fw = G.canEquip(g.bag[worst], B, sim.clsId) ? 0 : 1;
+      for (i = 1; i < g.bag.length; i++) {
+        var fi = G.canEquip(g.bag[i], B, clsId) ? 0 : 1, fw = G.canEquip(g.bag[worst], B, clsId) ? 0 : 1;
         if (fi > fw || (fi === fw && G.itemValue(g.bag[i], B) < G.itemValue(g.bag[worst], B))) worst = i;
       }
-      sim.dropItem(worst);
+      G.dropFromBag(g, worst);
     }
+  };
+
+  // After a room is cleared (sim.state 'choice'): -1 = leave with the sealed bag, else the index of the door to take.
+  // Policy: leave once `leave` rooms are cleared (opts.leave, 1-based; default: never, go on to the boss). Door rule: the one
+  // paying the smaller loot bonus (the milder fissure), the first on a tie.
+  Bot.prototype.afterRoom = function () {
+    var sim = this.sim, B = sim.B;
+    if (this.leaveAt && sim.roomIndex + 1 >= this.leaveAt) return -1;
+    var best = 0, i;
+    for (i = 1; i < sim.doors.length; i++) if (B.doors.mods[sim.doors[i]].loot < B.doors.mods[sim.doors[best]].loot) best = i;
+    return best;
   };
 
   Bot.prototype.pathDir = function (gx, gy) {
@@ -94,7 +108,6 @@
   Bot.prototype.update = function () {
     var sim = this.sim;
     if (sim.state !== 'play') return;
-    if (sim.tick % 30 === 0) this.manageGear();
     var p = sim.player, s = sim.stats, K = sim.cls.skill, inp = sim.input, i;
     // Human-like reaction time: in a fight the bot only re-decides every `reactionTicks`
     // and holds its last decision in between. Out of combat it steers every tick.
@@ -157,7 +170,7 @@
       var want = null, best = 1e9;
       for (i = 0; i < sim.drops.length; i++) {
         var dr = sim.drops[i];
-        if (dr.kind === 'item' && sim.gear.bag.length >= sim.B.loot.bagSize) continue;
+        if (dr.kind === 'item' && sim.bag.length >= sim.B.loot.bagSize) continue;
         var dd = Math.abs(dr.x - p.x) + Math.abs(dr.y - p.y);
         if (dd < best && (!nearest || dd < 90)) { best = dd; want = dr; }
       }
@@ -212,9 +225,10 @@
   G.botRun = function (seed, opts) {
     opts = opts || {};
     var gear = opts.gear || G.newSave().gear;
-    var sim = new G.Sim({ seed: seed, tier: opts.tier || 0, gear: gear, bal: opts.bal, cls: opts.cls }), bot = new Bot(sim, opts.build);
+    var sim = new G.Sim({ seed: seed, tier: opts.tier || 0, gear: gear, bal: opts.bal, cls: opts.cls }), bot = new Bot(sim, opts.build, { leave: opts.leave });
     var maxTicks = (opts.maxSeconds || 1200) * 60, softlock = false, worstStuck = 0, roomTicks = [], last = 0, lastRoom = 0, minHp = sim.B.run.roomMult.map(function () { return 1; });
-    while (sim.tick < maxTicks && (sim.state === 'play' || sim.state === 'levelup')) {
+    while (sim.tick < maxTicks && (sim.state === 'play' || sim.state === 'levelup' || sim.state === 'choice')) {
+      if (sim.state === 'choice') { var ch = bot.afterRoom(); if (ch < 0) sim.leave(); else sim.takeDoor(ch); continue; }
       if (sim.state === 'levelup') {
         var pk = bot.pickAbility(); sim.chooseAbility(pk.i, pk.slot);
         continue;
@@ -230,8 +244,8 @@
     }
     // the build and what it came to
     var abilInfo = { build: bot.buildId, slots: sim.player.slots.slice(), abil: Object.assign({}, sim.player.abil), fams: G.familyCounts(sim.player.abil, sim.B) };
-    return Object.assign({ seed: seed, cls: sim.clsId, result: softlock ? 'softlock' : (sim.state === 'won' ? 'win' : (sim.state === 'dead' ? 'dead' : 'timeout')),
+    return Object.assign({ seed: seed, cls: sim.clsId, result: softlock ? 'softlock' : (sim.state === 'won' ? 'win' : (sim.state === 'left' ? 'left' : (sim.state === 'dead' ? 'dead' : 'timeout'))),
       room: sim.roomIndex, phase: sim.phase, rooms: sim.roomsCleared, seconds: Math.round(sim.tick / 60), level: sim.player.level,
-      kills: sim.kills, hp: Math.round(sim.player.hp), gearScore: G.gearScore(gear), worstStuck: Math.round(worstStuck), minHp: minHp, roomSeconds: roomTicks.map(function (t) { return Math.round(t / 60); }) }, abilInfo);
+      kills: sim.kills, hp: Math.round(sim.player.hp), gearScore: G.gearScore(gear), bag: sim.result, doors: sim.doorLog.slice(), worstStuck: Math.round(worstStuck), minHp: minHp, roomSeconds: roomTicks.map(function (t) { return Math.round(t / 60); }) }, abilInfo);
   };
 })(globalThis.G = globalThis.G || {});
