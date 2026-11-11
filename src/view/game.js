@@ -44,6 +44,13 @@
       this.playerGlow = this.add.image(0, 0, 'atlas', 'glow').setDepth(-640).setBlendMode(ADD).setTint(UI.hex(C.sprite.glow)).setAlpha(0.14);
       this.chest = this.add.image(0, 0, 'atlas', 'chest_closed').setOrigin(0.5, 1);
       this.chestGlow = this.add.image(0, 0, 'atlas', 'glow_s').setDepth(-640).setBlendMode(ADD).setTint(UI.hex('gold')).setAlpha(0);
+      // the merchant (step 7): idle sprite, a TRADE tag in reach, tap to open his panel
+      this.merch = this.add.image(0, 0, 'atlas', 'merchant_0').setOrigin(0.5, 1).setVisible(false);
+      this.merchShadow = this.add.image(0, 0, 'atlas', 'shadow_s').setDepth(-100).setVisible(false);
+      this.tradeTag = UI.text(this, 0, 0, 'TRADE', 'ui_warn').setDepth(7500).setVisible(false);
+      this.merch.setInteractive({ useHandCursor: true });
+      this.merch.on('pointerdown', function () { if (!G.paused && self.sim.canTalk() && G.hud) G.hud.openMerchant(); });
+      this.goldAcc = 0; this.goldT = 0;
       this.door = this.add.image(0, 0, 'atlas', 'door_closed').setOrigin(0.5, 1).setDepth(-600);
       this.doorGlow = this.add.image(0, 0, 'atlas', 'glow').setDepth(-640).setBlendMode(ADD).setTint(UI.hex('em2')).setAlpha(0);
       this.cam = { x: 0, y: 0 };
@@ -133,6 +140,7 @@
             fx.shake(0.45);
             this.hurtFlash = 4;
             break;
+          case 'gold': this.goldAcc += e.v; this.goldX = e.x; this.goldY = e.y; fx.burst(e.x, e.y - 6, 'gold', 3, 40, 0.3); break;
           case 'heal': fx.number(e.x, e.y - 22, '+' + e.v, 'ui_good'); break;
           case 'die':
             var bossy = e.type === 'tyrant';
@@ -292,6 +300,17 @@
         if ((tick + d.id * 7) % 24 === 0) self.fx.burst(d.x, d.y - 2, d.item ? UI.RARITY[s.rar] : 'tome2', 1 + (s.rar > 1 ? 1 : 0), 14, 0.6);
       });
 
+      // merchant
+      var mc = sim.merchant;
+      this.merch.setVisible(!!mc); this.merchShadow.setVisible(!!mc);
+      if (mc) {
+        this.merch.setPosition(mc.x, mc.y + 6).setDepth(mc.y + 6).setFrame('merchant_' + ((tick >> 4) % 3));
+        this.merchShadow.setPosition(mc.x, mc.y + 5);
+        var near = sim.canTalk();
+        this.tradeTag.setVisible(near).setPosition(Math.round(mc.x - this.tradeTag.width / 2), Math.round(mc.y - 26 - ((tick >> 4) & 1)));
+      } else this.tradeTag.setVisible(false);
+      // gold: one floating label per 0.2 s (the rest is summed)
+      if (this.goldAcc > 0 && --this.goldT <= 0) { this.fx.number(this.goldX, this.goldY - 14, '+' + this.goldAcc, 'gold'); this.goldAcc = 0; this.goldT = 12; }
       // chest and exit
       var c = sim.chest;
       this.chest.setVisible(c.state !== 'hidden').setFrame(c.state === 'open' ? 'chest_open' : 'chest_closed');
@@ -447,7 +466,7 @@
     if (sim) {
       var p = sim.player;
       out.sim = { state: sim.state, room: sim.roomIndex, phase: sim.phase, tick: sim.tick, hp: Math.round(p.hp), maxHp: p.maxHp, level: p.level,
-        kills: sim.kills, rooms: sim.roomsCleared, stuck: +sim.stuckSeconds().toFixed(1), worstStuck: +gs.worstStuck.toFixed(1),
+        gold: sim.gold, scrolls: sim.scrolls, merchant: !!sim.merchant, canTalk: sim.canTalk(), kills: sim.kills, rooms: sim.roomsCleared, stuck: +sim.stuckSeconds().toFixed(1), worstStuck: +gs.worstStuck.toFixed(1),
         monsters: sim.monsters.length, bag: sim.bag.length, kept: sim.gear.bag.length, mod: sim.mod, doors: sim.doors.slice(), result: sim.result, gearScore: G.gearScore(sim.gear), hash: sim.room.hash,
         objective: sim.objective(), test: sim.testRoom >= 0, loops: sim.loops, touch: !!G.touch, fissures: sim.fissures.map(function (f) { return f.state; }), x: Math.round(p.x), y: Math.round(p.y) };
     }

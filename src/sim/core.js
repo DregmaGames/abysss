@@ -13,9 +13,11 @@
     this.events = [];
     this.input = { mx: 0, my: 0, dodge: false, pulse: false };
     this.tick = 0;
-    this.state = 'play';                 // play | levelup | choice (after a room: leave or a door) | dead | won | left
+    this.state = 'play';                 // play | levelup | merchant | choice (after a room: leave or a door) | dead | won | left
     this.bag = [];                       // the sealed bag: gear found in this run; kept on leave / win, lost on death (finishRun)
     this.scrolls = 0; this.scrollsFound = 0;                    // sealed scrolls of Identification found in this run (banked like the bag)
+    this.gold = 0; this.goldFrac = 0; this.goldEarned = 0; this.goldSpent = 0; this.scrollsBought = 0;   // sealed run gold (step 7): banked on leave / win, lost on death
+    this.merchant = null;                // the merchant of this room { x, y, stock: { scroll, potion } } or null
     this.mod = null;                     // the door modifier of the current room (BAL.doors.mods id)
     this.doors = [];                     // the doors offered now (state 'choice'); doorLog: the ids taken, in order
     this.doorLog = []; this.lootBonus = 0; this.result = null;
@@ -39,6 +41,7 @@
     this.player.hp = this.stats.maxHp;
     this.testRoom = opts.testRoom ? B.run.testRoom : -1;   // test room: one room, restarted on clear
     this.loops = 0;
+    this.merchantAt = this.testRoom >= 0 ? [] : G.merchantRooms(this.seed, B);
     this.loadRoom(this.testRoom >= 0 ? this.testRoom : 0);
   }
   var S = Sim.prototype;
@@ -69,9 +72,9 @@
   // derived stats = class base + gear + abilities (pure; also used by the inventory screen outside a run)
   // `abil`: the player's { abilityId: rank } map
   G.computeStats = function (B, gear, abil, cls) {
-    var C = G.classDef(B, cls), P = C.base, cap = B.items.cap, g = G.gearStats(gear, B, cls), s = {}, W0 = G.weaponOf(C, gear);
+    var C = G.classDef(B, cls), P = C.base, cap = B.items.cap, g = G.gearStats(gear, B, cls), s = {}, W0 = G.weaponOf(C, gear), rk = G.rankStats(gear, B);
     var p = G.abilityStats(abil || {}, B, W0 && W0.id);
-    function v(k) { return (g[k] || 0) + (p[k] || 0); }
+    function v(k) { return (g[k] || 0) + (p[k] || 0) + (rk[k] || 0); }
     s.maxHp = Math.round(P.hp + v('hp'));
     s.dmg = P.dmg * (1 + v('dmgPct') / 100);
     s.atkInterval = P.atkInterval / (1 + v('atkPct') / 100);
@@ -118,6 +121,9 @@
     this.monsters = []; this.shots = []; this.bolts = []; this.orbs = []; this.drops = []; this.teles = [];
     this.zones = []; this.echoes = [];
     this.orbiters = this.orbiters.filter(function (o) { return o.perm; });
+    var mp = this.merchantAt.indexOf(index) >= 0 ? G.merchantSpot(room, B) : null, MS = B.economy.merchant;
+    if (mp) this.merchantsMet = (this.merchantsMet | 0) + 1;
+    this.merchant = mp ? { x: mp.x, y: mp.y, stock: { scroll: MS.scroll.stock, potion: MS.potion.stock } } : null;
     this.setupFissures(room);           // src/sim/fissures.js
     this.phase = 'fissures';             // fissures | super | chest | exit
     this.roomTick = this.tick; this.spawnCd = F.firstDelay;
@@ -135,15 +141,18 @@
   // The run is over: 'dead' empties the sealed bag (and, if BAL.run.deathKeepsEquipped is false, strips the equipped gear);
   // 'won' and 'left' put the sealed bag into the kept bag (gear.bag). this.result says what happened to the items.
   S.finishRun = function (kind) {
-    var B = this.B, n = this.bag.length, best = G.bestRarity(this.bag), r = { kind: kind, items: n, best: best, kept: 0, lost: 0, scrolls: this.scrolls, found: this.scrollsFound, scrollsKept: 0 };
+    var B = this.B, n = this.bag.length, best = G.bestRarity(this.bag), r = { kind: kind, items: n, best: best, kept: 0, lost: 0, scrolls: this.scrolls, found: this.scrollsFound, scrollsKept: 0, gold: this.gold, goldKept: 0, goldLost: 0, goldEarned: this.goldEarned, goldSpent: this.goldSpent, scrollsBought: this.scrollsBought };
     if (kind === 'dead') {
       r.lost = n;
+      if (this.testRoom < 0) r.goldKept = G.bankGold(this.gear, Math.floor(this.gold * B.economy.gold.deathKeeps), B);
       if (!B.run.deathKeepsEquipped) for (var k in this.gear.equipped) this.gear.equipped[k] = null;
     } else if (this.testRoom < 0) {
       var b = G.bankItems(this.gear, this.bag, B); r.kept = b.kept; r.lost = b.lost;
       r.scrollsKept = G.bankScrolls(this.gear, this.scrolls, B);
+      r.goldKept = G.bankGold(this.gear, this.gold, B);
     } else r.lost = n;
-    this.bag = []; this.scrolls = 0;
+    r.goldLost = this.gold - r.goldKept;
+    this.bag = []; this.scrolls = 0; this.gold = 0; this.goldFrac = 0; this.merchant = null;
     this.result = r;
     this.state = kind;
     this.emit({ t: kind === 'dead' ? 'dead' : kind });
@@ -414,6 +423,46 @@
   };
   S.dropSealed = function (idx) { return this.bag.splice(idx, 1)[0] || null; };
 
+  // ------------------------------------------------------------------ gold and the merchant (step 7)
+  // Gold of the run: base x room x tier x (1 + door x lootBonus). No rng; fractions accumulate. None in the test room.
+  S.addGold = function (base, src, x, y) {
+    if (this.testRoom >= 0) return;
+    var Gd = this.B.economy.gold, v = base * Gd.room[this.roomIndex] * Gd.tier[this.tier] * (1 + Gd.door * this.lootBonus);
+    this.goldFrac += v;
+    var whole = Math.floor(this.goldFrac);
+    if (whole < 1) return;
+    this.goldFrac -= whole; this.gold += whole; this.goldEarned += whole;
+    this.emit({ t: 'gold', v: whole, src: src, x: x, y: y });
+  };
+  S.canTalk = function () {
+    var m = this.merchant, p = this.player;
+    if (this.state !== 'play' || !m) return false;
+    var dx = p.x - m.x, dy = p.y - m.y, r = this.B.economy.merchant.talkR;
+    return dx * dx + dy * dy <= r * r;
+  };
+  S.openMerchant = function () {
+    if (!this.canTalk()) return false;
+    this.state = 'merchant';
+    this.emit({ t: 'merchant', open: true });
+    return true;
+  };
+  S.closeMerchant = function () {
+    if (this.state !== 'merchant') return false;
+    this.state = 'play'; this.progress();
+    this.emit({ t: 'merchant', open: false });
+    return true;
+  };
+  // kind: 'scroll' | 'potion'. Paid from the run's sealed gold. A scroll is sealed like a found one; a potion heals at once.
+  S.merchantBuy = function (kind) {
+    var M = this.B.economy.merchant, m = this.merchant, d = M[kind];
+    if (this.state !== 'merchant' || !m || !d || m.stock[kind] < 1 || this.gold < d.price) return false;
+    this.gold -= d.price; this.goldSpent += d.price; m.stock[kind]--;
+    if (kind === 'scroll') { this.scrolls++; this.scrollsBought++; }
+    else this.heal(this.player.maxHp * d.heal);
+    this.emit({ t: 'buy', kind: kind, price: d.price });
+    return true;
+  };
+
   // ------------------------------------------------------------------ cheats
   // Debug panel actions, to reach any part of a run fast. They go through the normal sim paths
   // (kill, darkenSeg, loadRoom), so the rest of the run behaves as it would in play.
@@ -460,6 +509,12 @@
   S.cheatLevel = function () {
     var p = this.player;
     this.gainExp((p.expNext - p.exp) / this.stats.expMult + 0.01);
+  };
+  // debug: a merchant in this room (at his spot, else beside the hero) and 200 sealed gold
+  S.cheatMerchant = function () {
+    var M = this.B.economy.merchant, sp = G.merchantSpot(this.room, this.B) || { x: this.player.x + 20, y: this.player.y };
+    this.merchant = { x: sp.x, y: sp.y, stock: { scroll: M.scroll.stock, potion: M.potion.stock } };
+    this.gold += 200;
   };
   S.cheatLoot = function () {
     var p = this.player;

@@ -19,9 +19,15 @@
   };
 
   G.rollItem = function (rng, ilvl, luck, B, gear, cls) {
-    var I = B.items, slot = rng.pick(ITEM_SLOTS), rarity = G.rollRarity(rng, luck, B);
+    var slot = rng.pick(ITEM_SLOTS), rarity = G.rollRarity(rng, luck, B);
     // weapon drops pick their type from all types, equal weight, whatever class is played (one extra draw)
-    var WT = B.loot.weaponTypes, wd = slot === 'weapon' ? rng.pick(WT) : null, wtype = wd ? wd.id : null;
+    var wd = slot === 'weapon' ? rng.pick(B.loot.weaponTypes) : null;
+    return G.makeItem(rng, slot, rarity, wd, ilvl, B, gear);
+  };
+
+  // The stat roll shared by drops and the shop (step 7): shuffle, ranges, name, id. `wd`: the weapon type entry (weapons only).
+  G.makeItem = function (rng, slot, rarity, wd, ilvl, B, gear) {
+    var I = B.items, wtype = wd ? wd.id : null;
     var pool = Object.keys(I.stat), imp = I.implicit[slot], stats = {}, keys = [imp];
     pool = pool.filter(function (k) { return k !== imp; });
     rng.shuffle(pool);
@@ -35,6 +41,19 @@
     var it = { id: gear.nextId++, slot: slot, rarity: rarity, ilvl: ilvl, name: name, stats: stats, power: ilvl * (2 + rarity) };
     if (wtype) it.wtype = wtype;
     if (rarity >= B.loot.unidentifiedFrom) it.unid = true;      // stats are rolled now, only hidden until identified (no reroll)
+    return it;
+  };
+
+  // A town shop item (step 7): always identified, marked src 'shop'. HARD RULE: throws above economy.shop.maxRarity (rare; never epic or better).
+  G.rollShopItem = function (rng, ilvl, rarity, B, gear, clsId) {
+    if (rarity > B.economy.shop.maxRarity) throw new Error('shop never sells rarity ' + rarity);
+    var slot = rng.pick(ITEM_SLOTS), wd = null;
+    if (slot === 'weapon') {
+      var own = B.loot.weaponTypes.filter(function (w) { return w.cls === G.classDef(B, clsId).id; });
+      wd = rng.pick(own);
+    }
+    var it = G.makeItem(rng, slot, rarity, wd, ilvl, B, gear);
+    delete it.unid; it.src = 'shop';
     return it;
   };
 

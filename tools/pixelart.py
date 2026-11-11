@@ -665,6 +665,52 @@ g...g
 .....
 ..g..
 ''', L)))
+    # economy (step 7): the merchant (hooded trader with a pack, 3 idle frames), a gold coin, a healing potion
+    L = 'a=cloth0 b=cloth1 c=cloth2 s=skin t=skin_d g=gold h=gold_d w=wood x=wood_d k=boot'
+    mer = parse('''
+....aaaaaa....
+...abbbbbba...
+..abbbbbbbba..
+..abbssssbba..
+..abstsstsba..
+..abbssssbba..
+...abbbbbba...
+.xxabbbbbbaxx.
+xxwabbccbbawxx
+xwwabbccbbawwx
+xwwabbbbbbawwx
+.xwabbggbbawx.
+..xabbbbbbax..
+...abbccbba...
+...abbbbbba...
+...aaaaaaaa...
+...kk....kk...
+...kk....kk...
+''', L)
+    add('merchant_0', outline(mer)); add('merchant_1', outline(bob(mer, 2))); add('merchant_2', outline(mer))
+    L = 'g=gold h=gold_d w=white'
+    add('i_gold', outline(parse('''
+..hhhh..
+.hggwgh.
+hggwgggh
+hgwggggh
+hggggggh
+hgggggdh
+.hggggh.
+..hhhh..
+'''.replace('d', 'h'), L)))
+    L = 'w=wood c=ui_dim r=blood d=hp W=white'
+    add('i_potion', outline(parse('''
+..wwww..
+...cc...
+..cccc..
+.cdrrdc.
+cdrWrrdc
+cdrrrrdc
+cdrrrrdc
+.cdrrdc.
+..cccc..
+''', L)))
     for nm, rx, ry in (('shadow_s', 6, 2.5), ('shadow_m', 9, 3.5), ('shadow_l', 16, 6)):
         im = blank(int(rx * 2), int(ry * 2) + 1)
         ellipse(im, rx, ry + 0.5, rx, ry, 'void', 120)

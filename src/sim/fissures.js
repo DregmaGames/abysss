@@ -227,6 +227,7 @@
     if (rng.chance(this.lootP(f.big ? L.superGear : L.closeGear))) this.spawnItem(f.x, f.y, f.big ? L.luck.super : L.luck.close);
     if (f.big && rng.chance(L.superTome)) this.spawnDrop('tome', f.x, f.y, null);
     if (f.big && rng.chance(this.lootP(L.superScroll))) this.spawnDrop('scroll', f.x, f.y, null);
+    this.addGold(f.big ? this.B.economy.gold.superClose : this.B.economy.gold.close, 'close', f.x, f.y);
     for (i = 0; i < this.orbs.length; i++) this.orbs[i].magnet = true;
     this.emit({ t: 'fissure', id: f.id, state: 'scar', big: f.big, x: f.x, y: f.y });
     if (f.big) {
@@ -285,6 +286,7 @@
         var n = L.chestItems[this.roomIndex];
         for (i = 0; i < n; i++) this.spawnItem(c.x + (i - (n - 1) / 2) * 12, c.y + 14, this.room.boss ? L.luck.boss : L.luck.chest);
         if (this.rngRoom.chance(L.chestScroll)) this.spawnDrop('scroll', c.x, c.y + 24, null);
+        this.addGold(this.B.economy.gold.chest, 'chest', c.x, c.y);
         this.phase = 'exit'; e.open = true;
         this.progress();
         this.emit({ t: 'chest', x: c.x, y: c.y });

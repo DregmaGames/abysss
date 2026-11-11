@@ -16,7 +16,7 @@
     this.buildId = builds ? (builds[buildId] ? buildId : Object.keys(builds)[0]) : null;
     this.order = builds ? builds[this.buildId].order : [];
     this.sim = sim; this.room = null; this.field = null; this.goalTile = -1; this.orbit = 1;
-    this.thinkTick = -999; this.mx = 0; this.my = 0; this.wantDodge = false; this.wantPulse = false;
+    this.thinkTick = -999; this.merchUsed = 0; this.potions = 0; this.merchRoom = ''; this.mx = 0; this.my = 0; this.wantDodge = false; this.wantPulse = false;
   }
 
   // Level-up card for a build (spec section 11). Score of an ability: its place in the build order (L - k), else
@@ -47,7 +47,7 @@
   // other classes' weapons first, then the weakest, until there is room for a full sealed bag.
   Bot.prepareGear = function (gear, B, clsId) {
     var g = gear, i, changed = true, guard = 0;
-    Bot.identifyBest(g.bag, B, clsId, function () { return g.scrolls | 0; }, function (k) { return G.identifyInBag(g, k); });
+    Bot.identifyBest(g.bag, B, clsId, function () { return g.scrolls | 0; }, function (k) { return G.identifyInBag(g, k); }, g);
     while (changed && guard++ < 60) {
       changed = false;
       for (i = 0; i < g.bag.length; i++) {
@@ -107,23 +107,102 @@
     return null;
   };
 
-  // In a run: equip what is better from the sealed bag (own-class weapons only).
-  // The rule for scrolls: identify the unidentified items that the class can use, highest rarity first (then item level), while scrolls last.
-  Bot.identifyBest = function (items, B, clsId, scrolls, identify) {
+  // Which unidentified items are worth a scroll (step 7): the class can wear it and the worn item of its slot is missing, of lower rarity, or of the
+  // same rarity and lower item level.
+  Bot.worthy = function (it, gear, B, clsId) {
+    if (!it.unid || !G.canEquip(it, B, clsId)) return false;
+    var cur = gear.equipped[G.targetSlot(gear, it, B)];
+    return !cur || cur.rarity < it.rarity || (cur.rarity === it.rarity && cur.ilvl < it.ilvl);
+  };
+  // Identify the worthy unidentified items, highest rarity first (then item level, then id), while scrolls last.
+  // `more` (optional): called when out of scrolls, returns true if it got one.
+  Bot.identifyBest = function (items, B, clsId, scrolls, identify, gear, more) {
     var guard = 0;
-    while (scrolls() > 0 && guard++ < 40) {
-      var best = -1, i, it, bi;
+    while (guard++ < 40) {
+      var best = -1, i, it;
       for (i = 0; i < items.length; i++) {
         it = items[i];
-        if (!it.unid || !G.canEquip(it, B, clsId)) continue;
-        if (best < 0 || it.rarity > items[best].rarity || (it.rarity === items[best].rarity && it.ilvl > items[best].ilvl)) best = i;
+        if (!Bot.worthy(it, gear, B, clsId)) continue;
+        if (best < 0 || it.rarity > items[best].rarity || (it.rarity === items[best].rarity && (it.ilvl > items[best].ilvl || (it.ilvl === items[best].ilvl && it.id < items[best].id)))) best = i;
       }
-      if (best < 0 || !identify(best)) return;
+      if (best < 0) return;
+      if (scrolls() < 1 && !(more && more())) return;
+      if (!identify(best)) return;
     }
   };
+
+  // Between runs, the town shop (step 7, spec section 12). Returns a log of what was sold and bought.
+  Bot.shopVisit = function (gear, B, clsId) {
+    var g = gear, i, E = B.economy, BS = B.bot.shop;
+    var log = { sold: 0, goldSold: 0, scrollsBought: 0, itemsBought: [], upgrades: [], ranks: [], spent: { scrolls: 0, items: 0, upgrades: 0, ranks: 0 } };
+    G.ensureShop(g, B, clsId);
+    function equipBest() {
+      var changed = true, guard = 0;
+      while (changed && guard++ < 60) {
+        changed = false;
+        for (var k = 0; k < g.bag.length; k++) {
+          var it = g.bag[k], cur = g.equipped[G.targetSlot(g, it, B)];
+          if (!G.canEquipNow(it, B, clsId)) continue;
+          if (!cur || G.itemValue(it, B) > G.itemValue(cur, B) + 0.01) { G.equipFromBag(g, k, B, clsId); changed = true; break; }
+        }
+      }
+    }
+    function sell(k) { log.sold++; log.goldSold += G.sellFromBag(g, k, B); }
+    // 1. identify worthy items; buy scrolls when out
+    Bot.identifyBest(g.bag, B, clsId, function () { return g.scrolls | 0; }, function (k) { return G.identifyInBag(g, k); }, g,
+      function () { if (!G.shopBuyScroll(g, B)) return false; log.scrollsBought++; log.spent.scrolls += E.shop.scroll; return true; });
+    // 2. equip the best per slot
+    equipBest();
+    // 3. sell what is left (the bot keeps what it does not wear); worthy unidentified items wait for a scroll, within the room a run needs
+    for (i = g.bag.length - 1; i >= 0; i--) if (!Bot.worthy(g.bag[i], g, B, clsId)) sell(i);
+    while (g.bag.length > B.loot.stashSize - B.loot.bagSize) {
+      var worst = 0;
+      for (i = 1; i < g.bag.length; i++) if (G.itemValue(g.bag[i], B) < G.itemValue(g.bag[worst], B)) worst = i;
+      sell(worst);
+    }
+    // 4. base items (commons and magic), in stock order, at most baseItemMax
+    function buyItem(idx) {
+      var it = g.shop.stock[idx], price = G.buyPrice(it, B), cur = g.equipped[it.slot];
+      var bi = G.shopBuy(g, idx, B);
+      if (!bi) return false;
+      log.itemsBought.push(it.name + ' (' + E.shop.rarities[idx] + ')'); log.spent.items += price;
+      var k = g.bag.indexOf(bi);
+      if (G.equipFromBag(g, k, B, clsId) && cur) sell(g.bag.indexOf(cur));
+      return true;
+    }
+    function wanted(it) {
+      if (!it || !G.canEquip(it, B, clsId)) return false;
+      var cur = g.equipped[it.slot];
+      return !cur || G.itemValue(it, B) > G.itemValue(cur, B) + 0.01;
+    }
+    var bought = 0;
+    for (i = 0; i < g.shop.stock.length && bought < BS.baseItemMax; i++) {
+      var it0 = g.shop.stock[i];
+      if (!it0 || it0.rarity >= 2 || !wanted(it0) || G.buyPrice(it0, B) > (g.gold | 0)) continue;
+      if (buyItem(i)) bought++;
+    }
+    // 5. ranks and upgrades: the cheapest affordable, ties: ranks in rankOrder, then upgrades in slot order
+    for (var guard = 0; guard < 200; guard++) {
+      var cands = [];
+      BS.rankOrder.forEach(function (id) { var c = G.rankCost(g, id, B); if (c !== null) cands.push({ cost: c, kind: 'rank', id: id }); });
+      G.ITEM_SLOTS.forEach(function (sl) { var w = g.equipped[sl], c = G.upgradeCost(w, B); if (c !== null) cands.push({ cost: c, kind: 'up', slot: sl }); });
+      var pick = null;
+      cands.forEach(function (c) { if (c.cost <= (g.gold | 0) && (!pick || c.cost < pick.cost)) pick = c; });
+      if (!pick) break;
+      if (pick.kind === 'rank') { G.buyRank(g, pick.id, B); log.ranks.push(pick.id); log.spent.ranks += pick.cost; }
+      else { var nm = g.equipped[pick.slot].name; G.upgradeAt(g, { slot: pick.slot }, B); log.upgrades.push(nm); log.spent.upgrades += pick.cost; }
+    }
+    // 6. the rare, only with gold nothing else could use, and only if it beats what is worn
+    for (i = 0; i < g.shop.stock.length; i++) {
+      var r0 = g.shop.stock[i];
+      if (r0 && r0.rarity >= 2 && wanted(r0) && G.buyPrice(r0, B) <= (g.gold | 0)) buyItem(i);
+    }
+    return log;
+  };
+
   Bot.prototype.manageGear = function () {
     var sim = this.sim, g = sim.gear, B = sim.B, i, changed = true, guard = 0;
-    Bot.identifyBest(sim.bag, B, sim.clsId, function () { return sim.scrollsHeld(); }, function (k) { return sim.identifySealed(k); });
+    Bot.identifyBest(sim.bag, B, sim.clsId, function () { return sim.scrollsHeld(); }, function (k) { return sim.identifySealed(k); }, g);
     while (changed && guard++ < 30) {
       changed = false;
       for (i = 0; i < sim.bag.length; i++) {
@@ -134,10 +213,38 @@
     }
   };
 
+  // The merchant (spec section 12): once per merchant room, after the chest (phase 'exit') and once the drops are picked up. Buys scrolls for the
+  // worthy unidentified items not yet covered and a potion when hurt. Returns a direction to walk to him, or null (nothing to do / done).
+  Bot.prototype.merchantStep = function () {
+    var sim = this.sim, m = sim.merchant, B = sim.B, MS = B.economy.merchant, i;
+    if (!m || sim.phase !== 'exit' || this.merchRoom === sim.roomIndex + ':' + sim.room.seed) return null;
+    for (i = 0; i < sim.drops.length; i++) if (!(sim.drops[i].kind === 'item' && sim.bag.length >= B.loot.bagSize)) return null;
+    var key = sim.roomIndex + ':' + sim.room.seed, want = 0, hurt = sim.player.hp < B.bot.shop.potionHp * sim.player.maxHp;
+    for (i = 0; i < sim.bag.length; i++) if (Bot.worthy(sim.bag[i], sim.gear, B, sim.clsId)) want++;
+    want = Math.max(0, want - sim.scrollsHeld());
+    var n = Math.min(want, m.stock.scroll, Math.floor(sim.gold / MS.scroll.price));
+    var potion = hurt && m.stock.potion > 0 && sim.gold - n * MS.scroll.price >= MS.potion.price;
+    if (!n && !potion) { this.merchRoom = key; return null; }
+    if (this.merchTicks === undefined || this.merchKey !== key) { this.merchKey = key; this.merchTicks = 0; }
+    if (++this.merchTicks > 900) { this.merchRoom = key; return null; }      // could not get there: go on
+    if (sim.canTalk() && sim.openMerchant()) {
+      for (i = 0; i < n; i++) sim.merchantBuy('scroll');
+      if (potion && sim.merchantBuy('potion')) this.potions++;
+      sim.closeMerchant(); this.merchRoom = key; this.merchUsed++;
+      return null;
+    }
+    return this.pathDir(m.x, m.y);
+  };
+
   Bot.prototype.update = function () {
     var sim = this.sim;
     if (sim.state !== 'play') return;
     if (sim.tick % 30 === 0 && sim.bag.length) this.manageGear();
+    if (sim.merchant) {
+      var md = this.merchantStep();
+      if (md) { sim.input.mx = this.mx = md.x; sim.input.my = this.my = md.y; sim.input.dodge = false; sim.input.pulse = false; this.thinkTick = -999; return; }
+      if (sim.state !== 'play') return;
+    }
     var p = sim.player, s = sim.stats, K = sim.cls.skill, inp = sim.input, i;
     // Human-like reaction time: in a fight the bot only re-decides every `reactionTicks`
     // and holds its last decision in between. Out of combat it steers every tick.
@@ -257,7 +364,8 @@
     var gear = opts.gear || G.newGear();
     var sim = new G.Sim({ seed: seed, tier: opts.tier || 0, gear: gear, bal: opts.bal, cls: opts.cls }), bot = new Bot(sim, opts.build, { leave: opts.leave, lowHp: opts.lowHp });
     var maxTicks = (opts.maxSeconds || 1200) * 60, softlock = false, worstStuck = 0, roomTicks = [], last = 0, lastRoom = 0, minHp = sim.B.run.roomMult.map(function () { return 1; });
-    while (sim.tick < maxTicks && (sim.state === 'play' || sim.state === 'levelup' || sim.state === 'choice')) {
+    while (sim.tick < maxTicks && (sim.state === 'play' || sim.state === 'levelup' || sim.state === 'choice' || sim.state === 'merchant')) {
+      if (sim.state === 'merchant') { sim.closeMerchant(); continue; }
       if (sim.state === 'choice') { var ch = bot.afterRoom(); if (ch < 0) sim.leave(); else sim.takeDoor(ch); continue; }
       if (sim.state === 'levelup') {
         var pk = bot.pickAbility(); sim.chooseAbility(pk.i, pk.slot);
@@ -276,6 +384,6 @@
     var abilInfo = { build: bot.buildId, slots: sim.player.slots.slice(), abil: Object.assign({}, sim.player.abil), fams: G.familyCounts(sim.player.abil, sim.B) };
     return Object.assign({ seed: seed, cls: sim.clsId, result: softlock ? 'softlock' : (sim.state === 'won' ? 'win' : (sim.state === 'left' ? 'left' : (sim.state === 'dead' ? 'dead' : 'timeout'))),
       room: sim.roomIndex, phase: sim.phase, rooms: sim.roomsCleared, seconds: Math.round(sim.tick / 60), level: sim.player.level,
-      kills: sim.kills, hp: Math.round(sim.player.hp), gearScore: G.gearScore(gear), bag: sim.result, identified: sim.identified | 0, doors: sim.doorLog.slice(), worstStuck: Math.round(worstStuck), minHp: minHp, roomSeconds: roomTicks.map(function (t) { return Math.round(t / 60); }) }, abilInfo);
+      kills: sim.kills, hp: Math.round(sim.player.hp), gearScore: G.gearScore(gear), bag: sim.result, identified: sim.identified | 0, merchants: { met: sim.merchantsMet | 0, used: bot.merchUsed, potions: bot.potions }, doors: sim.doorLog.slice(), worstStuck: Math.round(worstStuck), minHp: minHp, roomSeconds: roomTicks.map(function (t) { return Math.round(t / 60); }) }, abilInfo);
   };
 })(globalThis.G = globalThis.G || {});

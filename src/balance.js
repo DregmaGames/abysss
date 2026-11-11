@@ -163,7 +163,7 @@
       superTome: 0.3, killTome: 0.003, healOrb: 0.035, healOrbPct: 0.06,
       // Scroll of Identification: chance per kill (monster / elite / boss), per chest opened, per super fissure closed. The door loot bonus
       // multiplies the kill and closure chances. Found scrolls go to the sealed scroll count of the run (banked on leave / win, lost on death).
-      killScroll: 0.012, eliteScroll: 0.2, bossScroll: 1, chestScroll: 0.4, superScroll: 0.5, scrollCap: 99,
+      killScroll: 0.002, eliteScroll: 0.05, bossScroll: 1, chestScroll: 0.06, superScroll: 0.06, scrollCap: 99,
       unidentifiedFrom: 1,            // items of this rarity or higher drop unidentified (stats hidden until a scroll is used)
       chestItems: [1, 1, 1, 1, 1, 1, 1, 1, 1, 2],
       // rarity weights: common, magic, rare, epic, legendary
@@ -221,7 +221,9 @@
       // is (re)made, after every run of the class. Item level = 1 + shop tier x run.ilvlTier + ilvlAdd (shop tier = highest tier the
       // class's gear score unlocks). Price = the identified sell price x buyMult. HARD RULE: no item above maxRarity is ever sold
       // (rare, epic and legendary only drop). Scrolls of Identification: unlimited, `scroll` gold each.
-      shop: { rarities: [0, 0, 0, 0, 1, 1], maxRarity: 1, ilvlAdd: 1, buyMult: 5, scroll: 25 },
+      // User decision 2026-11-11: one RARE entry (the 7th) at rareBuyMult x the identified sell price = 250 / 400 / 550 at shop tier 1 / 2 / 3
+      // (5x the magic item of the same tier, 10x what it sells for). maxRarity 2: epic and legendary are refused in the code; maxRare: rares in stock.
+      shop: { rarities: [0, 0, 0, 0, 1, 1, 2], maxRarity: 2, maxRare: 1, ilvlAdd: 1, buyMult: 5, rareBuyMult: 10, scroll: 25 },
       // Upgrade a found, identified item by +1 item level (stats rescale from the values at the drop; power and gear score follow).
       // cost = round(cost[rarity] x (1 + ilvl x (item level - 1)) x (1 + grow x upgrades done)). max: upgrades per item, by rarity.
       // Shop items cannot be upgraded.
@@ -245,10 +247,7 @@
         spots: [[2, 0], [-2, 0], [2, -1], [-2, -1], [0, -2], [0, 2]],
         scroll: { price: 40, stock: 3 },
         potion: { price: 30, stock: 2, heal: 0.4 }
-      },
-      // New Scroll of Identification drop chances (about 4 per full run instead of 13-16). The implementation copies these into
-      // BAL.loot (killScroll, eliteScroll, bossScroll, chestScroll, superScroll) and deletes this entry.
-      scrollDrops: { killScroll: 0.002, eliteScroll: 0.05, bossScroll: 1, chestScroll: 0.06, superScroll: 0.06 }
+      }
     },
 
 

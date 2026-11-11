@@ -167,6 +167,7 @@
     if (rng.chance(this.lootP(gearP))) this.spawnItem(m.x, m.y, def.boss ? L.luck.boss : (def.elite ? L.luck.elite : L.luck.kill));
     if (!def.boss && rng.chance(L.killTome)) this.spawnDrop('tome', m.x, m.y, null);
     if (rng.chance(this.lootP(def.boss ? L.bossScroll : (def.elite ? L.eliteScroll : L.killScroll)))) this.spawnDrop('scroll', m.x, m.y, null);
+    this.addGold(this.B.economy.gold.kill * def.threat + (def.boss ? this.B.economy.gold.boss : 0), 'kill', m.x, m.y);
     if (this.stats.leech) this.heal(this.stats.leech);
     if (src !== 'kfx' && this.fxOn.kill.length) this.runFx('kill', m, this.baseDmg(), null);
   };

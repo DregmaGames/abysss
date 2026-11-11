@@ -12,15 +12,16 @@
       G.hud = this;
       this.game_ = G.gameScene;
       this.L = null; this.level = null; this.toastT = 0; this.toastMsg = null; this.pickCard = -1; this.SL = null;
-      this.botWait = 0; this.endT = -1; this.stickId = null; this.choiceL = null;
+      this.botWait = 0; this.endT = -1; this.stickId = null; this.choiceL = null; this.merchL = null;
       this.build();
       this.game.events.on('viewchange', this.onView, this);
 
       var kb = this.input.keyboard;
-      kb.on('keydown-I', function () { self.toggleInventory(); });
+      kb.on('keydown-I', function () { if (!self.level && !self.choiceL && !self.merchL && !G.Panels.isOpen() && self.game_.sim.canTalk()) self.openMerchant(); else self.toggleInventory(); });      // next to the merchant the inventory key talks to him
       kb.on('keydown-F2', function (e) { if (e && e.preventDefault) e.preventDefault(); self.toggleDebug(); });
       kb.on('keydown-TAB', function (e) { e.preventDefault(); self.toggleInventory(); });
       kb.on('keydown-ESC', function () {
+        if (self.merchL) { self.closeMerchant(); return; }
         if (self.level && self.pickCard >= 0) { self.pickCard = -1; self.openLevel(); }      // slot picker: back to the cards
         else if (G.Panels.isOpen()) G.Panels.close(); else if (!self.level && !self.choiceL) G.Panels.openSettings(self);
       });
@@ -63,6 +64,7 @@
       this.build();
       if (this.level) this.openLevel();
       if (this.choiceL) this.openChoice();
+      if (this.merchL) this.openMerchant();
       G.Panels.relayout(this);
     },
 
@@ -93,8 +95,12 @@
       this.invBadge = L.text(V.W - X - 4, Y + 18, '', 'ui_dim').setVisible(false);
       this.invBadge._dz = 4; this.invBadge.setDepth(L.depth + 4);
 
+      // the run's gold (sealed: banked on leave or win, lost on death): coin and number, left of the inventory button
+      this.goldPlate = L.panel(V.W - X - 26 - 3 - 41, Y, 41, 15, 'plate');
+      L.image(V.W - X - 26 - 3 - 41 + 8, Y + 7, 'i_gold');
+      this.goldText = L.text(V.W - X - 26 - 3 - 41 + 15, Y + 4, '0', 'gold');
       // objective + fissure progress: top-centre, or a second row when the screen is narrow
-      var free = V.W - (86 + X * 2) - (26 + X * 2);
+      var free = V.W - (86 + X * 2) - (26 + X * 2) - 44;      // 44: the gold plate left of the inventory button
       this.obj = free >= 150 ? { x: X + 86 + X, y: Y, w: free } : { x: X, y: Y + 30, w: V.W - X * 2 };
       // debug button (cheats for testing): under the inventory button, below the objective row if that wraps
       if (G.debug) L.button(V.W - X - 26, (this.obj.y === Y ? Y : this.obj.y) + 30, 26, 14, 'DBG', function () { self.toggleDebug(); }, { name: 'dbg' });
@@ -133,13 +139,51 @@
       if (!G.debug || this.level) return;
       if (G.Panels.current === 'debug') { G.Panels.close(); return; }
       var st = this.game_.sim.state;
-      if (st === 'dead' || st === 'won' || st === 'left' || st === 'choice') return;
+      if (st === 'dead' || st === 'won' || st === 'left' || st === 'choice' || st === 'merchant') return;
       this.dropStick();
       G.Panels.openDebug(this);
     },
 
+    // ------------------------------------------------------- the merchant (step 7)
+    // Opened by a tap on him or the E key within reach; the run is paused (sim.state 'merchant'). Pays from the run's gold only.
+    openMerchant: function () {
+      var sim = this.game_.sim, self = this, V = G.view, B = sim.B, MS = B.economy.merchant;
+      if (this.merchL) { this.merchL.destroy(); this.merchL = null; }
+      if (sim.state === 'play') { if (!sim.openMerchant()) return; }
+      if (sim.state !== 'merchant' || !sim.merchant) return;
+      if (G.Panels.isOpen()) G.Panels.close(true);
+      this.dropStick();
+      G.screen = 'merchant'; G.paused = true;
+      var mw = Math.min(V.W - 8, 240), mh = 124, m = this.merchL = UI.modal(this, mw, mh, 'MERCHANT'), x0 = m.x + 8, inner = mw - 16, mer = sim.merchant;
+      m.button(m.x + mw - 22, m.y + 3, 18, 16, '', function () { self.closeMerchant(); }, { icon: 'i_close', name: 'merch_x' });
+      m.image(x0 + 6, m.y + 29, 'i_gold');
+      var gt = m.text(x0 + 14, m.y + 25, 'Run gold: ' + sim.gold, 'gold');
+      m.text(x0 + inner, m.y + 25, '', 'ui_dim');
+      var rows = [['scroll', 'Scroll of Identification', 'i_scroll', 'Reveals an item', 'merch_scroll'], ['potion', 'Healing potion', 'i_potion', 'Heals ' + Math.round(MS.potion.heal * 100) + '% HP', 'merch_potion']];
+      rows.forEach(function (r, i) {
+        var y = m.y + 38 + i * 30, d = MS[r[0]], left = mer.stock[r[0]];
+        m.panel(x0, y, inner, 27, 'inset', 1);
+        m.image(x0 + 12, y + 13, r[2]);
+        m.text(x0 + 24, y + 4, r[1], 'ui_text');
+        m.text(x0 + 24, y + 15, r[3] + ' - ' + left + ' left', 'ui_dim');
+        var can = left > 0 && sim.gold >= d.price, b = m.button(x0 + inner - 38, y + 4, 34, 19, d.price + 'g', function () {
+          if (sim.merchantBuy(r[0])) { self.say(r[0] === 'scroll' ? 'Scroll bought (sealed)' : 'You feel better', r[0] === 'scroll' ? 'gold' : 'ui_good'); self.openMerchant(); }
+        }, { name: r[4], color: can ? 'ui_warn' : 'ui_dim' });
+        b.setEnabled(can);
+      });
+      void gt;
+      m.button(x0, m.y + mh - 24, inner, 18, 'CLOSE', function () { self.closeMerchant(); }, { name: 'merch_close' });
+    },
+    closeMerchant: function () {
+      var sim = this.game_.sim;
+      if (this.merchL) { this.merchL.destroy(); this.merchL = null; }
+      if (sim.state === 'merchant') sim.closeMerchant();
+      if (G.screen === 'merchant') G.screen = 'game';
+      G.paused = false;
+    },
+
     toggleInventory: function () {
-      if (this.level || this.choiceL) return;
+      if (this.level || this.choiceL || this.merchL) return;
       if (G.Panels.isOpen()) { G.Panels.close(); return; }
       var st = this.game_.sim.state;
       if (st === 'dead' || st === 'won' || st === 'left') return;
@@ -162,7 +206,7 @@
       else if (e.t === 'levelup') this.openLevel();
       else if (e.t === 'famTier' && e.tier > e.prev) this.say(this.game_.sim.B.families[e.fam].name + ' bonus ' + (e.tier === 2 ? 4 : 2) + '!', 'ui_good');
       else if (e.t === 'choice') this.openChoice();
-      else if (e.t === 'dead' || e.t === 'won' || e.t === 'left') { this.endT = 50; G.storeSave(G.save); }      // the bag was banked (or, on death, the worn gear kept): save it now
+      else if (e.t === 'dead' || e.t === 'won' || e.t === 'left') { this.endT = 50; var sm = this.game_.sim; if (sm.testRoom < 0) G.restockShop(sm.gear, sm.B, sm.clsId); G.storeSave(G.save); }      // the bag was banked (or, on death, the worn gear kept): save it now
       else if (e.t === 'equip' || e.t === 'identify') G.storeSave(G.save);
       else if (e.t === 'room') { this.last = {}; G.storeSave(G.save); }
     },
@@ -427,6 +471,7 @@
       var xp = Math.round(44 * Math.min(1, p.exp / p.expNext));
       if (L.xp !== xp) { L.xp = xp; this.xpFill.setDisplaySize(Math.max(0.01, xp), 3); }
 
+      if (L.gold !== sim.gold) { L.gold = sim.gold; this.goldText.setText('' + sim.gold); }
       var bagKey = sim.bag.length + '/' + G.bestRarity(sim.bag);
       if (L.bag !== bagKey) {
         L.bag = bagKey;
@@ -489,6 +534,7 @@
       }
       if (sim.state === 'levelup' && !this.level) this.openLevel();
       if (sim.state === 'choice' && !this.choiceL) this.openChoice();
+      if (this.merchL && sim.state !== 'merchant') { this.merchL.destroy(); this.merchL = null; if (G.screen === 'merchant') { G.screen = 'game'; G.paused = false; } }
       if (this.choiceL && gs.bot && !G.manualLevel && --this.botWait <= 0) { var ch = gs.bot.afterRoom(); this.pickDoor(ch < 0 ? sim.doors.length : ch); }
       if (this.level && gs.bot && !G.manualLevel && --this.botWait <= 0) {
         var pk = gs.bot.pickAbility(); this.applyAbility(pk.i, pk.slot);

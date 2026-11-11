@@ -56,8 +56,9 @@
       this.seedText = L.text(0, y + 5, '', 'ui_dim');
       this.btnSeed = L.button(cx + 10, y, 54, 18, 'REROLL', function () { G.runSeed = Math.floor(Math.random() * 1000000); self.refresh(); }, { name: 'reroll' });
       y += tall ? 34 : 24;
-      L.button(cx - 76, y, 74, 20, 'EQUIPMENT', function () { if (!G.Panels.isOpen()) G.Panels.openInventory(self); }, { name: 'title_gear' });
-      L.button(cx + 2, y, 74, 20, 'SETTINGS', function () { if (!G.Panels.isOpen()) G.Panels.openSettings(self); }, { name: 'title_settings' });
+      L.button(cx - 93, y, 60, 20, 'EQUIPMENT', function () { if (!G.Panels.isOpen()) G.Panels.openInventory(self); }, { name: 'title_gear' });
+      L.button(cx - 30, y, 60, 20, 'SHOP', function () { if (!G.Panels.isOpen()) G.Panels.openShop(self); }, { name: 'title_shop', color: 'gold' });
+      L.button(cx + 33, y, 60, 20, 'SETTINGS', function () { if (!G.Panels.isOpen()) G.Panels.openSettings(self); }, { name: 'title_settings' });
       y += tall ? 28 : 24;
       // practice: one room with the crack network, restarted on every clear (also ?scene=game&room=test)
       L.button(cx - 76, y, 152, 20, 'TEST ROOM (PRACTICE)', function () { if (self.input.activePointer.wasTouch) G.touch = true; self.start(true); }, { name: 'title_test', color: 'ui_good' });

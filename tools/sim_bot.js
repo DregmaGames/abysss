@@ -11,7 +11,7 @@
 'use strict';
 const fs = require('fs'), path = require('path'), vm = require('vm');
 const ROOT = path.dirname(__dirname);
-const SIM = ['balance.js', 'rng.js', 'mapgen.js', 'sim/items.js', 'sim/abilities.js', 'sim/core.js', 'sim/effects.js', 'sim/combat.js',
+const SIM = ['balance.js', 'rng.js', 'mapgen.js', 'sim/items.js', 'sim/economy.js', 'sim/abilities.js', 'sim/core.js', 'sim/effects.js', 'sim/combat.js',
   'sim/fissures.js', 'sim/boss.js', 'qa/bot.js', 'save.js'];
 
 function load() {
@@ -62,18 +62,16 @@ function main() {
     gear = G.newGear();
     const cp = G.BAL.bot.career, cls = G.classDef(G.BAL, args.cls).id;
     let target = cp.startRoom;
+    const tierOf = gs => { let t = 0; G.BAL.run.tierGear.forEach((need, k) => { if (gs >= need) t = k; }); return t; };
+    let visit = G.Bot.shopVisit(gear, G.BAL, cls);      // between runs, as a player on the title screen: identify, equip, sell, buy
     for (let i = 0; i < args.career; i++) {
-      const sc0 = gear.scrolls | 0;
-      G.Bot.prepareGear(gear, G.BAL, cls);      // between runs, as a player on the title screen: equip the best, discard the rest
-      const identBetween = sc0 - (gear.scrolls | 0);      // scrolls spent on the title before this run = items identified there
-      const gs = G.gearScore(gear);
-      let tier = 0;
-      G.BAL.run.tierGear.forEach((need, t) => { if (gs >= need) tier = t; });
+      const gs = G.gearScore(gear), tier = tierOf(gs);
       const r = G.botRun(seeds[i % seeds.length], { tier, gear, cls: args.cls, build: args.build, leave: args.leave || target, lowHp: cp.lowHp });
-      r.identBetween = identBetween;
       r.tier = tier; r.gearBefore = gs; r.target = args.leave || target;
-      const sc1 = gear.scrolls | 0;
-      G.Bot.prepareGear(gear, G.BAL, cls); r.gearAfter = G.gearScore(gear); r.identBetween += sc1 - (gear.scrolls | 0);      // after the run too (the next run's first step)
+      G.restockShop(gear, G.BAL, cls);      // after every run, any result
+      const next = G.Bot.shopVisit(gear, G.BAL, cls);      // the title visit after this run (the last one counts too)
+      r.eco = { earned: r.bag.goldEarned, kept: r.bag.goldKept, lost: r.bag.goldLost, merchant: r.bag.goldSpent, visit: next, gearAfter: G.gearScore(gear),
+        gold: gear.gold | 0, ranks: G.rankTotal(gear), scrollsFound: r.bag.found, scrollsBought: r.bag.scrollsBought };
       if (r.result === 'left' || r.result === 'win') target = Math.min(cp.cap, target + cp.step);
       res.push(r);
     }
@@ -104,7 +102,21 @@ function main() {
   if (args.json) console.log(JSON.stringify({ summary, runs: res }));
   else {
     console.log(summary);
-    if (args.career) res.forEach((r, i) => console.log(`run ${i + 1}: seed ${r.seed} tier ${r.tier + 1}/${G.BAL.run.tierMult.length} target room ${r.target} gear ${r.gearBefore}->${r.gearAfter} ${r.result} room ${r.room + 1} bag ${r.bag.items} (kept ${r.bag.kept}) lvl ${r.level} scrolls found ${r.bag.found} identified ${r.identified} in run + ${r.identBetween} before ${r.seconds}s`));
+    if (args.career) {
+      res.forEach((r, i) => {
+        const e = r.eco, v = e.visit;
+        console.log(`run ${i + 1}: seed ${r.seed} tier ${r.tier + 1} target ${r.target} gear ${r.gearBefore}->${e.gearAfter} ${r.result} room ${r.room + 1} lvl ${r.level} scrolls found ${e.scrollsFound} | gold +${e.earned} (kept ${e.kept}, lost ${e.lost}, merchant ${e.merchant}) sold ${v.sold} (+${v.goldSold}) | bought: scrolls ${v.scrollsBought}, items [${v.itemsBought.join(', ')}], upgrades [${v.upgrades.join(', ')}], ranks [${v.ranks.join(', ')}] | gold left ${e.gold} | merchants met ${r.merchants.met} used ${r.merchants.used}`);
+      });
+      const tot = { scrolls: 0, items: 0, upgrades: 0, ranks: 0 }, ed = res.map(r => r.eco.earned + r.eco.visit.goldSold);
+      res.forEach(r => { for (const k in tot) tot[k] += r.eco.visit.spent[k]; });
+      const worn = G.SLOTS.map(k => gear.equipped[k]).filter(Boolean), val = it => G.itemValue(it, G.BAL);
+      worn.sort((a, b) => val(b) - val(a));
+      console.log(`gold per run (earned + sold): ${ed.join(' ')} avg ${Math.round(ed.reduce((t, v) => t + v, 0) / ed.length)}; merchant spent ${res.reduce((t, r) => t + r.eco.merchant, 0)}; shop spent ${JSON.stringify(tot)}; ranks ${G.rankTotal(gear)}/25 ${JSON.stringify(gear.ranks)}`);
+      worn.forEach(it => console.log(`  worn ${it.slot} ${it.name} rarity ${it.rarity} ilvl ${it.ilvl}${it.up ? ' (+' + it.up + ')' : ''} src ${it.src === 'shop' ? 'shop' : 'drop'} value ${val(it).toFixed(2)}`));
+      const bestDrop = worn.filter(it => it.src !== 'shop').map(val)[0] || 0, shopWorn = worn.filter(it => it.src === 'shop');
+      const pass = worn.slice(0, 3).every(it => it.src !== 'shop') && shopWorn.every(it => val(it) <= bestDrop) && !worn.some(it => it.src === 'shop' && it.rarity >= 3);
+      console.log(`worn shop items ${shopWorn.length}; bestFromDrops: ${pass ? 'PASS' : 'FAIL'}`);
+    }
   }
   process.exit(soft.length || tout.length ? 2 : 0);
 }

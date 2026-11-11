@@ -24,6 +24,7 @@
     else if (c === 'result') P.openResult(scene, P.resultState);
     else if (c === 'debug') P.openDebug(scene);
     else if (c === 'abilities') P.openAbilities(scene);
+    else if (c === 'shop') P.openShop(scene, true);
   };
   function sim() { return G.gameScene && G.screen !== 'title' ? G.gameScene.sim : null; }
   function gear() { var s = sim(); return s ? s.gear : G.gearOf(G.save, G.cls); }
@@ -195,7 +196,7 @@
       if (!item.unid) G.STAT_ORDER.forEach(function (st) {
         var v = item.stats[st], c = cur ? cur.stats[st] || 0 : 0;
         if (v == null && !(isBag && c)) return;
-        if (ty > iy + ih - 34) return;
+        if (ty > iy + ih - (!s && sl.kind === 'bag' ? 54 : 34)) return;
         var line = L.text(ix + 5, ty, v != null ? statText(st, v) : G.STAT_LABEL[st][0], v != null ? 'ui_text' : 'ui_dim');
         if (isBag && cur) {
           var d = Math.round(((v || 0) - c) * 10) / 10;
@@ -217,9 +218,146 @@
         if (item.unid) L.button(ix + 5, byy, bw, 18, 'IDENTIFY', function () { if (G.identifyInBag(g, sl.key)) { G.storeSave(G.save); P.openInventory(scene, true); } }, { name: 'identify', color: 'gold' }).setEnabled(scrollCount > 0);
         else L.button(ix + 5, byy, bw, 18, 'EQUIP', act, { name: 'equip', color: better ? 'ui_good' : 'ui_text' }).setEnabled(!foreign);
         L.button(ix + 9 + bw, byy, bw, 18, 'DROP', function () { G.dropFromBag(g, sl.key); P.sel = null; G.storeSave(G.save); P.openInventory(scene, true); }, { name: 'drop' });
+        L.button(ix + 5, byy - 20, iw - 10, 18, 'SELL ' + G.sellPrice(item, B) + 'g', function () { G.sellFromBag(g, sl.key, B); P.sel = null; G.storeSave(G.save); P.openInventory(scene, true); }, { name: 'sell', color: 'gold' });
       } else {
         L.button(ix + 5, byy, Math.max(bw, 52), 18, 'UNEQUIP', act, { name: 'unequip' }).setEnabled(g.bag.length < B.loot.stashSize);
       }
+    }
+  };
+
+
+  // ------------------------------------------------------------------ shop
+  // The town shop (title screen until step 8 builds the town): BUY, SELL, UPGRADE and RANKS for the selected class. Sim functions: src/sim/economy.js.
+  P.shop = { tab: 'buy', sel: null };
+  P.openShop = function (scene, keep) {
+    if (P.L) P.L.destroy();
+    var V = G.view, B = G.BAL, E = B.economy, g = G.gearOf(G.save, G.cls), cls = G.cls, wide = V.W >= 300, st = P.shop, i;
+    G.ensureShop(g, B, cls);
+    P.current = 'shop'; P.scene = scene; G.paused = true;
+    if (!keep) { st.tab = 'buy'; st.sel = null; }
+    var pw = wide ? Math.min(V.W - 8, 340) : Math.min(V.W - 8, 264), ph = wide ? Math.min(V.H - 8, 226) : Math.min(V.H - 8, 400);
+    var L = P.L = UI.modal(scene, pw, ph, 'SHOP'), x0 = L.x, y0 = L.y;
+    L.button(x0 + pw - 22, y0 + 3, 18, 16, '', function () { P.close(); }, { icon: 'i_close', name: 'shop_close' });
+    L.image(x0 + 50, y0 + 10, 'i_gold');
+    L.text(x0 + 58, y0 + 6, '' + (g.gold | 0), 'gold');
+    L.text(x0 + 100, y0 + 6, G.classDef(B, cls).name, 'ui_dim');
+    function refresh() { G.storeSave(G.save); P.openShop(scene, true); }
+    var tabs = [['buy', 'BUY', 'shop_buy'], ['sell', 'SELL', 'shop_sell'], ['up', 'UPGRADE', 'shop_up'], ['ranks', 'RANKS', 'shop_ranks']], tw = Math.floor((pw - 16 - 9) / 4);
+    tabs.forEach(function (t, k) {
+      L.button(x0 + 8 + k * (tw + 3), y0 + 22, tw, 16, t[1], function () { st.tab = t[0]; st.sel = null; P.openShop(scene, true); }, { name: t[2], color: st.tab === t[0] ? 'ui_warn' : 'ui_text' });
+    });
+    var cy = y0 + 42;
+
+    // grid of cells (same look as the inventory); returns the geometry for the detail panel
+    var cols = wide ? 5 : Math.max(5, Math.min(10, Math.floor((pw - 14) / 22))), bx = wide ? x0 + 8 : x0 + 8;
+    function cell(x, y, item, key, name, extra) {
+      var bg = L.image(x + 10, y + 10, item ? 'rar_' + item.rarity : 'slot', 1);
+      if (item) L.image(x + 10, y + 10, extra || G.itemIcon(item), 2); else if (extra) L.image(x + 10, y + 10, extra, 2);
+      if (item && item.unid) L.image(x + 10, y + 10, 'i_unid', 3);
+      if (st.sel === key) L.image(x + 10, y + 10, 'select', 3);
+      if (item || extra) { bg.setInteractive({ useHandCursor: true }); bg.on('pointerdown', function () { st.sel = key; P.openShop(scene, true); }); }
+      UI.hit(name, x, y, 20, 20);
+    }
+    function grid(n, gy, at) { for (var k = 0; k < n; k++) at(k, bx + (k % cols) * 22, gy + Math.floor(k / cols) * 22); return gy + Math.ceil(n / cols) * 22; }
+    function panelBox(gridBottom) {
+      var ix = wide ? bx + cols * 22 + 6 : x0 + 8, iy = wide ? cy + 11 : gridBottom + 4, iw = x0 + pw - 8 - ix, ih = y0 + ph - 6 - iy;
+      L.panel(ix, iy, iw, ih, 'inset', 1);
+      return { ix: ix, iy: iy, iw: iw, ih: ih };
+    }
+    // item card: name, type, level, stats with the change against the worn item; returns the next y
+    function card(b, item, worn) {
+      var col = UI.RARITY[item.rarity], ty = b.iy + 5, nm = L.text(b.ix + 5, ty, item.name, col).setMaxWidth(b.iw - 10);
+      ty += nm.height + 2;
+      L.text(b.ix + 5, ty, UI.RARITY_NAME[item.rarity] + ' ' + (item.wtype ? item.wtype.charAt(0).toUpperCase() + item.wtype.slice(1) : G.SLOT_NAME[item.slot]) + '  Lv ' + item.ilvl, col); ty += 11;
+      if (item.unid) { L.text(b.ix + 5, ty, 'Unidentified: stats hidden', 'ui_warn'); return ty + 11; }
+      G.STAT_ORDER.forEach(function (k) {
+        var v = item.stats[k], c = worn ? worn.stats[k] || 0 : 0;
+        if (v == null && !c) return;
+        if (ty > b.iy + b.ih - 44) return;
+        var line = L.text(b.ix + 5, ty, v != null ? statText(k, v) : G.STAT_LABEL[k][0], v != null ? 'ui_text' : 'ui_dim');
+        if (worn) {
+          var d = Math.round(((v || 0) - c) * 10) / 10;
+          if (d) { var dt = L.text(0, ty, (d > 0 ? '+' : '') + d, d > 0 ? 'ui_good' : 'ui_bad'); dt.x = b.ix + b.iw - 5 - dt.width; if (dt.x < line.x + line.width + 3) dt.setVisible(false); }
+        }
+        ty += 10;
+      });
+      return ty;
+    }
+    function hint(b, item, worn) {
+      if (!G.canEquip(item, B, cls) || item.unid) return;
+      var t = !worn ? ['Slot is empty', 'ui_good'] : G.itemValue(item, B) > G.itemValue(worn, B) + 0.01 ? ['Better than worn', 'ui_good'] : ['Not better than worn', 'ui_dim'];
+      L.text(b.ix + 5, b.iy + b.ih - 36, t[0], t[1]);
+    }
+    var b, item, worn;
+
+    if (st.tab === 'buy') {
+      L.text(bx, cy, 'FOR SALE', 'ui_dim');
+      var stock = g.shop.stock, nS = stock.length;
+      var gb = grid(nS + 1, cy + 11, function (k, x, y) {
+        if (k < nS) cell(x, y, stock[k], 's' + k, 'shop_item_' + k); else cell(x, y, null, 'scroll', 'shop_item_scroll', 'i_scroll');
+      });
+      b = panelBox(gb);
+      if (st.sel === 'scroll') {
+        L.text(b.ix + 5, b.iy + 5, 'Scroll of Identification', 'gold');
+        L.text(b.ix + 5, b.iy + 17, 'Reveals the stats of one unidentified item.', 'ui_dim').setMaxWidth(b.iw - 10);
+        L.text(b.ix + 5, b.iy + b.ih - 36, 'You have ' + (g.scrolls | 0), 'ui_dim');
+        L.button(b.ix + 5, b.iy + b.ih - 22, b.iw - 10, 18, 'BUY ' + E.shop.scroll + 'g', function () { if (G.shopBuyScroll(g, B)) refresh(); }, { name: 'shop_buy_item', color: 'gold' })
+          .setEnabled((g.gold | 0) >= E.shop.scroll && (g.scrolls | 0) < B.loot.scrollCap);
+      } else if (st.sel && st.sel[0] === 's' && stock[+st.sel.slice(1)]) {
+        var idx = +st.sel.slice(1); item = stock[idx]; worn = g.equipped[item.slot];
+        card(b, item, worn); hint(b, item, worn);
+        var price = G.buyPrice(item, B), can = (g.gold | 0) >= price && g.bag.length < B.loot.stashSize;
+        L.button(b.ix + 5, b.iy + b.ih - 22, b.iw - 10, 18, g.bag.length >= B.loot.stashSize ? 'BAG IS FULL' : 'BUY ' + price + 'g', function () { if (G.shopBuy(g, idx, B)) { st.sel = null; refresh(); } }, { name: 'shop_buy_item', color: 'gold' }).setEnabled(can);
+      } else L.text(b.ix + 5, b.iy + 5, 'Tap an item for its stats and price. A rare costs a lot: only one is ever in stock.', 'ui_dim').setMaxWidth(b.iw - 10);
+    } else if (st.tab === 'sell') {
+      L.text(bx, cy, 'BAG ' + g.bag.length + '/' + B.loot.stashSize, 'ui_dim');
+      var gb2 = grid(B.loot.stashSize, cy + 11, function (k, x, y) { cell(x, y, g.bag[k], 'b' + k, 'shop_bag_' + k); });
+      // spare scrolls
+      var sy = wide ? gb2 + 3 : gb2 + 2;
+      L.image(bx + 6, sy + 6, 'i_scroll', 2);
+      L.text(bx + 14, sy + 3, 'x' + (g.scrolls | 0), (g.scrolls | 0) ? 'gold' : 'ui_dim');
+      L.button(bx + 44, sy - 1, 64, 15, 'SELL 1 +' + E.sell.scroll, function () { if (G.sellScrolls(g, 1, B)) refresh(); }, { name: 'shop_sell_scroll' }).setEnabled((g.scrolls | 0) > 0);
+      b = panelBox(wide ? gb2 + 3 : sy + 16);
+      item = st.sel && st.sel[0] === 'b' ? g.bag[+st.sel.slice(1)] : null;
+      if (item) {
+        worn = g.equipped[item.slot];
+        card(b, item, worn); hint(b, item, worn);
+        var sp = G.sellPrice(item, B);
+        if (item.unid) L.text(b.ix + 5, b.iy + b.ih - 36, 'Sells for ' + sp + ' (' + G.sellPrice(Object.assign({}, item, { unid: false }), B) + ' if identified)', 'ui_dim').setMaxWidth(b.iw - 10);
+        L.button(b.ix + 5, b.iy + b.ih - 22, b.iw - 10, 18, 'SELL ' + sp + 'g', function () { G.sellFromBag(g, +st.sel.slice(1), B); st.sel = null; refresh(); }, { name: 'shop_sell_item', color: 'gold' });
+      } else L.text(b.ix + 5, b.iy + 5, 'Tap an item to sell it. Unidentified items sell for less.', 'ui_dim').setMaxWidth(b.iw - 10);
+    } else if (st.tab === 'up') {
+      var list = [];
+      G.ITEM_SLOTS.forEach(function (k) { if (G.canUpgrade(g.equipped[k], B)) list.push({ key: 'w' + k, item: g.equipped[k], where: { slot: k }, worn: true }); });
+      g.bag.forEach(function (it, k) { if (G.canUpgrade(it, B)) list.push({ key: 'b' + k, item: it, where: { bag: k } }); });
+      L.text(bx, cy, 'WORN AND KEPT ITEMS YOU FOUND', 'ui_dim');
+      var gb3 = grid(Math.max(1, list.length), cy + 11, function (k, x, y) { if (list[k]) cell(x, y, list[k].item, list[k].key, 'shop_up_' + k); else cell(x, y, null, 'none', 'shop_up_none'); });
+      b = panelBox(gb3);
+      var cur = null; list.forEach(function (e) { if (e.key === st.sel) cur = e; });
+      if (cur) {
+        item = cur.item; var cl = JSON.parse(JSON.stringify(item)); G.upgradeItem(cl, B);
+        var ty = b.iy + 5, nm = L.text(b.ix + 5, ty, item.name, UI.RARITY[item.rarity]).setMaxWidth(b.iw - 10); ty += nm.height + 2;
+        L.text(b.ix + 5, ty, 'Level ' + item.ilvl + ' > ' + cl.ilvl + '   Upgrades ' + (item.up | 0) + '/' + E.upgrade.max[item.rarity], 'ui_dim'); ty += 11;
+        G.STAT_ORDER.forEach(function (k) {
+          if (item.stats[k] == null || ty > b.iy + b.ih - 30) return;
+          L.text(b.ix + 5, ty, G.STAT_LABEL[k][0] + ' ' + item.stats[k] + ' > ' + cl.stats[k], 'ui_text'); ty += 10;
+        });
+        var cost = G.upgradeCost(item, B);
+        L.button(b.ix + 5, b.iy + b.ih - 22, b.iw - 10, 18, 'UPGRADE ' + cost + 'g', function () { if (G.upgradeAt(g, cur.where, B)) refresh(); }, { name: 'shop_up_item', color: 'gold' }).setEnabled((g.gold | 0) >= cost);
+      } else L.text(b.ix + 5, b.iy + 5, list.length ? 'Tap an item: +1 item level for gold. Shop items cannot be upgraded. Identify unknown items first.' : 'Nothing to upgrade. Only identified items you found can be upgraded.', 'ui_dim').setMaxWidth(b.iw - 10);
+    } else {
+      L.text(x0 + 8, cy, 'PERMANENT RANKS (this class)', 'ui_dim');
+      var ids = Object.keys(E.ranks), rh = wide ? 26 : 30;
+      ids.forEach(function (id, k) {
+        var R = E.ranks[id], ry = cy + 12 + k * (rh + 2), rank = (g.ranks && g.ranks[id]) | 0, cost = G.rankCost(g, id, B), iw = pw - 16;
+        L.panel(x0 + 8, ry, iw, rh, 'inset', 1);
+        L.text(x0 + 13, ry + 4, R.name, 'ui_text');
+        L.text(x0 + 13, ry + 15, R.text + (rank ? '  (now +' + R.per * rank + ')' : ''), 'ui_dim');
+        for (var r = 0; r < E.rankCost.length; r++) { L.bar(x0 + 8 + iw - 66 - (E.rankCost.length - r) * 7, ry + 4, 5, 5, r < rank ? 'gold' : 'ui_line', 3); }
+        var bt = L.button(x0 + 8 + iw - 58, ry + 3, 52, rh - 6, cost === null ? 'MAX' : 'BUY ' + cost, function () { if (G.buyRank(g, id, B)) refresh(); }, { name: 'shop_rank_' + id, color: 'gold' });
+        bt.setEnabled(cost !== null && (g.gold | 0) >= cost);
+      });
+      L.text(x0 + 8, cy + 12 + ids.length * (rh + 2) + 2, 'Ranks apply to every run of this class.', 'ui_dim').setMaxWidth(pw - 16);
     }
   };
 
@@ -289,6 +427,7 @@
       ['BOSS ROOM', act(function () { s.cheatRoom(s.B.run.rooms - 1); }), 'dbg_boss'],
       ['GIVE LOOT', act(function () { s.cheatLoot(); }), 'dbg_loot'],
       ['DOORS', act(function () { s.cheatChoice(); }), 'dbg_doors'],
+      ['MERCHANT', act(function () { s.cheatMerchant(); }), 'dbg_merchant'],
       ['ABILITIES', act(function () { s.cheatAbilities(s.defaultActives()); }), 'dbg_abil'],
       ['RESUME', function () { P.close(); }, 'dbg_resume']
     ];
@@ -311,7 +450,7 @@
     }
     P.current = 'result'; P.scene = scene; P.resultState = state; G.paused = true; G.screen = 'result';
     G.gameScene.ended = true;
-    var pw = Math.min(V.W - 8, 230), ph = 144;
+    var pw = Math.min(V.W - 8, 230), ph = 156;
     var L = P.L = UI.modal(scene, pw, ph, null), x0 = L.x, y0 = L.y, cx = V.W / 2;
     UI.centerX(L.text(0, y0 + 9, won ? 'RIFT SEALED' : (left ? 'YOU LEFT' : 'YOU DIED'), won ? 'ui_good' : (left ? 'ui_warn' : 'ui_bad'), true), cx);
     var t = Math.round(s.tick / 60), gs = G.gearScore(s.gear), lines = [
@@ -319,6 +458,7 @@
       ['Level ' + s.player.level + '   Kills ' + s.kills + '   ' + Math.floor(t / 60) + ':' + ('0' + t % 60).slice(-2), 'ui_dim'],
       state === 'dead' ? [R.items ? 'The bag was lost: ' + R.items + (R.items === 1 ? ' item' : ' items') + (B.run.deathKeepsEquipped ? '  (worn gear kept)' : '  (worn gear lost)') : 'The bag was empty', R.items ? 'ui_bad' : 'ui_dim']
         : [R.kept + (R.kept === 1 ? ' item' : ' items') + ' kept in your bag' + (R.lost ? ', ' + R.lost + ' lost (bag full)' : ''), 'ui_good'],
+      s.testRoom >= 0 ? ['Gear score ' + gs, 'ui_dim'] : (state === 'dead' ? [R.goldLost ? 'Gold: ' + R.goldLost + ' lost' : 'Gold: none earned', 'ui_bad'] : ['Gold: +' + R.goldKept + ' kept', 'gold']),
       ['Gear score ' + gs, 'ui_dim']];
     var next = B.run.tierGear[s.tier + 1];
     if (next != null) lines.push(gs >= next ? ['Tier ' + (s.tier + 2) + ' unlocked: harder rifts, better loot', 'ui_warn'] : ['Tier ' + (s.tier + 2) + ' needs gear score ' + next, 'ui_dim']);

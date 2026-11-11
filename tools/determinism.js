@@ -8,7 +8,7 @@
 'use strict';
 const fs = require('fs'), path = require('path'), vm = require('vm');
 const ROOT = path.dirname(__dirname);
-const SIM = ['balance.js', 'rng.js', 'mapgen.js', 'sim/items.js', 'sim/abilities.js', 'sim/core.js', 'sim/effects.js', 'sim/combat.js', 'sim/fissures.js', 'sim/boss.js', 'qa/bot.js', 'save.js'];
+const SIM = ['balance.js', 'rng.js', 'mapgen.js', 'sim/items.js', 'sim/economy.js', 'sim/abilities.js', 'sim/core.js', 'sim/effects.js', 'sim/combat.js', 'sim/fissures.js', 'sim/boss.js', 'qa/bot.js', 'save.js'];
 const INEXACT = ['sin', 'cos', 'tan', 'asin', 'acos', 'atan', 'atan2', 'sinh', 'cosh', 'tanh', 'asinh', 'acosh', 'atanh',
   'exp', 'expm1', 'log', 'log1p', 'log2', 'log10', 'pow', 'cbrt', 'hypot'];
 const StrictMath = {};
@@ -60,4 +60,13 @@ for (const cls of Object.keys(G.BAL.builds)) {
     console.log(`bot run ${cls}/${build} seed 3 twice: ${ok ? 'identical' : 'DIFFERENT'} (${a.result}, ${a.rooms} rooms, level ${a.level}, ${a.kills} kills, ${a.seconds} s)`);
   }
 }
-process.exit(bad || modBad || abilBad || !same || hashes.size !== checked ? 1 : 0);
+// economy: seed 3 with merchant rooms (chance raised so the bot meets and uses them), twice, with gold and purchases
+[G, G2].forEach(g => { g.BAL.economy.merchant.chance = 0.6; });
+let ecoBad = 0;
+for (const cls of ['mage', 'warrior', 'archer']) {
+  const gearA = G.newGear(), gearB = G2.newGear(); gearA.gold = gearB.gold = 0;
+  const a = G.botRun(3, { cls, leave: 8, gear: gearA }), b = G2.botRun(3, { cls, leave: 8, gear: gearB }), ok = JSON.stringify([a, gearA]) === JSON.stringify([b, gearB]);
+  if (!ok) ecoBad++;
+  console.log(`economy ${cls} seed 3 with merchants (rooms ${G.merchantRooms(3, G.BAL).join(',')}) twice: ${ok ? 'identical' : 'DIFFERENT'} (${a.result}, gold earned ${a.bag.goldEarned} kept ${a.bag.goldKept} spent ${a.bag.goldSpent}, merchants met ${a.merchants.met} used ${a.merchants.used}, scrolls bought ${a.bag.scrollsBought})`);
+}
+process.exit(bad || modBad || ecoBad || abilBad || !same || hashes.size !== checked ? 1 : 0);

@@ -12,6 +12,18 @@ Until step 8 builds the walkable town, **the town shop and selling live on the t
 EQUIPMENT (as equipping does today). Step 8 moves the same panel behind an NPC; the sim functions do not change.
 
 
+## Decisions by the user (2026-11-11)
+
+- Gold of a run is lost on death (as the spec says, `gold.deathKeeps` 0).
+- Gold belongs to each character (per class, as the spec says).
+- The merchant takes the run's gold only (as the spec says).
+- CHANGE: the town shop may also sell RARE items at a very high price, at most 1 rare in stock at a time, never epic or better
+  (`G.rollShopItem` throws above `shop.maxRarity` 2). Rare shop items are identified. This replaces "commons and magic only"
+  (section 4, `shop.maxRarity` 1) and answers open question 4 as "up to rare at a high price". Price: `shop.rareBuyMult` 10
+  (the identified sell price x 10) = 250 / 400 / 550 gold at shop tier 1 / 2 / 3, which is 5 times the magic item of the same tier
+  (50 / 80 / 110, `buyMult` 5), 10 times what the rare sells for, and above the first upgrade of a found rare (100 to 200).
+  The stock is the 6 entries above plus a 7th entry, the rare (`shop.rarities` = [0, 0, 0, 0, 1, 1, 2], `shop.maxRare` 1).
+
 ## Design assumptions (defaults; the user may change them, see "Open questions" at the end)
 
 - Gold follows the bag rule: gold earned in a run is sealed, banked on leave or win, lost on death (`gold.deathKeeps` 0).
@@ -367,3 +379,18 @@ Test budget (`CLAUDE.md` and the step brief): the determinism check, at most 10 
 2. Gold, ranks and shop: per class (default) / one shared wallet, ranks per class / wallet and ranks shared by all classes.
 3. Merchant payment: the run's gold only (default) / run gold first, then kept gold / kept gold only.
 4. Shop rarities: common and magic (default) / common only / up to rare at a high price.
+
+
+## Implementation notes (Sonnet, 2026-11-11)
+
+- The shop stock has 7 entries (6 base items + the rare, see "Decisions by the user"); `G.shopStockOk` checks 7, not 6. Epic and legendary: `G.rollShopItem` throws above `shop.maxRarity` 2.
+  `shop.maxRare` 1 is enforced in `G.restockShop`. A rare costs `shop.rareBuyMult` 10 x the identified sell price (250 / 400 / 550).
+- The merchant opens with a tap on him or the I key (inventory key) when in reach. The spec's E key is the pulse key in this game, so it is not bound.
+- Coins "flying to the counter" is a small gold burst at the source plus one summed "+n" label per 0.2 s; the HUD counter just updates.
+- A potion can be bought at full HP (it heals nothing); the bot buys one only when HP < `bot.shop.potionHp`.
+- The bot (`G.Bot.shopVisit`) buys the rare last, only with gold left after ranks and upgrades, and only when it beats the worn item.
+  Careers never reached 250 spare gold, so no rare was bought (the code path is covered by a manual check with 5000 gold: it buys and wears it).
+- Worthy unidentified items stay in the kept bag between runs (they are not sold) while the bag has room for a full sealed bag (`stashSize - bagSize`); the weakest are sold beyond that.
+- `sim_bot --career` runs `shopVisit` once before run 1 and once after every run (after `restockShop`); the sales printed on a run's line are those of the visit after that run.
+- Quitting from settings does not call `finishRun` (as before): the run's gold is simply never banked, which is the same as losing it.
+- `--set loot.killScroll=...` etc. restores the old scroll rates; with those and `economy.merchant.chance=0` the 10-seed runs of all 3 classes were identical field by field to the runs before step 7.

@@ -18,9 +18,28 @@ Design decisions live in the plan doc (the user has it); this file is what an ag
   equipment panel. The old passives (table, files, flags) are gone.
 - Step 6 (doors and extraction) on branch `step-6-doors-extraction`: the after-room choice, door modifiers, the sealed bag, in-run equipping from the sealed bag, gear per class.
   Rules in `src/balance.js` (`doors`, `run.deathKeepsEquipped`, `loot.bagSize` = sealed bag of a run, `loot.stashSize` = kept bag).
-- Step 7 (economy) on branch `step-7-economy`: spec written (`docs/specs/economy.md`, data in `src/balance.js` `economy` and `bot.shop`,
-  not read by the sim yet); implementation pending (Sonnet, new session).
+- Step 7 (economy) on branch `step-7-economy`: **done** (spec `docs/specs/economy.md` with "Decisions by the user" and "Implementation notes"; data in
+  `src/balance.js` `economy`; code in `src/sim/economy.js`, `core.js`, `combat.js`, `fissures.js`, `src/save.js` v6, `src/qa/bot.js` `shopVisit`, shop panel in
+  `src/view/panels.js`, merchant in `hud.js` / `game.js`). Gold is sealed per run (banked on leave / win, lost on death), per class; shop (BUY / SELL / UPGRADE / RANKS)
+  on the title screen until step 8; the shop sells commons, magic and ONE rare (250 / 400 / 550 gold), never epic or better; the merchant in rooms sells scrolls and potions.
 - `main` is the working base. One branch per step: `step-N-<slug>`.
+
+## Last measured (2026-11-11, step 7: economy)
+
+- Before the economy was switched on (old scroll rates, `economy.merchant.chance=0`): `sim_bot --seeds 1-10 --json` identical field by field to the runs before step 7 for mage, warrior, archer.
+- Node bot seeds 1-10, fresh gear, default policy (new scroll rates, merchants on): mage 0 wins, warrior 0 (was 4), archer 1 (was 2); 0 softlocks, 0 timeouts, worst stuck 8 / 15 / 15 s.
+  Scrolls found per run 1.0 / 2.4 / 1.8 (was 11 / 16 / 11); merchants met in 10 runs 4 / 6 / 5, used 2 / 3 / 5; gold earned per run 135 / 434 / 323. Wins fell because a fresh-gear run identifies far fewer
+  items (not tuned, as the spec says); the careers below are the real test.
+- Careers (`--career 10 --seeds 1-10`): gold per run (earned + sold) mage avg 504 (31 .. 1194), warrior 503 (118 .. 801), archer 381 (29 .. 647). Spent over 10 runs: mage scrolls 75 / items 107 / upgrades 1975 / ranks 2300 (15 of 25 ranks);
+  warrior 150 / 150 / 1330 / 1000 (10 ranks); archer 225 / 76 / 755 / 1000 (10 ranks); merchant 0 / 80 / 150. Outcomes: mage 7 left, 2 dead, 1 win (run 10); warrior 7 left, 3 dead; archer 6 left, 4 dead. Worn items at run 10: 0 shop items for all three,
+  the best ones are drops (rarity 3-4 from the loot table), `bestFromDrops` PASS x3. The bot never bought the rare in these careers (it only spends gold left after ranks and upgrades).
+  Ranks 10-15 of 25 and gold per run are above or at the spec's targets (130 for 3 rooms, 500-750 for a win); the deaths at the end of a career lose 400-800 gold each.
+- `node tools/check_bag.js`: all checks pass (adds sell prices, shop stock per tier / own-class weapons / 200 restocks per class never above rare / epic refused / rare 250 = 5 x magic, buy refusals, upgrades, ranks,
+  gold banked on leave / win, lost on death, none in the test room, door bonus, merchant rooms and buying, v5 -> v6 and malformed v6 saves, bot shopVisit). `node tools/determinism.js` passes, plus seed 3 with merchants twice per class.
+- Browser (Playwright script outside the repo, `qa/lib.js`): title SHOP: sell an item (+14 gold), buy a scroll (25), buy a rank (60), RANKS / BUY / SELL tabs; in a run (DBG `MERCHANT` cheat): tap the merchant opens his panel and pauses the run,
+  2 scrolls bought from the run gold, close resumes; 0 errors. Screenshots `/tmp/step7_shop.png` (960x540, BUY tab with the rare selected) and `/tmp/step7_merchant.png` (540x960).
+- Rough: no art look at the merchant sprite in the world (the panel covered him in the screenshot); the UPGRADE tab and the title EQUIPMENT SELL button were not clicked in the browser; coins do not fly to the counter;
+  the wins of a fresh-gear run fell with the scroll drops; `qa/bot.js` (browser bot), `qa/session.js`, `qa/screens.js` not run; touch not tested; the rare may be too expensive for the bot's spending order (never bought).
 
 ## Last measured (2026-11-11, step 6 finished: gear per class, in-run equip, identification)
 
