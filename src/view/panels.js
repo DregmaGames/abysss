@@ -22,6 +22,7 @@
     if (c === 'inventory') P.openInventory(scene, true);
     else if (c === 'settings') P.openSettings(scene, P.back);
     else if (c === 'result') P.openResult(scene, P.resultState);
+    else if (c === 'debug') P.openDebug(scene);
   };
   function sim() { return G.gameScene && G.screen !== 'title' ? G.gameScene.sim : null; }
   function gear() { var s = sim(); return s ? s.gear : G.save.gear; }
@@ -162,6 +163,40 @@
       var keep = G.save.settings; G.save = G.newSave(); G.save.settings = keep; G.storeSave(G.save); P.close(true); G.toTitle();
     }, { name: 'set_reset', color: 'ui_bad' });
     void zt;
+  };
+
+  // ----------------------------------------------------------------- debug
+  // Cheats to test fast. Toggles stay on for the browser session; actions apply at once.
+  P.openDebug = function (scene) {
+    if (P.L) P.L.destroy();
+    var V = G.view, s = sim(), C = G.cheats, gs = G.gameScene;
+    if (!s) return;
+    P.current = 'debug'; P.scene = scene; G.paused = true; G.screen = 'debug';
+    var pw = Math.min(V.W - 8, 204), rows = 6, ph = 30 + rows * 21 + 6;
+    var L = P.L = UI.modal(scene, pw, ph, 'DEBUG'), x0 = L.x, y0 = L.y, bw = Math.floor((pw - 22) / 2);
+    L.button(x0 + pw - 22, y0 + 3, 18, 16, '', function () { P.close(); }, { icon: 'i_close', name: 'dbg_close' });
+    function reopen() { P.openDebug(scene); }
+    function act(fn) { return function () { fn(); P.close(); }; }
+    var B = [
+      ['GOD ' + (C.god ? 'ON' : 'OFF'), function () { C.god = !C.god; reopen(); }, 'dbg_god', C.god],
+      ['NO CD ' + (C.noCd ? 'ON' : 'OFF'), function () { C.noCd = !C.noCd; reopen(); }, 'dbg_nocd', C.noCd],
+      ['SPEED x' + gs.speed, function () {
+        var next = { 1: 2, 2: 4, 4: 8 }[gs.speed] || 1;
+        gs.speed = C.speed = next; gs.fx.quiet = next > 4; reopen();
+      }, 'dbg_speed', gs.speed > 1],
+      ['KILL ALL', act(function () { s.cheatKillAll(); }), 'dbg_kill'],
+      ['SKIP PHASE', act(function () { s.cheatSkipPhase(); }), 'dbg_skip'],
+      ['LEVEL UP', act(function () { s.cheatLevel(); }), 'dbg_level'],
+      ['NEXT ROOM', act(function () { s.cheatRoom(s.roomIndex + 1); }), 'dbg_next'],
+      ['BOSS ROOM', act(function () { s.cheatRoom(s.B.run.rooms - 1); }), 'dbg_boss'],
+      ['GIVE LOOT', act(function () { s.cheatLoot(); }), 'dbg_loot'],
+      ['RESUME', function () { P.close(); }, 'dbg_resume']
+    ];
+    B.forEach(function (b, i) {
+      var bx = x0 + 8 + (i % 2) * (bw + 6), by = y0 + 24 + Math.floor(i / 2) * 21;
+      L.button(bx, by, bw, 18, b[0], b[1], { name: b[2], color: b[3] ? 'ui_good' : 'ui_text' });
+    });
+    L.text(x0 + 8, y0 + ph - 15, 'Room ' + (s.roomIndex + 1) + '  ' + s.phase + '  seed ' + s.seed, 'ui_dim');
   };
 
   // ---------------------------------------------------------------- result

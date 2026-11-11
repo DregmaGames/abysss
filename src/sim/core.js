@@ -17,6 +17,7 @@
     this.rngCombat = new G.RNG(G.hash32(this.seed, 9001));
     this.rngLevel = new G.RNG(G.hash32(this.seed, 4242));
     this.choices = []; this.choiceTome = false;
+    this.cheats = opts.cheats || {};     // debug panel toggles: god, noCd (see the cheats section below)
     this.player = { x: 0, y: 0, r: P.r, hp: P.hp, maxHp: P.hp, fx: 0, fy: -1, face: 1, moving: false,
       atkCd: 0.4, dodgeCd: 0, dashT: 0, dashX: 0, dashY: 0, iframes: 0, pulseCd: 0,
       level: 1, exp: 0, expNext: this.expFor(1), passives: {}, pending: 0, tomes: 0, walk: true };
@@ -165,6 +166,7 @@
     if (p.pulseCd > 0) p.pulseCd -= dt;
     if (p.iframes > 0) p.iframes -= dt;
     if (s.regen && p.hp < p.maxHp) p.hp = Math.min(p.maxHp, p.hp + s.regen * dt);
+    if (this.cheats.noCd) { p.dodgeCd = 0; p.pulseCd = 0; }
 
     if (inp.dodge && p.dodgeCd <= 0 && p.dashT <= 0) {
       p.dashT = P.dodgeTime; p.dashX = p.fx; p.dashY = p.fy;
@@ -188,7 +190,7 @@
 
   S.hurtPlayer = function (dmg, x, y) {
     var p = this.player;
-    if (p.iframes > 0 || this.state !== 'play') return false;
+    if (p.iframes > 0 || this.state !== 'play' || this.cheats.god) return false;
     dmg = Math.max(1, Math.round(dmg * 100 / (100 + this.stats.armor)));
     p.hp -= dmg;
     p.iframes = this.B.player.hurtIframes;
@@ -247,6 +249,46 @@
     return ok;
   };
   S.dropItem = function (bagIdx) { return G.dropFromBag(this.gear, bagIdx); };
+
+  // ------------------------------------------------------------------ cheats
+  // Debug panel actions, to reach any part of a run fast. They go through the normal sim paths
+  // (kill, darkenSeg, loadRoom), so the rest of the run behaves as it would in play.
+  S.cheatKillAll = function () {
+    for (var i = 0; i < this.monsters.length; i++) if (!this.monsters[i].dead) this.kill(this.monsters[i]);
+  };
+  // network -> all dark (super fissure opens); super -> its wave is gone (it closes, chest appears);
+  // chest -> the mage stands on it; exit -> the mage stands in the gate
+  S.cheatSkipPhase = function () {
+    var i, f, p = this.player;
+    if (this.phase === 'fissures') {
+      this.cheatKillAll();
+      for (i = 0; i < this.clusters.length; i++) {
+        var cl = this.clusters[i];
+        cl.queue = [];
+        while (cl.darkN < cl.order.length) this.darkenSeg(cl.order[cl.darkN++]);
+      }
+    } else if (this.phase === 'super') {
+      f = this.fissures[this.fissures.length - 1];
+      f.queue = [];
+      if (f.state === 'opening') { f.state = 'open'; f.reveal = 1; }
+      this.cheatKillAll();
+    } else if (this.phase === 'chest') { p.x = this.chest.x; p.y = this.chest.y; }
+    else if (this.phase === 'exit') { p.x = this.exit.x; p.y = this.exit.y; }
+    this.progress();
+  };
+  S.cheatRoom = function (index) {
+    index = Math.max(0, Math.min(this.B.run.rooms - 1, index));
+    if (index > this.roomIndex) this.roomsCleared += index - this.roomIndex;
+    this.loadRoom(index);
+  };
+  S.cheatLevel = function () {
+    var p = this.player;
+    this.gainExp((p.expNext - p.exp) / this.stats.expMult + 0.01);
+  };
+  S.cheatLoot = function () {
+    var p = this.player;
+    for (var i = -1; i <= 1; i++) this.spawnItem(p.x + i * 14, p.y + 12, this.B.loot.luck.boss);
+  };
 
   // -------------------------------------------------------------------- step
   S.step = function () {

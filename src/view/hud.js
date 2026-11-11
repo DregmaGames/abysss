@@ -18,6 +18,7 @@
 
       var kb = this.input.keyboard;
       kb.on('keydown-I', function () { self.toggleInventory(); });
+      kb.on('keydown-F2', function (e) { if (e && e.preventDefault) e.preventDefault(); self.toggleDebug(); });
       kb.on('keydown-TAB', function (e) { e.preventDefault(); self.toggleInventory(); });
       kb.on('keydown-ESC', function () { if (G.Panels.isOpen()) G.Panels.close(); else if (!self.level) G.Panels.openSettings(self); });
       ['ONE', 'TWO', 'THREE'].forEach(function (k, i) { kb.on('keydown-' + k, function () { self.pickLevel(i); }); });
@@ -89,6 +90,8 @@
       // objective + fissure progress: top-centre, or a second row when the screen is narrow
       var free = V.W - (86 + X * 2) - (26 + X * 2);
       this.obj = free >= 150 ? { x: X + 86 + X, y: Y, w: free } : { x: X, y: Y + 30, w: V.W - X * 2 };
+      // debug button (cheats for testing): under the inventory button, below the objective row if that wraps
+      if (G.debug) L.button(V.W - X - 26, (this.obj.y === Y ? Y : this.obj.y) + 30, 26, 14, 'DBG', function () { self.toggleDebug(); }, { name: 'dbg' });
       this.objPlate = L.panel(0, this.obj.y, 100, 27, 'plate');
       this.objText = L.text(0, this.obj.y + 5, '');
       this.roomText = L.text(0, this.obj.y + 16, '', 'ui_dim');
@@ -118,6 +121,15 @@
         this.tDodge = mk(V.W - 58, V.H - 26, 't_dodge', function () { if (!G.paused) self.game_.controls.dodge(); }, 'tdodge');
       }
       this.refresh();
+    },
+
+    toggleDebug: function () {
+      if (!G.debug || this.level) return;
+      if (G.Panels.current === 'debug') { G.Panels.close(); return; }
+      var st = this.game_.sim.state;
+      if (st === 'dead' || st === 'won') return;
+      this.dropStick();
+      G.Panels.openDebug(this);
     },
 
     toggleInventory: function () {
