@@ -31,6 +31,8 @@ applies: do not look for another way to do the same thing; report it to the user
   same seed = same map and same run. Every number that can be tuned lives in `src/balance.js`.
 - All art goes through `tools/pixelart.py` (or `tools/import_asset.py` for generated art): one pixel
   size for the whole game, the palette in `assets/palette.json`.
+- Bot checks: test until the change is right, with at most 10 runs (seeds), e.g.
+  `node tools/sim_bot.js --seeds 1-10`, `node qa/bot.js --seeds 1-10`. Never 100 or 400.
 - After every change: `python3 tools/build.py`, then the checks in `README.md` > QA that cover what
   you touched. Look at the screenshots at 960x540 and 540x960. Do not say a system is done without
   the QA result, and say what you tested and what is still rough.
