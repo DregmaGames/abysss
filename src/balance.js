@@ -94,7 +94,7 @@
 
     exp: { base: 9, grow: 5, pow: 1.22 },   // exp to next = base + grow * (level-1)^pow
 
-    // ai: chase | weave | ranged | lunge | elite | boss. threat: fissure spawn budget cost. exp: orb value.
+    // ai: chase | weave | ranged | lunge | caster | elite | boss. threat: fissure spawn budget cost. exp: orb value.
     monsters: {
       imp:      { ai: 'chase', r: 5, hp: 18, speed: 84, dmg: 9, exp: 2, threat: 1, shadow: 's' },
       bat:      { ai: 'weave', r: 4.5, hp: 10, speed: 104, dmg: 6, exp: 2, threat: 1, shadow: 's', weave: 0.9, fly: 5 },
@@ -102,6 +102,13 @@
                   shotDmg: 10, shotSpeed: 100, shotEvery: 2.0, windup: 0.45, keepMin: 62, keepMax: 100, sight: 140 },
       hound:    { ai: 'lunge', r: 7, hp: 80, speed: 38, dmg: 16, exp: 8, threat: 3, shadow: 'm',
                   lungeRange: 54, lungeWindup: 0.5, lungeSpeed: 180, lungeTime: 0.34, lungeCd: 2.6 },
+      // cultist: the sixth type, a slow caster that takes floor away. It draws a rune (radius poolR, `windup` s on the floor) under a standing hero,
+      // or `lead` x the distance a walking hero would cover in that time ahead of them (keep walking straight and it catches you),
+      // the rune erupts (eruptDmg to a hero still on it) and stays as a rift pool for poolTime s that deals poolDmg every poolTick s to a hero
+      // standing in it (the dodge crosses it unhurt). Kill it while it casts and the rune is gone. A walker: open cracks stop it, not its cast.
+      cultist:  { ai: 'caster', r: 5, hp: 46, speed: 30, dmg: 6, exp: 6, threat: 3, shadow: 's',
+                  castEvery: 3.4, windup: 0.9, lead: 0.8, sight: 150, keepMin: 66, keepMax: 104,
+                  poolR: 22, eruptDmg: 14, poolDmg: 7, poolTick: 0.45, poolTime: 6 },
       warden:   { ai: 'elite', r: 9, hp: 260, speed: 34, dmg: 12, exp: 26, threat: 8, shadow: 'm', elite: true,
                   shotDmg: 11, shotSpeed: 100, shotEvery: 2.3, windup: 0.5, spread: 0.3, keepMin: 46, keepMax: 86,
                   summonEvery: 7, summon: 2, summonType: 'imp' },
@@ -121,12 +128,12 @@
         { imp: 8, bat: 3 },
         { imp: 6, bat: 3, skeleton: 2 },
         { imp: 6, bat: 3, skeleton: 3, hound: 1 },
-        { imp: 5, bat: 3, skeleton: 3, hound: 2 },
-        { imp: 5, bat: 3, skeleton: 3, hound: 3 },
-        { imp: 5, bat: 3, skeleton: 3, hound: 3 },
-        { imp: 4, bat: 3, skeleton: 4, hound: 3 },
-        { imp: 4, bat: 3, skeleton: 4, hound: 4 },
-        { imp: 4, bat: 3, skeleton: 4, hound: 4 },
+        { imp: 5, bat: 3, skeleton: 3, hound: 2, cultist: 1 },      // the cultist joins in room 4 and grows more common to room 9
+        { imp: 5, bat: 3, skeleton: 3, hound: 3, cultist: 1 },
+        { imp: 5, bat: 3, skeleton: 3, hound: 3, cultist: 2 },
+        { imp: 4, bat: 3, skeleton: 4, hound: 3, cultist: 2 },
+        { imp: 4, bat: 3, skeleton: 4, hound: 4, cultist: 2 },
+        { imp: 4, bat: 3, skeleton: 4, hound: 4, cultist: 3 },
         { imp: 6, bat: 3, skeleton: 3, hound: 1 }
       ],
       superWave: [
@@ -202,7 +209,7 @@
       // Fractions accumulate (sim.goldFrac), whole coins go to the sealed run gold (sim.gold). Sealed like the bag: banked on leave / win,
       // lost on death (deathKeeps = share kept on death; 0 like items). None in the test room.
       gold: {
-        kill: 0.3,                    // per point of the killed monster's threat (imp 1, skeleton 2, hound 3, warden 8, tyrant 40)
+        kill: 0.3,                    // per point of the killed monster's threat (imp 1, skeleton 2, hound 3, cultist 3, warden 8, tyrant 40)
         close: 1.5,                   // a normal fissure closed
         superClose: 6,                // the super fissure closed
         chest: 8,                     // the room's chest opened

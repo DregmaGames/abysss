@@ -67,6 +67,7 @@
     G.qa.hits[name] = { x: Math.round((x + w / 2) * G.view.S), y: Math.round((y + h / 2) * G.view.S) };
   };
 
+  UI.FINGER = 44;      // CSS px: the smallest side of a button's hit box once a touch has been seen
   // Button. A list `into` collects every object it creates so the owner can destroy them.
   UI.RAISED = /[\u00c1\u00c9\u00cd\u00d3\u00da\u00d1\u00dc]/;
   UI.button = function (scene, x, y, w, h, label, onClick, opts) {
@@ -89,7 +90,9 @@
     b.click = function () { if (b.enabled && bg.visible) onClick(); };
     b.destroy = function () { b.objs.forEach(function (o) { o.destroy(); }); };
     b.setLabel(label || '');
-    bg.setInteractive({ useHandCursor: true });
+    // touch: a finger needs about FINGER CSS px. A smaller button keeps its look and gets a hit box that reaches out around it.
+    var need = G.finger || G.touch ? Math.ceil(UI.FINGER / G.view.S) : 0, ex = Math.max(0, Math.ceil((need - w) / 2)), ey = Math.max(0, Math.ceil((need - h) / 2));
+    bg.setInteractive({ hitArea: new Phaser.Geom.Rectangle(-ex, -ey, w + 2 * ex, h + 2 * ey), hitAreaCallback: Phaser.Geom.Rectangle.Contains, useHandCursor: true });
     bg.on('pointerover', function () { if (b.enabled) bg.setFrame('btn_hot'); });
     bg.on('pointerout', function () { bg.setFrame('btn'); });
     bg.on('pointerdown', function (p) { if (!p.rightButtonDown()) b.click(); });
@@ -138,7 +141,7 @@
     function tickX(k) { return Math.round(x + (steps === 1 ? 0 : k * (w - 1) / (steps - 1))); }
     for (i = 0; i < steps; i++) L.bar(tickX(i), y + 4, 1, 7, 'ui_dim', 1.1);
     var knob = L.image(x, y + 7, 'knob', 3);
-    var zone = L.add(scene.add.zone(x - 8, y - 5, w + 16, 22).setOrigin(0, 0));
+    var zone = L.add(scene.add.zone(x - 5, y - 5, w + 10, 22).setOrigin(0, 0));
     zone._dz = 4; zone.setDepth(L.depth + 4);
     zone.setInteractive({ useHandCursor: true });
     function place() { var kx = tickX(s.index); knob.x = kx; fill.setDisplaySize(Math.max(0.01, kx - x), 3); }

@@ -3,7 +3,7 @@
 (function (G) {
   var UI = G.UI, STEP = 1000 / 60, ADD = Phaser.BlendModes.ADD;
   var SHADOW = { s: 'shadow_s', m: 'shadow_m', l: 'shadow_l' };
-  var DIE_COLOR = { imp: 'ir2', bat: 'bt2', skeleton: 'sk2', hound: 'hd2', warden: 'wd2', tyrant: 'ty2' };
+  var DIE_COLOR = { imp: 'ir2', bat: 'bt2', skeleton: 'sk2', hound: 'hd2', cultist: 'cu2', warden: 'wd2', tyrant: 'ty2' };
   var SHOT_FRAME = { bone: 'shot_bone', big: 'shot_big', orb: 'shot' };
   var HOP_H = 12, ARC_LIFE = 30;          // dodge across a crack: hop height (px), trail fade (frames)
 
@@ -204,6 +204,9 @@
             break;
           case 'windup': s = this.maps.monsters.get(e.id); if (s) s.wind = Math.round(e.dur * 60); break;
           case 'puff': fx.burst(e.x, e.y, 'ui_dim', 3, 30, 0.2); break;
+          case 'hex': fx.burst(e.x, e.y - 14, 'shot1', 6, 50, 0.3); break;
+          case 'erupt': fx.ring(e.x, e.y, 4, e.r, 0.3, 'shot1'); fx.burst(e.x, e.y, 'shot2', 16, 90, 0.45); fx.shake(0.35); break;
+          case 'fizzle': fx.burst(e.x, e.y, 'ui_dim', 8, 40, 0.3); break;
           case 'slam': fx.ring(e.x, e.y, 8, e.r, 0.3, 'em3'); fx.burst(e.x, e.y, 'em2', 30, 140, 0.5); fx.shake(0.9); break;
           case 'enrage': fx.ring(e.x, e.y, 6, 70, 0.6, 'blood'); fx.shake(0.7); break;
           case 'fissure':
@@ -459,17 +462,14 @@
           if (m.def.boss) g.fillRect(Math.round(m.x + m.lx * j - m.ly * 6), Math.round(m.y + m.r + m.ly * j + m.lx * 6), 1, 1);
         }
       }
-      // ranged wind-ups: dotted aim lines toward the hero (skeleton 1, warden 3); boss burst: the lanes of the volley
+      // ranged wind-ups: dotted aim lines toward the hero (skeleton 1, warden 3); boss burst: the lanes of the volley (drawLanes)
       var blink = UI.hex((tick >> 2) % 2 ? 'em4' : 'em2');
       for (i = 0; i < sim.monsters.length; i++) {
         var q = sim.monsters[i], rays = null, from = 0, to = 0, base = 0;
         if (q.wind > 0 && (q.def.ai === 'ranged' || q.def.ai === 'elite')) {
           base = Math.atan2(p.y - q.y, p.x - q.x); from = q.r + 4; to = q.r + 30;
           rays = q.def.ai === 'elite' ? [base - q.def.spread, base, base + q.def.spread] : [base];
-        } else if (q.st === 'burstWind') {
-          var nb = q.def.burstShots + (q.enraged ? 4 : 0); rays = []; from = q.r + 6; to = q.r + 34;
-          for (j = 0; j < nb; j++) rays.push(q.ba + j / nb * 6.283);
-        }
+        } else if (q.st === 'burstWind' || (q.st === 'burst' && q.vol === 1)) this.drawLanes(g, q, tick);
         if (!rays) continue;
         g.fillStyle(blink, 1);
         for (j = 0; j < rays.length; j++) {
@@ -477,8 +477,10 @@
           for (k = from; k < to; k += 3) g.fillRect(Math.round(q.x + cx * k), Math.round(q.y - 4 + cy * k), 1, 1);
         }
       }
+      this.drawPools(g, tick);
       for (i = 0; i < sim.teles.length; i++) {
         var t = sim.teles[i], tx = Math.round(t.x), ty = Math.round(t.y), r = Math.round(t.r), f = t.t / t.dur;
+        if (t.rune) { this.drawRune(g, tx, ty, r, f, tick); continue; }
         g.fillStyle(UI.hex('em2'), 1);
         pts = G.ellipsePixels(r, r);
         for (j = 0; j < pts.length; j += 2) g.fillRect(tx + pts[j], ty + pts[j + 1], 1, 1);
@@ -488,16 +490,87 @@
           if (xx * xx + yy * yy <= rr * rr && ((xx + yy) / step) % 2 === 0) g.fillRect(tx + xx, ty + yy, 1, 1);
         }
       }
+    },
+
+    // A cultist's rune (its wind-up): a pink circle on the floor with a star inside that is drawn stroke by stroke; when the last stroke
+    // closes, it erupts. The rim blinks in the last quarter. Enemy magic is pink (like enemy shots), so it is never taken for a fissure.
+    drawRune: function (g, x, y, r, f, tick) {
+      var pts = G.ellipsePixels(r, r), j, k, late = f > 0.75 && (tick >> 2) % 2;
+      g.fillStyle(UI.hex(late ? 'shot2' : 'shot1'), 1);
+      for (j = 0; j < pts.length; j += 2) g.fillRect(x + pts[j], y + pts[j + 1], 1, 1);
+      g.fillStyle(UI.hex('shot0'), 0.55);
+      for (var yy = -r; yy <= r; yy += 2) for (var xx = -r; xx <= r; xx += 2) if (xx * xx + yy * yy < (r - 1) * (r - 1) && ((xx + yy) >> 1) % 2 === 0) g.fillRect(x + xx, y + yy, 1, 1);
+      // a five-pointed star, one stroke after the other
+      g.fillStyle(UI.hex(late ? 'shot2' : 'shot1'), 1);
+      var n = 5, total = f * n, rr = r - 3;
+      for (k = 0; k < n && k < total; k++) {
+        var a0 = -1.5708 + k * 2 * 6.2832 / n, a1 = a0 + 2 * 6.2832 / n, part = Math.min(1, total - k);
+        var x0 = Math.cos(a0) * rr, y0 = Math.sin(a0) * rr, x1 = Math.cos(a1) * rr, y1 = Math.sin(a1) * rr, steps = Math.ceil(rr * 2 * part);
+        for (j = 0; j <= steps; j++) { var u = j / (rr * 2); g.fillRect(Math.round(x + x0 + (x1 - x0) * u), Math.round(y + y0 + (y1 - y0) * u), 1, 1); }
+      }
+    },
+    // Rift pools left by the runes: a dithered pink disc with a bright rim that bubbles; it thins out and blinks in its last second.
+    // On the ground layer (under the hero and the monsters), so nothing is hidden.
+    drawPools: function (g, tick) {
+      var sim = this.sim, i, j, pts;
+      for (i = 0; i < sim.pools.length; i++) {
+        var q = sim.pools[i], x = Math.round(q.x), y = Math.round(q.y), r = Math.round(q.r), last = q.t < 1, ph = ((tick >> 3) + q.id) & 3;
+        if (last && (tick >> 2) % 2) continue;
+        g.fillStyle(UI.hex('shot0'), last ? 0.5 : 0.8);
+        for (var yy = -r; yy <= r; yy++) for (var xx = -r; xx <= r; xx++) {
+          if (xx * xx + yy * yy >= r * r || ((xx + yy) & 1)) continue;
+          g.fillRect(x + xx, y + yy, 1, 1);
+        }
+        g.fillStyle(UI.hex('shot1'), last ? 0.6 : 0.9);
+        for (var k = 0; k < 9; k++) {      // bubbles: a few brighter blobs that move with the phase
+          var h = G.hash32(q.id * 31 + k, ph), bx = (h % (2 * r - 6)) - r + 3, by = ((h >>> 8) % (2 * r - 6)) - r + 3;
+          if (bx * bx + by * by < (r - 3) * (r - 3)) g.fillRect(x + bx, y + by, 2, 2);
+        }
+        g.fillStyle(UI.hex(ph & 1 ? 'shot1' : 'shot2'), 1);
+        pts = G.ellipsePixels(r, r);
+        for (j = 0; j < pts.length; j += 2) g.fillRect(x + pts[j], y + pts[j + 1], 1, 1);
+      }
+    },
+
+    // Boss burst: every lane of the coming volley is a band on the floor, from the boss to the first wall (at most LANE px).
+    // A dim dithered strip 7 px wide shows where the shots will fly; a bright core runs outward and reaches the end when they fire.
+    // The second volley (half a step round) gets the same while the boss waits for it. Drawn on the ground layer, under every sprite.
+    drawLanes: function (g, q, tick) {
+      var D = q.def, sim = this.sim, rate = q.enraged ? D.enrageRate : 1, second = q.st === 'burst', LANE = 150;
+      var nb = D.burstShots + (q.enraged ? 4 : 0), a0 = q.ba + (second ? Math.PI / nb : 0), gap = D.burstGap * rate;
+      var f = Math.max(0, Math.min(1, second ? 1 - (q.t - gap) / gap : 1 - q.t / (D.burstWindup * rate)));
+      var from = q.r + 5, lanes = [], j, k, w, pass;
+      for (j = 0; j < nb; j++) {
+        var a = a0 + j / nb * 6.283, cx = Math.cos(a), cy = Math.sin(a), len = LANE;
+        for (k = from; k < LANE; k += 4) if (sim.boxHits(q.x + cx * k, q.y + cy * k, 2)) { len = k; break; }
+        lanes.push({ cx: cx, cy: cy, len: len, head: from + f * (len - from) });
+      }
+      // pass 0: the dim strip beyond the head, 1: the lit strip behind it, 2: the dim core, 3: the bright core
+      for (pass = 0; pass < 4; pass++) {
+        if (pass === 0) g.fillStyle(UI.hex('em1'), 0.9);
+        else if (pass === 1) g.fillStyle(UI.hex('em2'), 0.85);
+        else if (pass === 2) g.fillStyle(UI.hex('em2'), 1);
+        else g.fillStyle(UI.hex((tick >> 2) % 2 ? 'em4' : 'em3'), 1);
+        for (j = 0; j < nb; j++) {
+          var l = lanes[j];
+          for (k = from; k < l.len; k += 2) {
+            var lit = k <= l.head, x = q.x + l.cx * k, y = q.y + l.cy * k;
+            if ((pass & 1) !== (lit ? 1 : 0)) continue;
+            if (pass >= 2) { g.fillRect(Math.round(x), Math.round(y), lit ? 2 : 1, lit ? 2 : 1); continue; }
+            for (w = -3; w <= 3; w++) if (w && (((k >> 1) + w) & 1)) g.fillRect(Math.round(x - l.cy * w), Math.round(y + l.cx * w), 1, 1);
+          }
+        }
+      }
     }
   });
 
-  // Attack pose frame (2 or 3) while a monster winds up or is about to touch the hero, else 0 (walk cycle).
+  // Attack pose frame (2, 3 or 4) while a monster winds up or is about to touch the hero, else 0 (walk cycle).
   // View only: reads the sim, never changes it.
   G.attackPose = function (m, p) {
     var st = m.st, ai = m.def.ai;
-    if (m.def.boss) return st === 'slam' || st === 'burstWind' ? 2 : st === 'chargeWind' || st === 'charge' ? 3 : 0;
+    if (m.def.boss) return st === 'slam' ? 2 : st === 'burstWind' || st === 'burst' ? 4 : st === 'chargeWind' || st === 'charge' ? 3 : 0;
     if (ai === 'lunge') return st === 'wind' || st === 'lunge' ? 2 : 0;
-    if (ai === 'ranged' || ai === 'elite') return m.wind > 0 ? 2 : 0;
+    if (ai === 'ranged' || ai === 'elite' || ai === 'caster') return m.wind > 0 ? 2 : 0;
     var dx = p.x - m.x, dy = p.y - m.y, reach = m.r + p.r + 10;
     return dx * dx + dy * dy < reach * reach ? 2 : 0;
   };

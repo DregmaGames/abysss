@@ -53,9 +53,10 @@ const Q = require('./lib');
       await page.setViewportSize(Q.SIZES.portrait); await page.waitForTimeout(600);
       note('rotated to portrait'); await snap('after_rotate_' + st.screen);
     }
-    if (st.screen === 'levelup') { await Q.click(page, 'card_' + (levelups++ % 3)); }
+    if (st.screen === 'levelup') { await page.waitForTimeout(450); await Q.click(page, 'card_' + (levelups++ % 3)); }      // a fresh modal ignores clicks for 400 ms
     else if (st.screen === 'choice') {
       rooms++;
+      await page.waitForTimeout(450);
       await snap('door_choice');
       await Q.click(page, 'leave'); note(`run ${runs}: left after room ${s.room + 1}`); left++;
     } else if (st.screen === 'result') {

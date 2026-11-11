@@ -159,7 +159,7 @@
     var scrollCount = s ? s.scrollsHeld() : 0;
     if (s) {      // in a run: the sealed bag of this run, shown as a grid
       var sb = B.loot.bagSize, bi = G.bestRarity(s.bag);
-      L.text(bx, by, G.t(wide ? 'inv.sealedBag' : 'inv.sealedBagRun', { n: s.bag.length, m: sb }), 'ui_dim');
+      var hd = L.text(bx, by, G.t(wide ? 'inv.sealedBag' : 'inv.sealedBagRun', { n: s.bag.length, m: sb }), 'ui_dim');
       for (i = 0; i < sb; i++) cell(bx + (i % cols) * 22, by + 11 + Math.floor(i / cols) * 22, s.bag[i], null, { kind: 'sbag', key: i }, 'sbag_' + i);
       rowsN = Math.ceil(sb / cols);
     } else {
@@ -171,7 +171,13 @@
     // scrolls of Identification: kept ones, plus (in a run) the sealed ones found so far
     var sct = L.text(0, wide ? by + 13 + rowsN * 22 : by, 'x' + scrollCount + (s && s.scrolls ? ' ' + G.t('inv.sealedScrolls', { n: s.scrolls }) : ''), scrollCount ? 'gold' : 'ui_dim');
     if (wide) { sct.x = bx + 12; L.image(sct.x - 7, sct.y + 5, 'i_scroll', 2); }
-    else { sct.x = bx + cols * 22 - sct.width; L.image(sct.x - 8, by + 4, 'i_scroll', 2); }
+    else {
+      // narrow: the bag title and the scroll count share a line. When they would meet, the title gets its short form, then the count loses its note.
+      sct.x = bx + cols * 22 - sct.width;
+      if (hd && hd.x + hd.width + 16 > sct.x) hd.setText(G.t('inv.sealedBag', { n: s.bag.length, m: B.loot.bagSize }));
+      if (hd && hd.x + hd.width + 16 > sct.x) { sct.setText('x' + scrollCount); sct.x = bx + cols * 22 - sct.width; }
+      L.image(sct.x - 8, by + 4, 'i_scroll', 2);
+    }
     if (s && wide) L.text(bx, sct.y + 12, G.t('inv.foundNote'), 'ui_dim').setMaxWidth(cols * 22);
 
     // item details
@@ -529,7 +535,13 @@
         : [G.t('res.kept', { items: G.plural('items', R.kept) }) + (R.lost ? G.t('res.keptLost', { n: R.lost }) : ''), 'ui_good'],
       s.testRoom >= 0 ? [G.t('res.gear', { n: gs }), 'ui_dim'] : (state === 'dead' ? [R.goldLost ? G.t('res.goldLost', { n: R.goldLost }) : G.t('res.goldNone'), 'ui_bad'] : [G.t('res.goldKept', { n: R.goldKept }), 'gold']),
       [G.t('res.gear', { n: gs }), 'ui_dim']];
-    lines.forEach(function (l, i) { UI.centerX(L.text(0, y0 + 34 + i * 12, l[0], l[1]).setMaxWidth(pw - 12), cx); });
+    // one line each, 12 px apart; a line too long for the panel wraps (Spanish, narrow screens) and the ones below move down
+    var ly = y0 + 34;
+    lines.forEach(function (l) {
+      var tx = L.text(0, ly, l[0], l[1]).setMaxWidth(pw - 12);
+      UI.centerX(tx, cx);
+      ly += 12 + Math.max(0, Math.round(tx.height / 10) - 1) * 10;
+    });
     var bw = Math.floor((pw - 24) / 2);
     L.button(x0 + 8, y0 + ph - 28, bw, 20, G.t('res.again'), function () { P.counted = false; P.close(true); G.restartRun(); }, { name: 'res_again', color: 'ui_good' });
     L.button(x0 + 16 + bw, y0 + ph - 28, bw, 20, G.t('res.city'), function () { P.counted = false; P.close(true); G.toCity(); }, { name: 'res_city', color: 'gold' });

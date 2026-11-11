@@ -43,6 +43,7 @@ PALETTE = {
     'sk0': '#585244', 'sk1': '#9c947c', 'sk2': '#d6ceb2', 'sk3': '#f4f0dc',
     'wd0': '#2c3636', 'wd1': '#4c5e5a', 'wd2': '#789084', 'wd3': '#a6c2ae',
     'ty0': '#3a0c18', 'ty1': '#701624', 'ty2': '#b02a30', 'ty3': '#e85c40',
+    'cu0': '#2a1030', 'cu1': '#5a1e58', 'cu2': '#8e2f7c', 'cu3': '#c858a0',
     'horn': '#d8cdb0', 'horn_d': '#8c8068',
     'eye_y': '#ffe070', 'eye_r': '#ff4050', 'tooth': '#f4ecd8',
     # rift (open fissure) and ember (edges, scars)
@@ -459,6 +460,55 @@ c.cccc
 ..bb..
 ''', L, mirror=True)))
 
+    # --- cultist: hooded caster in a wine robe; draws a rune on the floor that becomes a rift pool
+    L = 'a=cu0 b=cu1 c=cu2 d=cu3 K=void P=shot1 o=shot2 s=sk2'
+    cu = parse('''
+....aaa
+...abbb
+..abccc
+..abcKK
+..abKPK
+..abKKK
+..aabcc
+.aabbcc
+.abbccc
+.abcccd
+.abccbb
+.abcbss
+.aabccc
+..abccd
+..abccd
+.abbccd
+.abcccd
+abbcccd
+abccccc
+aaaaaaa
+''', L, mirror=True)
+    add('cultist_0', outline(cu)); add('cultist_1', outline(bob(cu, 2)))
+    # wind-up pose (frame 2): both arms thrown up, sparks over the hands, the eyes lit
+    add('cultist_2', outline(parse('''
+oP..aaa
+s..abbb
+b.abccc
+b.abcKK
+b.abKoK
+bbabKKK
+abbabcc
+.abbbcc
+..abccc
+..abccd
+..abccd
+..abccd
+..abccc
+..abccd
+..abccd
+.abbccd
+.abcccd
+abbcccd
+abccccc
+aaaaaaa
+''', L, mirror=True)))
+
     # --- warden: stone brute with rift cracks; elite of the super fissure
     L = 'a=wd0 b=wd1 c=wd2 d=wd3 G=rg3 g=rg2 K=outline'
     wd = parse('''
@@ -509,64 +559,119 @@ abba...abbc
 ''', L, mirror=True)))
 
     # --- the Rift Tyrant: boss of the last room
-    L = 'a=ty0 b=ty1 c=ty2 d=ty3 h=horn H=horn_d Y=eye_y K=outline T=tooth G=rg3 g=rg2 W=horn'
+    L = 'a=ty0 b=ty1 c=ty2 d=ty3 h=horn H=horn_d Y=eye_y K=outline T=tooth G=rg3 g=rg2 W=horn L=rg4'
+    # idle: the arms hang and end in big three-clawed hands (bone claws two pixels wide, dark gaps between them)
     ty = parse('''
-..hh.............
-.hHh.............
-.hHHh............
-.hHHh............
-..hHHh.....aaaaaa
-..hHHHh...abbbbbb
-...hHHHh.abbccccc
-....hHHHabbcccccc
-.....hhabbcYYcccc
-......abbbcKYcccc
-......abbbccccccc
-.....aabbbbcccTTT
-...aaabbabbbbbTKT
-..abbbbbbaabbbbbb
-.abbcccbbbbaaaaaa
-abbccdcccbbbbbbbb
-abccddcccbbbbbGbb
-abcccccccbbbbbGGb
-abccccbbbbbbbbbGg
-abbccbbabbbbbbGGb
-abbbbba.abbbbbGbb
-abbbba..abbbbbbGg
-abbbba..abbbbbbbb
-abbba...abbbbbbbb
-abcba...abbbbbbbb
-abccba..aabbbbbba
-abccba...abbbaab.
-aWbWba...abbba...
-.W.W.....abbba...
-.........abbba...
-........abbbba...
-........aaaaaa...
+...hh.............
+..hHh.............
+..hHHh............
+..hHHh............
+...hHHh.....aaaaaa
+...hHHHh...abbbbbb
+....hHHHh.abbccccc
+.....hHHHabbcccccc
+......hhabbcYYcccc
+.......abbbcKYcccc
+.......abbbccccccc
+......aabbbbcccTTT
+....aaabbabbbbbTKT
+...abbbbbbaabbbbbb
+..abbcccbbbbaaaaaa
+.abbccdcccbbbbbbbb
+.abccddcccbbbbbGbb
+.abcccccccbbbbbGGb
+.abccccbbbbbbbbbGg
+.abbccbbabbbbbbGGb
+.abbbbba.abbbbbGbb
+..abcba..abbbbbbGg
+.abccbba.abbbbbbbb
+abccdcca.abbbbbbbb
+abccccca.abbbbbbbb
+abbabbab.aabbbbbba
+WWaWWaWW..abbbaab.
+WW.WW.WW..abbba...
+.T..T..T..abbba...
+..........abbba...
+.........abbbba...
+.........aaaaaa...
 ''', L, mirror=True)
-    add('tyrant_0', outline(ty)); add('tyrant_1', outline(bob(ty, 4)))
-    # slam / burst wind-up (frame 2): both fists raised beside the horns, rift light in them
+    add('tyrant_0', outline(ty)); add('tyrant_1', outline(bob(ty, 2)))
     w0, h0 = ty.size
-    up = blank(w0 + 8, h0)
-    body = ty.copy()
-    for y in range(14, h0 - 2):
-        for x in range(w0):
-            if x < 8 or x >= w0 - 8:
-                body.putpixel((x, y), (0, 0, 0, 0))
-    up.paste(body, (4, 0))
-    for side in (0, 1):
-        def R(x, y, w, h, k):
-            rect(up, x if not side else up.width - x - w, y, w, h, k)
-        R(2, 6, 5, 9, 'ty0'); R(3, 6, 3, 9, 'ty1'); R(4, 7, 1, 7, 'ty2')        # forearm
-        R(5, 12, 7, 4, 'ty0'); R(6, 12, 6, 3, 'ty1')                           # upper arm to the shoulder
-        R(0, 0, 8, 7, 'ty0'); R(1, 1, 6, 5, 'ty2'); R(2, 2, 4, 3, 'ty3')        # fist
-        R(3, 3, 2, 1, 'rg3'); R(2, 4, 1, 1, 'rg2'); R(5, 2, 1, 1, 'rg4')        # rift light
-    add('tyrant_2', outline(up))
-    # charge wind-up (frame 3): head and shoulders dropped 3 px, crouched to run
-    lo = blank(w0, h0)
-    lo.paste(ty.crop((0, 0, w0, h0 - 6)), (0, 3))
-    lo.paste(ty.crop((0, h0 - 4, w0, h0)), (0, h0 - 4))
-    add('tyrant_3', outline(lo))
+
+    def ty_pose(pad, drop, arm, ax, ay):
+        # the body without its hanging arms (dropped `drop` px, feet planted) plus one arm drawing, mirrored to both sides
+        body = ty.copy()
+        for y in range(14, h0 - 2):
+            for x in range(9):
+                body.putpixel((x, y), (0, 0, 0, 0)); body.putpixel((w0 - 1 - x, y), (0, 0, 0, 0))
+        im = blank(w0 + 2 * pad, h0)
+        if drop:
+            im.alpha_composite(body.crop((0, 0, w0, h0 - 4 - drop)), (pad, drop))
+            im.alpha_composite(body.crop((0, h0 - 4, w0, h0)), (pad, h0 - 4))
+        else:
+            im.alpha_composite(body, (pad, 0))
+        a = parse(arm, L)
+        im.alpha_composite(a, (ax, ay))
+        im.alpha_composite(a.transpose(Image.FLIP_LEFT_RIGHT), (im.width - ax - a.width, ay))
+        return outline(im)
+
+    # slam wind-up (frame 2): both arms thrown straight up, open claws over the horns
+    add('tyrant_2', ty_pose(6, 0, '''
+.T..T..T........
+WW.WW.WW........
+WW.WW.WW........
+WWaWWaWWa.......
+abbabbabba......
+abccbccbca......
+abcdccdcba......
+abcccccbba......
+.abccccba.......
+..abccbba.......
+..abcbba........
+..abcbba........
+...abcbba.......
+...abccbbaa.....
+....abcccbba....
+....abbcccbbba..
+.....aabbbbbbbb.
+.......aaabbbbb.
+..........aaaa..
+''', 0, 0))
+    # burst wind-up (frame 4): arms spread wide at shoulder height, palms open to the room, rift light gathering in them
+    add('tyrant_4', ty_pose(10, 0, '''
+.T..T...............
+WW.WW..T............
+WW.WW.WW............
+WWaWWaWW............
+abbabbaba...........
+abcLLcbba...........
+abLGGLcbbaaaaaa.....
+abcGGccccccccbbaa...
+.abcccbbbccccccbba..
+..aabbaaabbbbbbbbba.
+....aa...aaaaabbbba.
+..............aaaa..
+''', 0, 6))
+    # charge wind-up and charge (frame 3): head and shoulders dropped 3 px, elbows out, claws planted on the floor
+    add('tyrant_3', ty_pose(4, 3, '''
+.......aaaa..
+.....aabbbba.
+...aabbccbbba
+..abbccdccbba
+..abcccccbba.
+.abcccbbaa...
+.abccba......
+.abcbba......
+.abcbba......
+.abcbba......
+.abccba......
+abccdcca.....
+abccccca.....
+abbabbab.....
+WWaWWaWW.....
+WW.WW.WW.....
+T..T..T......
+''', 0, 15))
 
 
 # ---------------------------------------------------------------------- world objects

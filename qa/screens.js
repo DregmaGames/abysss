@@ -4,7 +4,7 @@
 //   node qa/screens.js [landscape|portrait|both] [seed]
 // Writes qa/out/screens/<size>_<nn>_<name>.png and exits non-zero on any console/page error.
 // Screens: title, title settings, city, city settings, city inventory, Blacksmith, Trainer, Don Montoto,
-// a run (fissure, combat, level-up, door choice, inventory, settings), result (dead), back in the city,
+// a run (fissure, combat, level-up, door choice, inventory, settings), result (dead), back in the city, the cultist with its rune and pool,
 // the boss room with each telegraphed attack (slam, burst, charge) and the result (won).
 'use strict';
 const fs = require('fs'), path = require('path');
@@ -26,7 +26,7 @@ async function tour(browser, size, seed) {
     for (;;) {
       const st = await Q.state(page);
       if (cond(st)) return st;
-      if (st.screen === 'levelup') await Q.click(page, 'card_0');
+      if (st.screen === 'levelup') { await page.waitForTimeout(450); await Q.click(page, 'card_0'); }
       else await page.waitForTimeout(60);
       if (Date.now() - t0 > (maxMs || 120000)) throw new Error(size + ': timed out waiting for ' + what + ' ' + JSON.stringify(st.sim));
     }
@@ -82,11 +82,11 @@ async function tour(browser, size, seed) {
   await until(page, s => s.sim.fissures.includes('open') && s.sim.monsters >= 3, 'monsters out');
   await snap(page, 'run_combat');
   await until(page, s => s.screen === 'levelup', 'level up');
-  await page.waitForTimeout(250);
+  await page.waitForTimeout(500);      // a fresh level-up or door choice ignores clicks for 400 ms
   await snap(page, 'run_levelup');
   await Q.click(page, 'card_0');
   await until(page, s => s.screen === 'choice', 'door choice', 240000);
-  await page.waitForTimeout(300);
+  await page.waitForTimeout(500);
   await snap(page, 'run_door_choice');
   await Q.click(page, 'door_0');
   await until(page, s => s.sim.room >= 1 && s.screen === 'game', 'room 2');
@@ -107,6 +107,31 @@ async function tour(browser, size, seed) {
   errors.push(...page.errors, ...(await Q.state(page)).errors);
   await page.context().close();
 
+  // ---- the cultist (room 4 on): one has left a rift pool, the other is drawing its rune under the hero
+  page = await Q.open(browser, `?scene=game&seed=${seed}&fresh=1&lang=en&manual=1`, size);
+  await page.evaluate(() => {
+    const s = G.gameScene.sim;
+    s.loadRoom(3); s.cheats.god = true;
+    const p = s.player, free = (x, y) => !s.boxHits(x, y, 8) && !s.crackHits(x, y, 8);
+    const spots = [[64, -14], [-60, 26], [26, -62], [-34, -56], [58, 40], [-64, -20]].filter(o => free(p.x + o[0], p.y + o[1])).slice(0, 2);
+    spots.forEach((o, i) => { const m = s.spawnMonster('cultist', p.x + o[0], p.y + o[1], 0); m.emerge = 0; m.cd = i ? 2.2 : 0.2; });
+    // when the first rune has become a pool the hero steps aside, so the second rune is drawn next to it
+    const iv = setInterval(() => {
+      if (s.pools.length && !iv.moved) {
+        const q = s.pools[0], to = [[44, 0], [-44, 0], [0, 44], [0, -44]].find(o => free(q.x + o[0], q.y + o[1]));
+        if (to) { p.x = q.x + to[0]; p.y = q.y + to[1]; }
+        iv.moved = true;
+      }
+      if (s.pools.length && s.teles.some(t => t.rune && t.t / t.dur > 0.6)) { G.paused = true; clearInterval(iv); }
+    }, 4);
+  });
+  await page.waitForFunction(() => G.paused, null, { timeout: 30000 });
+  await page.waitForTimeout(250);
+  await snap(page, 'run_cultist');
+  await page.evaluate(() => { G.paused = false; });
+  errors.push(...page.errors, ...(await Q.state(page)).errors);
+  await page.context().close();
+
   // ---- boss room: each telegraphed attack frozen in its wind-up, then the win screen
   page = await Q.open(browser, `?scene=game&seed=${seed}&fresh=1&lang=en&bot=1&speed=4`, size);
   await page.evaluate(() => {
@@ -118,13 +143,13 @@ async function tour(browser, size, seed) {
   await until(page, s => s.sim.phase === 'super' && s.sim.monsters >= 1 && s.screen === 'game', 'boss');
   await page.waitForTimeout(1200);
   await snap(page, 'boss_room');
-  for (const [k, st, name] of [[0, 'slam', 'boss_slam'], [1, 'burstWind', 'boss_burst'], [2, 'chargeWind', 'boss_charge']]) {
+  for (const [k, st, name, wind] of [[0, 'slam', 'boss_slam', 'slamWindup'], [1, 'burstWind', 'boss_burst', 'burstWindup'], [2, 'chargeWind', 'boss_charge', 'chargeWindup']]) {
     // the next attack of the cycle is atk; freeze the frame half-way through its wind-up
-    await page.evaluate(([k, st]) => {
+    await page.evaluate(([k, st, wind]) => {
       const s = G.gameScene.sim, b = s.monsters.find(m => m.def.boss);
       b.st = 'chase'; b.t = 0; b.atk = k;
-      const iv = setInterval(() => { if (b.st === st && b.t < b.def.slamWindup * 0.5) { G.paused = true; clearInterval(iv); } }, 4);
-    }, [k, st]);
+      const iv = setInterval(() => { if (b.st === st && b.t < b.def[wind] * 0.5) { G.paused = true; clearInterval(iv); } }, 4);
+    }, [k, st, wind]);
     await page.waitForFunction(() => G.paused, null, { timeout: 15000 });
     await page.waitForTimeout(200);
     await snap(page, name);

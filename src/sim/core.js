@@ -119,7 +119,7 @@
     this.ilvl = 1 + Math.floor(index / B.run.ilvlRooms);
     this.player.x = room.start.x; this.player.y = room.start.y;
     this.player.dashT = 0;
-    this.monsters = []; this.shots = []; this.bolts = []; this.orbs = []; this.drops = []; this.teles = [];
+    this.monsters = []; this.shots = []; this.bolts = []; this.orbs = []; this.drops = []; this.teles = []; this.pools = [];
     this.zones = []; this.echoes = [];
     this.orbiters = this.orbiters.filter(function (o) { return o.perm; });
     var mp = this.merchantAt.indexOf(index) >= 0 ? G.merchantSpot(room, B) : null, MS = B.economy.merchant;

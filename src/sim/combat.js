@@ -160,6 +160,7 @@
     this.progress();
     this.networkKill(m);
     this.emit({ t: 'die', id: m.id, x: m.x, y: m.y, type: m.type });
+    if (def.ai === 'caster') this.fizzle(m);
     var parts = def.boss ? 8 : (def.elite ? 3 : 1);
     for (i = 0; i < parts; i++) this.spawnOrb('exp', m.x, m.y, def.exp / parts);
     if (rng.chance(L.healOrb) || def.elite || def.boss) this.spawnOrb('heal', m.x, m.y, L.healOrbPct * (def.boss ? 3 : 1));
@@ -204,6 +205,39 @@
     this.shots.push({ id: this.nextId++, x: m.x, y: m.y, vx: G.M.cos(ang) * speed, vy: G.M.sin(ang) * speed, r: kind === 'big' ? 3.5 : 2.5, dmg: dmg, life: 5, kind: kind });
   };
 
+  // Caster (cultist): keeps its distance like the skeleton, but aims at the floor. Every `castEvery` s, with the hero in sight, it stops and
+  // draws a rune under the hero (a telegraphed circle, `windup` s). The rune erupts (eruptDmg to a hero still on it) and leaves a rift pool
+  // for `poolTime` s that hurts every `poolTick` s. A cultist that dies while casting takes the rune with it (fizzle).
+  S.casterAI = function (m, dt, d, dx, dy, sp) {
+    var def = m.def, p = this.player, dir;
+    m.cd -= dt;
+    if (m.wind > 0) {
+      m.wind -= dt;
+      if (m.wind <= 0) { m.wind = 0; m.cd = def.castEvery; this.emit({ t: 'hex', id: m.id, x: m.x, y: m.y }); }
+      return;
+    }
+    if (d > def.keepMax || !m.los) { dir = this.steer(m, p, d); this.move(m, dir.x * sp * dt, dir.y * sp * dt); }
+    else if (d < def.keepMin) this.move(m, -dx / d * sp * 0.8 * dt, -dy / d * sp * 0.8 * dt);
+    else this.move(m, -dy / d * m.side * sp * 0.5 * dt, dx / d * m.side * sp * 0.5 * dt);
+    if ((this.tick + m.id) % 180 === 0) m.side = -m.side;
+    if (m.cd <= 0 && m.los && d < def.sight) {
+      m.wind = def.windup;
+      // the rune is drawn ahead of a walking hero (`lead` x the way they would cover during the wind-up), under a standing one; never inside a wall
+      var k = p.moving ? this.stats.speed * def.windup * def.lead : 0, rx = p.x + p.fx * k, ry = p.y + p.fy * k, n = 0;
+      while (n++ < 8 && this.boxHits(rx, ry, 3)) { k *= 0.6; rx = p.x + p.fx * k; ry = p.y + p.fy * k; }
+      if (this.boxHits(rx, ry, 3)) { rx = p.x; ry = p.y; }
+      this.teles.push({ id: this.nextId++, x: rx, y: ry, r: def.poolR, t: 0, dur: def.windup, dmg: def.eruptDmg * m.mul, owner: m.id, rune: true,
+        pool: { time: def.poolTime, tick: def.poolTick, dmg: def.poolDmg * m.mul } });
+      this.emit({ t: 'windup', id: m.id, dur: def.windup });
+    }
+  };
+  S.fizzle = function (m) {
+    for (var i = this.teles.length - 1; i >= 0; i--) {
+      var t = this.teles[i];
+      if (t.owner === m.id) { this.emit({ t: 'fizzle', x: t.x, y: t.y, r: t.r }); this.teles.splice(i, 1); }
+    }
+  };
+
   S.updateMonsters = function (dt) {
     var p = this.player, ms = this.monsters, B = this.B, i, j, m;
     for (i = 0; i < ms.length; i++) {
@@ -236,6 +270,8 @@
           dir = { x: dir.x * cw - dir.y * sw, y: dir.x * sw + dir.y * cw };
         }
         this.move(m, dir.x * sp * dt, dir.y * sp * dt);
+      } else if (def.ai === 'caster') {
+        this.casterAI(m, dt, d, dx, dy, sp);
       } else if (def.ai === 'ranged' || def.ai === 'elite') {
         m.cd -= dt;
         if (m.wind > 0) {
@@ -360,9 +396,19 @@
       t.t += dt;
       if (t.t >= t.dur) {
         if (dist(t, p) < t.r) this.hurtPlayer(t.dmg, t.x, t.y);
-        this.emit({ t: 'slam', x: t.x, y: t.y, r: t.r });
+        if (t.pool) {      // a cultist's rune: it erupts and leaves a rift pool
+          this.pools.push({ id: this.nextId++, x: t.x, y: t.y, r: t.r, t: t.pool.time, dur: t.pool.time, cd: t.pool.tick, tick: t.pool.tick, dmg: t.pool.dmg });
+          this.emit({ t: 'erupt', x: t.x, y: t.y, r: t.r });
+        } else this.emit({ t: 'slam', x: t.x, y: t.y, r: t.r });
         this.teles.splice(i, 1);
       }
+    }
+    for (i = this.pools.length - 1; i >= 0; i--) {     // rift pools: floor that hurts while the hero stands on it
+      var q = this.pools[i];
+      q.t -= dt;
+      if (q.t <= 0) { this.pools.splice(i, 1); continue; }
+      if (q.cd > 0) q.cd -= dt;
+      if (q.cd <= 0 && dist(q, p) < q.r && this.hurtPlayer(q.dmg, q.x, q.y)) q.cd = q.tick;
     }
   };
 

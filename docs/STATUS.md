@@ -48,7 +48,37 @@ Design decisions live in the plan doc (the user has it); this file is what an ag
   Room dressing (view only, `RoomView.dress`, picked by `G.hash32` of seed / room / tile, never the sim rng): bones, rubble, skull, grate, puddle, candles (2 frames, glow), cobwebs in inner corners, chains / banners / moss on wall faces; never on a fissure, the start, exit or chest.
   Don Montoto has his own body plan (bent, hood, beard to the belt, stick). Axe and mace icons and in-hand sprites redrawn (the mace read as a spear). City settings button = gear icon (`city.set` key removed). `UI.button` moves a label with an accented capital (Ñ, Á...) down so the mark clears the frame.
   City labels pushed in from the edge are lifted a line when they overlap (portrait); the TALK tag sits above the stall label. `qa/screens.js` (23 shots per size: title, city, stalls, run, door choice, result, back to city, boss slam / burst / charge, won) and `qa/session.js` (title -> city -> portal -> run -> LEAVE -> city -> again, default 2 min) rewritten for today's game. Grok prompts: tyrant poses, Montoto, Montoto portrait, skeleton throw.
+- Step 9b (what step 9 left rough, same branch `step-9-content`):
+  **City, two layouts** (`src/view/city.js`, `LAND` / `PORT`, picked by `pickLayout()`: portrait when the screen is taller than wide and narrower than 416 art px). `land` = the old 26 x 15 city, unchanged. `port` = 16 x 23 tiles (256 x 368):
+  Blacksmith and Trainer on top, Don Montoto and the Mage quarter in the middle, the portal at the bottom; at 540x960 the whole city is on screen, nothing scrolls. A rotation rebuilds the world (`applyView`) and keeps the hero at the stall they were at.
+  **Prompt and labels**: the TALK / LOOK / READ prompt sits one line (`LINE` 12 px) above the label of the thing in reach (`placeTag`) and is lifted while it touches any label; labels are placed with their real boxes (`box`: an accented capital rises 2 px).
+  On wide screens the overlay's TALK button moved to the bottom right (it covered the portal). `CityScene.snapshot()` now gives layout, map, camera view, label boxes and the prompt box; `node qa/city.js` checks all of it (both sizes, both languages, rescued / empty stall, reachability on foot, rotation).
+  **Rift Tyrant**: hands redrawn as three-clawed hands (bone claws 2 px wide) in every pose; the poses are separate drawings on an armless body (`ty_pose` in `tools/pixelart.py`): `tyrant_2` slam = arms straight up, `tyrant_4` burst (new) = arms spread, light in the palms, `tyrant_3` charge = head down, claws on the floor.
+  Burst lanes (`drawLanes` in `game.js`, view only): every lane is a 7 px dithered strip from the boss to the first wall (150 px at most) with a bright core that runs outward and arrives when the volley fires; the second volley's lanes show the same way while the boss waits for it. Ground layer, under the sprites.
+  **Sixth monster: the Cultist (Cultista)**, `ai: 'caster'` (`S.casterAI`, `S.fizzle` in `combat.js`), a walker (open cracks stop it; its cast crosses them). Keeps 66-104 px away; every 3.4 s, with the hero in sight (150 px), it stops for 0.9 s (pose `cultist_2`) and draws a rune of radius 22 on the floor: under a standing hero, or 0.8 x the way a walking hero would cover in 0.9 s ahead of them.
+  The rune erupts (14 damage if the hero is on it) and stays 6 s as a rift pool: 7 damage every 0.45 s to a hero standing in it (the dodge crosses unhurt). Killing the cultist while it casts removes the rune. HP 46, speed 30, contact 6, threat 3, exp 6. In the fissure pools of rooms 4-9 (weights 1, 1, 2, 2, 2, 3), not in the super waves.
+  Sim: `sim.pools`, teles with `rune` / `pool` / `owner`, events `hex`, `erupt`, `fizzle`. View: `drawRune` (pink circle, a star drawn stroke by stroke), `drawPools` (pink dithered disc; blinks in its last second); enemy magic is pink like enemy shots, never green like a fissure. Palette `cu0-cu3`.
+  Bot: leaves a pool it stands in (dodges when deep in it), does not step into one (`inPool`), keeps 30 px from a cultist, the melee bot charges at it like at other ranged monsters.
+  **Touch** (`node qa/touch.js`, hasTouch context, taps and CDP touch events): everything worked by tap; fixed: (1) once a finger has been seen (`G.finger`, set by a capturing `touchstart` listener) `UI.button` gives every button a hit box of at least 44 CSS px (`UI.FINGER`); before: settings [-] / [+] 28 px, close buttons 36 x 32, city END 52 x 28;
+  the city overlay is rebuilt at the first touch; city settings / END buttons are 20 px tall; (2) a level-up or door choice that has just opened ignores taps and clicks for 400 ms (`GUARD`, `HudScene.tooSoon`): a finger on its way to the stick or DODGE picked a card; keys 1-3 and the bot are not held back;
+  (3) narrow inventory in a run: the bag title ran into the scroll count (it now takes its short form); (4) result screen: a wrapped line (Spanish, portrait) was overprinted by the next one (lines now flow).
 - `main` is the working base. One branch per step: `step-N-<slug>`.
+
+## Last measured (2026-11-11, step 9b: city portrait, prompt, tyrant claws, burst lanes, cultist, touch)
+
+- `determinism.js` pass, `check_bag.js` pass, `check_i18n.js` pass (483 keys: `mob.cultist` added), `contrast.js` 0 failing (lowest 5.65:1).
+- `sim_bot --seeds 1-10` fresh gear, before -> after (the cultist changes every run from room 4 on): mage 0 -> 1 (seed 10), warrior 2 (7, 9) -> 2 (3, 8), archer 2 (5, 10) -> 0; 0 softlocks, 0 timeouts, worst stuck 16 s.
+  With the first numbers (HP 40, cast every 4.2 s, pool 18 px / 4.5 s, rune under the hero only) it was 1 / 4 / 2: the cultist was a free kill that ate spawn budget, so the rune now leads a walking hero and the pool is bigger and longer.
+  Damage taken by source in those 10 runs: warrior pools 867 + runes 87 of 13 700, archer 732 + 39 of 4 560.
+- `--career 10 --seeds 1-10`, before -> after: mage 3 wins (first run 7) -> 2 (first run 9); warrior 7 (first run 4) -> 4 (first run 7); archer 2 (first run 9) -> 2 (first run 9). 0 softlocks, 0 timeouts, `bestFromDrops` PASS x3.
+- `qa/city.js`: 2518 checks, 0 failing, 0 errors. `qa/touch.js`: portrait en 35 of 35, portrait es 35 of 35, landscape en 35 of 35, 0 errors.
+- `qa/screens.js both`: 24 + 24 screenshots (new: `run_cultist`), 0 errors. `qa/session.js --minutes 2`: 3 runs from the portal, left twice, rotated, 11 level-ups, worst stuck 6.7 s, 0 errors.
+  `qa/bot.js --seeds 3,4,5` (mage): 0 wins, 0 errors, 0 softlocks, all match Node. `qa/test_room.js`: passes, 0 errors (portrait: the debug button sometimes needs a second tap when a level-up opens under it; the script retries, as before).
+- Screenshots: `/tmp/step9b_city_portrait.png`, `/tmp/step9b_montoto_talk.png`, `/tmp/step9b_boss.png`, `/tmp/step9b_monster6.png`.
+- Rough: the cultist is tuned on 10 seeds per class only (archer fresh 2 -> 0, careers a little slower: all inside the targets, all inside the noise); the bot dodges pools well, a person may find 3 cultists in room 9 harder than the bot does;
+  a casting cultist blinks orange like every wind-up, which turns its wine robe red; pools and runes are flat dithered discs (no animation frames); no sound. In portrait the END button covers 2 px of the top wall's corner.
+  Touch was emulated (Chromium, hasTouch), not tried on a phone: thumb reach, the 400 ms guard and the stick's feel need a real device. The tyrant's claws are code-drawn; the Grok prompt for painted poses is still in `docs/grok-prompts.md`.
+  City labels and the prompt are checked at the two sizes only; a zoomed-in city still scrolls (labels are clamped and lifted, the prompt follows).
 
 ## Last measured (2026-11-11, step 9: content audit)
 
@@ -303,6 +333,8 @@ Design decisions live in the plan doc (the user has it); this file is what an ag
 ## Design assumptions waiting for the user
 
 - Bats fly over open cracks; the boss ignores them; other monsters walk around.
+- The cultist is a walker (open cracks stop it), but its rune and pool can be drawn across a crack. Its pools are pink, not rift green.
+- A fresh level-up or door choice ignores taps and clicks for 400 ms (keys still work).
 - 3 active ability slots, family bonuses at 2 and 4. Split Shot is rare, not epic (see batch B notes).
 - Where the web version is published (needed before step 11).
 
@@ -318,7 +350,7 @@ Sim (no Phaser, deterministic, runs in Node):
   (`flow` for flyers, `flowWalk` for walkers), player, level-ups, `cheat*` actions.
 - `src/sim/fissures.js`: the crack network (`setupFissures`, `networkKill`, `darkenSeg`,
   `spawnFromCluster`, `crackHits`, `crackOnLine`), super fissure, chest, exit, objective.
-- `src/sim/combat.js`: auto-attack (`shootBolts` or `swing`, event `swing`), `castSkill` -> pulse, monster AI, `steer`, projectiles, pickups, kills.
+- `src/sim/combat.js`: auto-attack (`shootBolts` or `swing`, event `swing`), `castSkill` -> pulse, monster AI (`casterAI` = the cultist), `steer`, projectiles, telegraphs (`teles`), rift pools (`pools`), pickups, kills.
 - `src/sim/boss.js`, `src/sim/items.js` (also `bankItems`, `doorsFor`, `doorEffects`), `src/save.js` (v3, migration). Run end and doors: `Sim.finishRun`, `enterChoice`, `leave`, `takeDoor` in `core.js`.
 - `src/sim/abilities.js`: pool, offers, family tiers, stats, card info. `src/sim/effects.js`: statuses, triggers, effect kinds, orbit, zones, echoes.
 - `src/qa/bot.js`: the bot (`G.Bot(sim, buildId)`, `G.botRun`); `crossDir` dodges across cracks; `pickAbility` follows a build.
@@ -335,7 +367,7 @@ View (Phaser):
 Tools:
 - `tools/build.py` builds `dist/riftscar.html`. `tools/determinism.js`, `tools/check_bag.js`. `tools/sim_bot.js`
   (`--seeds`, `--leave N`, `--class id`, `--build id`, `--json`, `--set path=value`, `--career N`). `tools/contrast.js`.
-- `qa/bot.js`, `qa/screens.js`, `qa/session.js`, `qa/test_room.js`, `qa/lib.js`: headless Chromium checks.
+- `qa/bot.js`, `qa/screens.js`, `qa/session.js`, `qa/test_room.js`, `qa/city.js` (layouts, labels, prompt), `qa/touch.js` (touch emulation), `qa/lib.js`: headless Chromium checks.
 - `tools/check_secrets.py`, `tools/clean_url.py`, `tools/hooks/`, `.claude/hooks/guard.py`.
 
 URL parameters: `seed`, `tier`, `class`, `build`, `speed`, `bot=1`, `manual=1`, `touch=1`, `fresh=1`, `scene`,

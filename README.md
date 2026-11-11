@@ -6,7 +6,7 @@ file: `dist/riftscar.html`. No bundler, no package installs.
 ## Loop
 
 1. Explore a room. Walking near a hairline crack wakes it: the fissure expands across the floor.
-2. Kill what comes out. When its monsters are dead the fissure closes and leaves an orange-edged scar.
+2. Kill what comes out (imps, bats, skeletons, hounds, cultists, wardens). When its monsters are dead the fissure closes and leaves an orange-edged scar.
 3. With every fissure sealed, the super fissure in the middle opens. Beat its wave to close it.
 4. Open the chest, take the gate. After each room (not the last) choose: leave with the sealed bag, or go on through one of
    two doors; each door is a fissure modifier for the next room (longer cracks, faster spawns, an extra elite...) that pays a loot bonus.
@@ -59,6 +59,8 @@ node tools/sim_bot.js --career 14           # consecutive runs keeping gear
 node qa/bot.js --seeds 1-12                 # bot plays the real game in headless Chromium:
                                             #   no console errors, no softlock, must match Node
 node qa/screens.js both                     # screenshots of every screen at 960x540 and 540x960
+node qa/city.js                             # city: both layouts, both languages: nothing off screen, no label or prompt overlaps, rotation
+node qa/touch.js [portrait|landscape] [lang]  # the game by finger (touch emulation): city, run, level-up, doors, inventory, settings
 node qa/test_room.js [dir]                  # test room: edge, blocked step, dodge arc, touch, restart; 2 shots
 node qa/session.js --minutes 10             # scripted real-time session with rotation, menus, restarts
 ```

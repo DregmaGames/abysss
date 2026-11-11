@@ -123,7 +123,7 @@
     'stat.hp': 'Max HP', 'stat.dmgPct': 'Damage', 'stat.atkPct': 'Atk speed', 'stat.movePct': 'Move speed', 'stat.armor': 'Armor', 'stat.crit': 'Crit chance',
     'stat.rangePct': 'Range', 'stat.pulsePct': 'Skill dmg', 'stat.cdrPct': 'Cooldowns', 'stat.regen': 'HP regen', 'stat.expPct': 'EXP gain',
     'rar.0': 'Common', 'rar.1': 'Magic', 'rar.2': 'Rare', 'rar.3': 'Epic', 'rar.4': 'Legendary',
-    'mob.imp': 'Imp', 'mob.bat': 'Bat', 'mob.skeleton': 'Skeleton', 'mob.hound': 'Hound', 'mob.warden': 'Warden', 'mob.tyrant': 'Rift Tyrant'
+    'mob.imp': 'Imp', 'mob.bat': 'Bat', 'mob.skeleton': 'Skeleton', 'mob.hound': 'Hound', 'mob.cultist': 'Cultist', 'mob.warden': 'Warden', 'mob.tyrant': 'Rift Tyrant'
   };
 
   // ------------------------------------------------------------------ Spanish (neutral Latin American, "tú")
@@ -228,7 +228,7 @@
     'stat.hp': 'Vida máx.', 'stat.dmgPct': 'Daño', 'stat.atkPct': 'Vel. de ataque', 'stat.movePct': 'Vel. de mov.', 'stat.armor': 'Armadura', 'stat.crit': 'Prob. de crítico',
     'stat.rangePct': 'Alcance', 'stat.pulsePct': 'Daño de hab.', 'stat.cdrPct': 'Recargas', 'stat.regen': 'Regen. de vida', 'stat.expPct': 'EXP ganada',
     'rar.0': 'Común', 'rar.1': 'Mágico', 'rar.2': 'Raro', 'rar.3': 'Épico', 'rar.4': 'Legendario',
-    'mob.imp': 'Diablillo', 'mob.bat': 'Murciélago', 'mob.skeleton': 'Esqueleto', 'mob.hound': 'Sabueso', 'mob.warden': 'Guardián', 'mob.tyrant': 'Tirano de la Brecha'
+    'mob.imp': 'Diablillo', 'mob.bat': 'Murciélago', 'mob.skeleton': 'Esqueleto', 'mob.hound': 'Sabueso', 'mob.cultist': 'Cultista', 'mob.warden': 'Guardián', 'mob.tyrant': 'Tirano de la Brecha'
   };
 
   // Spanish names of the data tables, by id

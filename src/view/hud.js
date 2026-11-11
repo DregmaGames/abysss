@@ -2,6 +2,7 @@
 // progress and the inventory button. Touch controls appear only after a touch. Panels open on top.
 (function (G) {
   var UI = G.UI;
+  var GUARD = 400;      // ms a freshly opened level-up or door choice ignores taps and clicks (see tooSoon)
 
   G.HudScene = new Phaser.Class({
     Extends: Phaser.Scene,
@@ -213,14 +214,19 @@
 
     // ------------------------------------------------- after a room: leave or a door
     // Shown when sim.state is 'choice'. Door cards state the fissure modifier and the loot bonus it pays.
+    // A level-up or the door choice opens in the middle of a fight, often under a finger (or a click) that was on its way to DODGE or
+    // SKILL: for GUARD ms after it appears, a pointer cannot pick a card. Keys 1-3 and the bot are not held back.
+    tooSoon: function () { return this.time.now - (this.modalAt || 0) < GUARD; },
+
     openChoice: function () {
-      var sim = this.game_.sim, self = this, B = sim.B, V = G.view, i;
+      var sim = this.game_.sim, self = this, B = sim.B, V = G.view, i, fresh = !this.choiceL;
       if (this.choiceL) this.choiceL.destroy();
       this.choiceL = null;
       if (sim.state !== 'choice') return;
       if (G.Panels.isOpen()) G.Panels.close(true);
       this.dropStick();
       G.screen = 'choice'; G.paused = true;
+      if (fresh) this.modalAt = this.time.now;
       this.botWait = this.game_.speed > 4 ? 1 : 60;
       var n = sim.doors.length, row = V.W >= 300, gap = 6, mw = row ? Math.min(V.W - 8, 330) : Math.min(V.W - 8, 264), inner = mw - 16;
       var cw = row ? Math.floor((inner - gap * (n - 1)) / n) : inner, ch = 0, lines = [];
@@ -237,7 +243,7 @@
       for (i = 0; i < n; i++) {
         (function (k) {
           var id = sim.doors[k], def = B.doors.mods[id], cx = row ? x0 + k * (cw + gap) : x0, cy = row ? y : y + k * (ch + 4);
-          var card = m.button(cx, cy, cw, ch, '', function () { self.pickDoor(k); }, { name: 'door_' + k });
+          var card = m.button(cx, cy, cw, ch, '', function () { if (!self.tooSoon()) self.pickDoor(k); }, { name: 'door_' + k });
           void card;
           m.text(cx + 5, cy + 4, G.t('door.' + id), 'ui_warn');
           var kt = m.text(0, cy + 4, '' + (k + 1), 'ui_dim'); kt.x = cx + cw - 5 - kt.width;
@@ -246,7 +252,7 @@
         })(i);
       }
       y += cardsH + 8;
-      m.button(x0, y, inner, 18, G.t('choice.leave'), function () { self.pickDoor(n); }, { name: 'leave', color: 'ui_good' });
+      m.button(x0, y, inner, 18, G.t('choice.leave'), function () { if (!self.tooSoon()) self.pickDoor(n); }, { name: 'leave', color: 'ui_good' });
       m.text(x0, y + 22, G.t('choice.note'), 'ui_dim').setMaxWidth(inner);
     },
     // i < number of doors: take that door; i === doors.length (the 3rd key with two doors): leave
@@ -262,9 +268,10 @@
 
     // ------------------------------------------------------- level-up choice
     openLevel: function () {
-      var sim = this.game_.sim, self = this, B = sim.B, V = G.view;
+      var sim = this.game_.sim, self = this, B = sim.B, V = G.view, fresh = !this.level;
       if (this.level) this.level.destroy();
       if (sim.state !== 'levelup') { this.level = null; return; }
+      if (fresh) this.modalAt = this.time.now;
       if (G.Panels.isOpen()) G.Panels.close();
       this.dropStick();
       this.openAbilityLevel(); this.botWait = this.game_.speed > 4 ? 1 : 30; G.screen = 'levelup';
@@ -392,7 +399,7 @@
           bg.setInteractive({ useHandCursor: true });
           bg.on('pointerover', function () { bg.setFrame('btn_hot'); });
           bg.on('pointerout', function () { bg.setFrame('btn'); });
-          bg.on('pointerdown', function () { self.pickLevel(i); });
+          bg.on('pointerdown', function () { if (!self.tooSoon()) self.pickLevel(i); });
           UI.hit('card_' + i, cx, cy, cw, ch);
         });
         strip(m, false, x0, m.y + 40 + (row ? ch : n * (ch + gap) - gap) + 8);

@@ -3,7 +3,7 @@
 // so one seed always gives the same run in Node and in the browser.
 (function (G) {
   var T = 16;
-  var KEEP = { imp: 44, bat: 38, skeleton: 36, hound: 64, warden: 56, tyrant: 76 };
+  var KEEP = { imp: 44, bat: 38, skeleton: 36, hound: 64, cultist: 30, warden: 56, tyrant: 76 };
   var DIRS = [];
   for (var i = 0; i < 16; i++) DIRS.push({ x: G.M.cos(i / 16 * 6.2832), y: G.M.sin(i / 16 * 6.2832) });
 
@@ -260,6 +260,10 @@
     return this.pathDir(c.x, c.y);
   };
 
+  Bot.prototype.inPool = function (x, y) {
+    for (var i = 0, ps = this.sim.pools; i < ps.length; i++) { var dx = x - ps[i].x, dy = y - ps[i].y, r = ps[i].r + 2; if (dx * dx + dy * dy < r * r) return true; }
+    return false;
+  };
   Bot.prototype.update = function () {
     var sim = this.sim;
     if (sim.state !== 'play') return;
@@ -277,7 +281,7 @@
     var p = sim.player, s = sim.stats, K = sim.cls.skill, inp = sim.input, i;
     // Human-like reaction time: in a fight the bot only re-decides every `reactionTicks`
     // and holds its last decision in between. Out of combat it steers every tick.
-    var fight = sim.monsters.length || sim.shots.length || sim.teles.length;
+    var fight = sim.monsters.length || sim.shots.length || sim.teles.length || sim.pools.length;
     if (fight && sim.tick - this.thinkTick < sim.B.bot.reactionTicks) {
       inp.mx = this.mx; inp.my = this.my;
       inp.dodge = this.wantDodge && p.dodgeCd <= 0; inp.pulse = this.wantPulse && p.pulseCd <= 0;
@@ -316,6 +320,13 @@
       ax += ex / ed * 5; ay += ey / ed * 5; urgent++;
       if ((t.r + 4 - ed) / s.speed > t.dur - t.t - 0.08) dodge = true;
     }
+    // a cultist's rift pool: get out of it (dodge when deep inside), and do not walk into one (the direction pick below)
+    for (i = 0; i < sim.pools.length; i++) {
+      var q = sim.pools[i], qx = p.x - q.x, qy = p.y - q.y, qd = Math.sqrt(qx * qx + qy * qy) || 0.01;
+      if (qd > q.r + 4) continue;
+      ax += qx / qd * 5; ay += qy / qd * 5; urgent++;
+      if (qd < q.r * 0.5 && q.cd <= 0.15) dodge = true;
+    }
 
     // goal
     var g = null, gw = 1;
@@ -323,7 +334,7 @@
       if (this.melee) {   // melee: close to swing reach and stay in the arc; charge at what keeps its distance
         if (nd > s.range * 0.6 || !sim.los(p.x, p.y, nearest.x, nearest.y)) {
           g = this.pathDir(nearest.x, nearest.y);
-          if (nd > 40 && (nearest.def.ai === 'ranged' || nearest.def.ai === 'elite') && p.dodgeCd <= 0 && !urgent) dodge = true;
+          if (nd > 40 && (nearest.def.ai === 'ranged' || nearest.def.ai === 'elite' || nearest.def.ai === 'caster') && p.dodgeCd <= 0 && !urgent) dodge = true;
         } else { var hx = nearest.x - p.x, hy = nearest.y - p.y, hl = Math.sqrt(hx * hx + hy * hy) || 1; g = { x: hx / hl, y: hy / hl }; gw = 0.25; }
       } else if (nd > s.range * 0.72 || !sim.los(p.x, p.y, nearest.x, nearest.y)) g = this.pathDir(nearest.x, nearest.y);
       else {   // in range: circle the target so shots miss
@@ -365,6 +376,7 @@
         var dir = DIRS[i], sc = (dir.x * ax + dir.y * ay) / al;
         if (sim.boxHits(p.x + dir.x * 9, p.y + dir.y * 9, p.r) || sim.crackHits(p.x + dir.x * 4, p.y + dir.y * 4, p.r)) sc -= 1.2;
         else if (sim.boxHits(p.x + dir.x * 20, p.y + dir.y * 20, p.r)) sc -= 0.35;
+        if (sim.pools.length && this.inPool(p.x + dir.x * 10, p.y + dir.y * 10) && !this.inPool(p.x, p.y)) sc -= 0.8;
         if (sc > bs) { bs = sc; mx = dir.x; my = dir.y; }
       }
     }

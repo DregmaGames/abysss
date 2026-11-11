@@ -42,13 +42,13 @@ come out at the game's pixel size and in the game's palette, so it always goes t
 
 The game reads these frame names; an import must keep them (and the frame meaning) to drop in.
 
-**Rift Tyrant attack poses (`tyrant_2` fists raised for slam / burst, `tyrant_3` head down for the charge; 34-36 px tall)**
+**Rift Tyrant attack poses (`tyrant_2` claws raised for the slam, `tyrant_3` head down for the charge, `tyrant_4` arms spread for the burst; 34-36 px tall)**
 > Pixel art game sprite sheet, 3x1 grid, evenly spaced, pure magenta #FF00FF background. The same
 > hulking horned crimson demon in three poses, front view, top-down 3/4 perspective: 1) both fists
 > raised high above the horns, glowing green light in the fists, about to smash the ground;
 > 2) crouched with head lowered and horns pointing forward, about to charge; 3) arms spread wide,
 > chest crack glowing, roaring. Bone horns, yellow eyes, thick dark outline, flat colours, no ground shadow.
-> (The code-drawn fists are square blocks: the pose reads, the hands do not.)
+> (Step 9b redrew the hands in code as three-clawed hands in every pose; import only if the user wants painted art.)
 
 **Don Montoto (city NPC `npc_montoto_0/1`, 20 px tall; also the caged frame `cage_0/1`)**
 > Pixel art game sprite sheet, 2x1 grid, pure magenta #FF00FF background. A very old, slightly bent
