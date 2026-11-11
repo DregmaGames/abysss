@@ -7,10 +7,10 @@
   G.newGear = function () {
     var eq = {};
     SLOTS.forEach(function (s) { eq[s] = null; });
-    return { equipped: eq, bag: [], nextId: 1 };
+    return { equipped: eq, bag: [], nextId: 1, scrolls: 0 };
   };
   G.newSave = function () {
-    return { v: 4, gears: {}, settings: { zoom: 0, shake: 100 }, stats: { runs: 0, wins: 0, best: 0 } };
+    return { v: 5, gears: {}, settings: { zoom: 0, shake: 100 }, stats: { runs: 0, wins: 0, best: 0 } };
   };
   // the gear (worn items and kept bag) of a class; the sim takes this object as its `gear` option
   G.gearOf = function (save, clsId) {
@@ -24,15 +24,17 @@
       if (raw) {
         var s = JSON.parse(raw), d = G.newSave(), B = G.BAL;
         var ok = function (it) { return it && typeof it === 'object' && SLOTS.indexOf(it.slot) >= 0 && it.stats && typeof it.rarity === 'number'; };
-        if (s && s.v === 4 && s.gears && typeof s.gears === 'object') {
+        if (s && (s.v === 4 || s.v === 5) && s.gears && typeof s.gears === 'object') {
           Object.keys(s.gears).forEach(function (id) {       // v4: sanitize each class's gear
             var g = s.gears[id], n = G.newGear();
             if (!B.classes[id] || !g || typeof g !== 'object') { delete s.gears[id]; return; }
             n.bag = (Array.isArray(g.bag) ? g.bag : []).filter(ok);
             SLOTS.forEach(function (k) { n.equipped[k] = g.equipped && ok(g.equipped[k]) ? g.equipped[k] : null; });
             n.nextId = g.nextId > 0 ? g.nextId : 1;
+            n.scrolls = g.scrolls > 0 ? Math.min(Math.floor(g.scrolls), B.loot.scrollCap) : 0;      // v4 -> v5: scrolls start at 0; items without `unid` are identified
             s.gears[id] = n;
           });
+          s.v = 5;
           s.settings = Object.assign(d.settings, s.settings || {});
           s.stats = Object.assign(d.stats, s.stats || {});
           return s;

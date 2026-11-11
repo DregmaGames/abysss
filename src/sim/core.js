@@ -15,6 +15,7 @@
     this.tick = 0;
     this.state = 'play';                 // play | levelup | choice (after a room: leave or a door) | dead | won | left
     this.bag = [];                       // the sealed bag: gear found in this run; kept on leave / win, lost on death (finishRun)
+    this.scrolls = 0; this.scrollsFound = 0;                    // sealed scrolls of Identification found in this run (banked like the bag)
     this.mod = null;                     // the door modifier of the current room (BAL.doors.mods id)
     this.doors = [];                     // the doors offered now (state 'choice'); doorLog: the ids taken, in order
     this.doorLog = []; this.lootBonus = 0; this.result = null;
@@ -134,14 +135,15 @@
   // The run is over: 'dead' empties the sealed bag (and, if BAL.run.deathKeepsEquipped is false, strips the equipped gear);
   // 'won' and 'left' put the sealed bag into the kept bag (gear.bag). this.result says what happened to the items.
   S.finishRun = function (kind) {
-    var B = this.B, n = this.bag.length, best = G.bestRarity(this.bag), r = { kind: kind, items: n, best: best, kept: 0, lost: 0 };
+    var B = this.B, n = this.bag.length, best = G.bestRarity(this.bag), r = { kind: kind, items: n, best: best, kept: 0, lost: 0, scrolls: this.scrolls, found: this.scrollsFound, scrollsKept: 0 };
     if (kind === 'dead') {
       r.lost = n;
       if (!B.run.deathKeepsEquipped) for (var k in this.gear.equipped) this.gear.equipped[k] = null;
     } else if (this.testRoom < 0) {
       var b = G.bankItems(this.gear, this.bag, B); r.kept = b.kept; r.lost = b.lost;
+      r.scrollsKept = G.bankScrolls(this.gear, this.scrolls, B);
     } else r.lost = n;
-    this.bag = [];
+    this.bag = []; this.scrolls = 0;
     this.result = r;
     this.state = kind;
     this.emit({ t: kind === 'dead' ? 'dead' : kind });
@@ -391,12 +393,24 @@
   // (BAL.run.deathKeepsEquipped), the rest of the sealed bag is not. Between runs (title) the player works on gear.bag instead.
   S.equipFromSealed = function (idx) {
     var item = this.bag[idx];
-    if (!item || !G.canEquip(item, this.B, this.clsId)) return null;
+    if (!G.canEquipNow(item, this.B, this.clsId)) return null;
     var key = G.targetSlot(this.gear, item, this.B), old = this.gear.equipped[key];
     this.gear.equipped[key] = item;
     if (old) this.bag[idx] = old; else this.bag.splice(idx, 1);
     this.recalc(); this.emit({ t: 'equip', slot: key });
     return key;
+  };
+  // identify the unidentified item at this.bag[idx]: spends a sealed scroll first, else a kept one. Reveals the stats rolled at the drop.
+  S.scrollsHeld = function () { return this.scrolls + (this.gear.scrolls | 0); };
+  S.identifySealed = function (idx) {
+    var it = this.bag[idx];
+    if (!it || !it.unid) return false;
+    var from = G.useScroll(this.gear, this.scrolls);
+    if (!from) return false;
+    if (from === 'sealed') this.scrolls--;
+    it.unid = false; this.identified = (this.identified | 0) + 1;
+    this.emit({ t: 'identify', item: it });
+    return true;
   };
   S.dropSealed = function (idx) { return this.bag.splice(idx, 1)[0] || null; };
 

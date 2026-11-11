@@ -63,13 +63,17 @@ function main() {
     const cp = G.BAL.bot.career, cls = G.classDef(G.BAL, args.cls).id;
     let target = cp.startRoom;
     for (let i = 0; i < args.career; i++) {
+      const sc0 = gear.scrolls | 0;
       G.Bot.prepareGear(gear, G.BAL, cls);      // between runs, as a player on the title screen: equip the best, discard the rest
+      const identBetween = sc0 - (gear.scrolls | 0);      // scrolls spent on the title before this run = items identified there
       const gs = G.gearScore(gear);
       let tier = 0;
       G.BAL.run.tierGear.forEach((need, t) => { if (gs >= need) tier = t; });
       const r = G.botRun(seeds[i % seeds.length], { tier, gear, cls: args.cls, build: args.build, leave: args.leave || target, lowHp: cp.lowHp });
+      r.identBetween = identBetween;
       r.tier = tier; r.gearBefore = gs; r.target = args.leave || target;
-      G.Bot.prepareGear(gear, G.BAL, cls); r.gearAfter = G.gearScore(gear);
+      const sc1 = gear.scrolls | 0;
+      G.Bot.prepareGear(gear, G.BAL, cls); r.gearAfter = G.gearScore(gear); r.identBetween += sc1 - (gear.scrolls | 0);      // after the run too (the next run's first step)
       if (r.result === 'left' || r.result === 'win') target = Math.min(cp.cap, target + cp.step);
       res.push(r);
     }
@@ -87,6 +91,7 @@ function main() {
     avgRoomsCleared: +avg('rooms').toFixed(2), avgSeconds: Math.round(avg('seconds')), avgLevel: +avg('level').toFixed(1),
     worstStuck: Math.max(...res.map(r => r.worstStuck)), winSeeds: res.filter(r => r.result === 'win').map(r => r.seed),
     avgBagItems: +avg2(res.map(r => r.bag.items)), avgBagKept: +avg2(res.map(r => r.bag.kept)), avgBagLost: +avg2(res.map(r => r.bag.lost)),
+    avgScrollsFound: +avg2(res.map(r => r.bag.found)), avgScrollsKept: +avg2(res.map(r => r.bag.scrollsKept)), identifiedInRun: res.reduce((t, r) => t + r.identified, 0),
     wallSeconds: +((Date.now() - t0) / 1000).toFixed(1)
   };
   if (res.length && res[0].build) {      // what the build came to
@@ -99,7 +104,7 @@ function main() {
   if (args.json) console.log(JSON.stringify({ summary, runs: res }));
   else {
     console.log(summary);
-    if (args.career) res.forEach((r, i) => console.log(`run ${i + 1}: seed ${r.seed} tier ${r.tier + 1}/${G.BAL.run.tierMult.length} target room ${r.target} gear ${r.gearBefore}->${r.gearAfter} ${r.result} room ${r.room + 1} bag ${r.bag.items} (kept ${r.bag.kept}) lvl ${r.level} ${r.seconds}s`));
+    if (args.career) res.forEach((r, i) => console.log(`run ${i + 1}: seed ${r.seed} tier ${r.tier + 1}/${G.BAL.run.tierMult.length} target room ${r.target} gear ${r.gearBefore}->${r.gearAfter} ${r.result} room ${r.room + 1} bag ${r.bag.items} (kept ${r.bag.kept}) lvl ${r.level} scrolls found ${r.bag.found} identified ${r.identified} in run + ${r.identBetween} before ${r.seconds}s`));
   }
   process.exit(soft.length || tout.length ? 2 : 0);
 }

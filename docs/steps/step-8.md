@@ -13,6 +13,9 @@ a reveal, one item at a time). The Appraiser is not there at first: he is rescue
 directly, without walking through the city. Leave empty plots for the Mage and Neutral quarters.
 VERIFY: a scripted Playwright session: run, leave, appraise, sell, buy, run again, at both sizes;
 node qa/session.js --minutes 10.
+- The Blacksmith's shop (or a stall next to him) also sells Scrolls of Identification for gold (price from the step 7 economy), added to
+  the class's kept scroll count `gear.scrolls`. The Appraiser's reveal is the same thing as identification: it clears `unid` on an item of
+  the sealed or kept bag (stats are already rolled; it never rerolls), so do not build a second mechanism.
 
 ## Test budget
 

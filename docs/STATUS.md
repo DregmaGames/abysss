@@ -20,6 +20,23 @@ Design decisions live in the plan doc (the user has it); this file is what an ag
   Rules in `src/balance.js` (`doors`, `run.deathKeepsEquipped`, `loot.bagSize` = sealed bag of a run, `loot.stashSize` = kept bag).
 - `main` is the working base. One branch per step: `step-N-<slug>`.
 
+## Last measured (2026-11-11, step 6 finished: gear per class, in-run equip, identification)
+
+- Node bot seeds 1-10, default policy, first build, fresh gear each run (the bot equips from the sealed bag and identifies with the scrolls it finds): mage 0 wins
+  (deaths by room 2:2 5:2 6:1 9:3 10:2), warrior 4 wins (5,7,9,10), archer 2 wins (3,4). No softlocks, no timeouts, worst stuck 16 s. Scrolls found per run
+  11 / 16 / 11 (mage / warrior / archer), items identified in the run 8.9 / 12.5 / 8.6; wins are back from step 6's 0 because the bot equips in runs again (step 5 had 3-4).
+- Career warrior (`--career 10 --seeds 1-10`): 7 left, 3 won (runs 8, 9, 10), 0 dead, no softlocks. Gear score 0 -> 15 / 23 / 42 / 61 / 64 / 65 / 65 / 62 / 62 / 62 (tier 1 all career).
+  Items identified in the run: 4, 5, 6, 9, 6, 16, 11, 13, 10, 5 (85 total); 0 on the title (the bot identifies in the run, so nothing waits in the kept bag). Scrolls
+  banked 6.1 per run; found 13 per run, which is more than the plan wants (see Rough).
+- `node tools/check_bag.js`: 63 checks pass (adds per-class banking and class switch, v2/v3/v4 migration, in-run equip / swap / full sealed bag / death keeps worn gear,
+  identification, scroll drops and bag rule, bot identification). `node tools/determinism.js` passes.
+- Browser (Playwright script outside the repo, `qa/lib.js`): bank an item as mage, switch to warrior on the title: its bag is empty, switch back: the item is there;
+  in a run: inventory shows the sealed bag, EQUIP moves a common helmet onto the hero, an unidentified item is not equipped by tapping twice, IDENTIFY with a scroll
+  reveals it (sealed scroll spent first) and it can then be equipped; 0 errors. Screenshots `/tmp/fix_inv_run.png` (960x540), `/tmp/fix_inv_portrait.png` (540x960, unidentified item).
+- Rough: scroll drops are generous (13 per run; lower `eliteScroll`, `superScroll`, `chestScroll` when step 7 adds the shop); the item name still shows its first extra stat word; the
+  bot identifies by rarity, not stats; a full sealed bag never blocks a swap because the replaced item takes the equipped item's cell (so there is no "bag is full" refusal to show);
+  not run: `qa/bot.js`, `qa/session.js`, `qa/screens.js`, touch, the warrior and archer in the in-run inventory by hand.
+
 ## Last measured (2026-11-11, step 6: doors and extraction)
 
 - How it works: after clearing any room but the last the sim enters state `choice` (`Sim.enterChoice`): `leave()` banks the sealed bag into the
@@ -39,6 +56,15 @@ Design decisions live in the plan doc (the user has it); this file is what an ag
   (`deathKeepsEquipped`) and loses the rest of the sealed bag. Between runs (title) the player equips and discards from the class's `gears[c].bag`.
   Save v4 (key unchanged): a v2/v3 save's shared gear (worn items + kept bag) goes whole to the class in `settings.cls` (default mage); a worn
   weapon that class cannot use moves to its bag; an old bag over the stash size stays whole (nothing lost); `nextId` raised above every item id.
+- Identification (step 6b): items of rarity 1+ (`BAL.loot.unidentifiedFrom`) drop unidentified (`item.unid = true`): type, name, rarity and item level show, the stats
+  do not, and the item cannot be equipped (`G.canEquipNow`). The stats are rolled at the drop with the same rng draws as before (the flag costs none), so
+  identifying only clears the flag. Commons and every item of an old save (no `unid` field) count as identified. A Scroll of Identification is a count:
+  `gear.scrolls` per class (kept, like the stash; cap `loot.scrollCap` 99) and `sim.scrolls` (sealed, found in this run). Rule: found scrolls are sealed
+  like the bag (banked into `gear.scrolls` on leave or win, lost on death, nothing in the test room); spending takes a sealed scroll first, then a kept one.
+  IDENTIFY button on an unidentified item in the inventory (in a run: `Sim.identifySealed`; on the title: `G.identifyInBag`). Drops (`BAL.loot`): killScroll 1.2 %
+  per kill, eliteScroll 20 %, bossScroll 100 %, chestScroll 40 % per chest, superScroll 50 % per super fissure closed (the door loot bonus multiplies kill,
+  elite, boss and closure chances). Art: `i_scroll`, `i_unid` (a "?" over the icon). Save v5: adds `gears[c].scrolls`; v4 and older saves load with 0 scrolls and
+  all items identified. Not built (steps 7 and 8): buying scrolls, the in-room merchant. The item name still shows its first extra stat word ("Savage ...").
 - Bot: default goes on to room 10 and takes the door with the smaller loot bonus; `--leave N` (also `?leave=N` in the browser) leaves after room N.
   `G.Bot.prepareGear` equips and discards between runs (used by `--career`). `sim_bot` reports `left` and bag items.
 - Career (`sim_bot --career 10 --seeds 1-10`, 10 runs, gear kept): between runs `G.Bot.prepareGear` equips the best item per slot (own-class weapons only)

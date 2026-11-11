@@ -202,7 +202,7 @@
           case 'seg': fx.burst(e.x, e.y, 'em4', 10, 70, 0.5); fx.ring(e.x, e.y, 14, 2, 0.4, 'em3', 0.5); break;
           case 'chest': fx.burst(e.x, e.y, 'gold', 30, 110, 0.7); fx.ring(e.x, e.y, 3, 30, 0.4, 'gold'); break;
           case 'drop': fx.burst(e.x, e.y, UI.RARITY[e.rarity], 8, 50, 0.5); break;
-          case 'pickup': fx.burst(this.sim.player.x, this.sim.player.y, e.item ? UI.RARITY[e.item.rarity] : 'tome2', 10, 60, 0.4); break;
+          case 'pickup': fx.burst(this.sim.player.x, this.sim.player.y, e.item ? UI.RARITY[e.item.rarity] : (e.kind === 'scroll' ? 'gold' : 'tome2'), 10, 60, 0.4); break;
           case 'room': this.buildRoom(); this.cameras.main.fadeIn(300, 7, 6, 11); break;
           case 'dead': fx.shake(1); fx.burst(this.sim.player.x, this.sim.player.y, this.cls.sprite.glow, 36, 120, 0.9); break;
         }
@@ -282,7 +282,7 @@
       this.list('orbs', sim.orbs, function (o) { return self.add.image(o.x, o.y, 'atlas', o.kind === 'exp' ? 'orb_exp' : 'orb_heal').setDepth(-50); },
         function (s, o) { s.setPosition(o.x, o.y + (((tick >> 3) + o.id) % 4 === 0 ? -1 : 0)); });
       this.list('drops', sim.drops, function (d) {
-        var s = self.add.image(d.x, d.y, 'atlas', d.kind === 'tome' ? 'i_tome' : G.itemIcon(d.item)).setDepth(d.y);
+        var s = self.add.image(d.x, d.y, 'atlas', d.kind === 'tome' ? 'i_tome' : d.kind === 'scroll' ? 'i_scroll' : G.itemIcon(d.item)).setDepth(d.y);
         s.sh = self.add.image(d.x, d.y + 8, 'atlas', 'shadow_s').setDepth(-100);
         s.rar = d.item ? d.item.rarity : 3;
         s.gl = self.add.image(d.x, d.y, 'atlas', 'glow_s').setDepth(-640).setBlendMode(ADD).setTint(UI.hex(d.item ? UI.RARITY[s.rar] : 'tome1')).setAlpha(0.6);

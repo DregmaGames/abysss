@@ -111,7 +111,13 @@
     function act() {
       var sl = P.sel;
       if (!sl) return;
-      if (s) { if (sl.kind === 'sbag' && s.equipFromSealed(sl.key)) { P.sel = null; P.openInventory(scene, true); } return; }   // in a run: equip from the sealed bag only
+      if (s) {
+        if (sl.kind !== 'sbag') return;
+        var it0 = s.bag[sl.key];
+        if (it0 && it0.unid) return;                // an unidentified item cannot be equipped (IDENTIFY first)
+        if (s.equipFromSealed(sl.key)) { P.sel = null; P.openInventory(scene, true); }
+        return;
+      }   // in a run: equip from the sealed bag only
       if (sl.kind === 'bag') G.equipFromBag(g, sl.key, B, cls); else G.unequip(g, sl.key, B);
       P.sel = null; G.storeSave(G.save); P.openInventory(scene, true);
     }
@@ -119,6 +125,7 @@
       var bg = L.image(x + 10, y + 10, item ? 'rar_' + item.rarity : 'slot', 1);
       var ic = L.image(x + 10, y + 10, (item ? G.itemIcon(item) : 'i_' + (slotKey || 'bag')), 2);
       if (!item) { ic.setAlpha(slotKey ? 0.22 : 0); }
+      else if (item.unid) { ic.setAlpha(0.55); L.image(x + 10, y + 10, 'i_unid', 3); }      // unidentified: a "?" over the icon
       if (P.sel && P.sel.kind === sel.kind && P.sel.key === sel.key) L.image(x + 10, y + 10, 'select', 3);
       if (item || slotKey) {
         bg.setInteractive({ useHandCursor: true });
@@ -147,15 +154,23 @@
     // bag
     var bx = wide ? x0 + 82 : x0 + 8, by = wide ? y0 + 20 : dy + 72;
     var cols = wide ? 5 : Math.max(5, Math.min(10, Math.floor((pw - 14) / 22))), rowsN = s ? 2 : Math.ceil(B.loot.stashSize / cols), i;
+    var scrollCount = s ? s.scrollsHeld() : 0;
     if (s) {      // in a run: the sealed bag of this run, shown as a grid
       var sb = B.loot.bagSize, bi = G.bestRarity(s.bag);
-      L.text(bx, by, 'SEALED BAG OF THIS RUN ' + s.bag.length + '/' + sb, 'ui_dim').setMaxWidth(wide ? cols * 22 : pw - 16);
+      L.text(bx, by, wide ? 'SEALED BAG ' + s.bag.length + '/' + sb : 'SEALED BAG OF THIS RUN ' + s.bag.length + '/' + sb, 'ui_dim');
       for (i = 0; i < sb; i++) cell(bx + (i % cols) * 22, by + 11 + Math.floor(i / cols) * 22, s.bag[i], null, { kind: 'sbag', key: i }, 'sbag_' + i);
       rowsN = Math.ceil(sb / cols);
     } else {
       L.text(bx, by, 'BAG ' + g.bag.length + '/' + B.loot.stashSize, 'ui_dim');
+      scrollCount = g.scrolls | 0;
       for (i = 0; i < B.loot.stashSize; i++) cell(bx + (i % cols) * 22, by + 11 + Math.floor(i / cols) * 22, g.bag[i], null, { kind: 'bag', key: i }, 'bag_' + i);
     }
+
+    // scrolls of Identification: kept ones, plus (in a run) the sealed ones found so far
+    var sct = L.text(0, wide ? by + 13 + rowsN * 22 : by, 'x' + scrollCount + (s && s.scrolls ? ' (' + s.scrolls + ' sealed)' : ''), scrollCount ? 'gold' : 'ui_dim');
+    if (wide) { sct.x = bx + 12; L.image(sct.x - 7, sct.y + 5, 'i_scroll', 2); }
+    else { sct.x = bx + cols * 22 - sct.width; L.image(sct.x - 8, by + 4, 'i_scroll', 2); }
+    if (s && wide) L.text(bx, sct.y + 12, 'Found in this run. Lost if you die.', 'ui_dim').setMaxWidth(cols * 22);
 
     // item details
     var ix = wide ? bx + cols * 22 + 6 : x0 + 8, iy = wide ? y0 + 20 : by + 11 + rowsN * 22 + 4, iw = x0 + pw - 8 - ix, ih = y0 + ph - 6 - iy;
@@ -171,9 +186,13 @@
       L.text(ix + 5, ty, UI.RARITY_NAME[item.rarity] + ' ' + (item.wtype ? item.wtype.charAt(0).toUpperCase() + item.wtype.slice(1) : G.SLOT_NAME[item.slot]), col); ty += 10;
       if (foreign) { L.text(ix + 5, ty, foreign + ' weapon', 'ui_warn'); ty += 10; }
       L.text(ix + 5, ty, 'Item level ' + item.ilvl, 'ui_dim'); ty += 12;
+      if (item.unid) {
+        L.text(ix + 5, ty, 'UNIDENTIFIED', 'ui_warn'); ty += 10;
+        L.text(ix + 5, ty, scrollCount ? 'Stats are hidden. Use a scroll to reveal them.' : 'Stats are hidden. Needs a Scroll of Identification.', 'ui_dim').setMaxWidth(iw - 10);
+      }
       // each stat, and the change against what is equipped in that slot
       var cur = isBag ? g.equipped[item.slot] : null;
-      G.STAT_ORDER.forEach(function (st) {
+      if (!item.unid) G.STAT_ORDER.forEach(function (st) {
         var v = item.stats[st], c = cur ? cur.stats[st] || 0 : 0;
         if (v == null && !(isBag && c)) return;
         if (ty > iy + ih - 34) return;
@@ -187,14 +206,16 @@
       var bw = Math.floor((iw - 14) / 2), byy = iy + ih - 22;
       if (s) {      // in a run: equip from the sealed bag (own-class weapons), or drop from it
         if (sl.kind === 'sbag') {
-          var better2 = !cur || G.itemValue(item, B) > G.itemValue(cur, B);
-          L.button(ix + 5, byy, bw, 18, 'EQUIP', act, { name: 'equip', color: better2 ? 'ui_good' : 'ui_text' }).setEnabled(!foreign);
+          var better2 = !item.unid && (!cur || G.itemValue(item, B) > G.itemValue(cur, B));
+          if (item.unid) L.button(ix + 5, byy, bw, 18, 'IDENTIFY', function () { if (s.identifySealed(sl.key)) P.openInventory(scene, true); }, { name: 'identify', color: 'gold' }).setEnabled(scrollCount > 0);
+          else L.button(ix + 5, byy, bw, 18, 'EQUIP', act, { name: 'equip', color: better2 ? 'ui_good' : 'ui_text' }).setEnabled(!foreign);
           L.button(ix + 9 + bw, byy, bw, 18, 'DROP', function () { s.dropSealed(sl.key); P.sel = null; P.openInventory(scene, true); }, { name: 'drop' });
         }
       }
       else if (sl.kind === 'bag') {
-        var better = !cur || G.itemValue(item, B) > G.itemValue(cur, B);
-        L.button(ix + 5, byy, bw, 18, 'EQUIP', act, { name: 'equip', color: better ? 'ui_good' : 'ui_text' }).setEnabled(!foreign);
+        var better = !item.unid && (!cur || G.itemValue(item, B) > G.itemValue(cur, B));
+        if (item.unid) L.button(ix + 5, byy, bw, 18, 'IDENTIFY', function () { if (G.identifyInBag(g, sl.key)) { G.storeSave(G.save); P.openInventory(scene, true); } }, { name: 'identify', color: 'gold' }).setEnabled(scrollCount > 0);
+        else L.button(ix + 5, byy, bw, 18, 'EQUIP', act, { name: 'equip', color: better ? 'ui_good' : 'ui_text' }).setEnabled(!foreign);
         L.button(ix + 9 + bw, byy, bw, 18, 'DROP', function () { G.dropFromBag(g, sl.key); P.sel = null; G.storeSave(G.save); P.openInventory(scene, true); }, { name: 'drop' });
       } else {
         L.button(ix + 5, byy, Math.max(bw, 52), 18, 'UNEQUIP', act, { name: 'unequip' }).setEnabled(g.bag.length < B.loot.stashSize);

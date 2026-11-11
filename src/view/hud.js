@@ -156,13 +156,14 @@
 
     onEvent: function (e) {
       if (e.t === 'pickup') {
-        if (!e.item) this.say('Ability tome', 'tome2');      // gear goes into the sealed bag: the counter shows it
+        if (e.kind === 'scroll') this.say('Scroll of Identification', 'gold');
+        else if (!e.item) this.say('Ability tome', 'tome2');      // gear goes into the sealed bag: the counter shows it
       } else if (e.t === 'msg') this.say(e.text, 'ui_bad');
       else if (e.t === 'levelup') this.openLevel();
       else if (e.t === 'famTier' && e.tier > e.prev) this.say(this.game_.sim.B.families[e.fam].name + ' bonus ' + (e.tier === 2 ? 4 : 2) + '!', 'ui_good');
       else if (e.t === 'choice') this.openChoice();
       else if (e.t === 'dead' || e.t === 'won' || e.t === 'left') { this.endT = 50; G.storeSave(G.save); }      // the bag was banked (or, on death, the worn gear kept): save it now
-      else if (e.t === 'equip') G.storeSave(G.save);
+      else if (e.t === 'equip' || e.t === 'identify') G.storeSave(G.save);
       else if (e.t === 'room') { this.last = {}; G.storeSave(G.save); }
     },
 

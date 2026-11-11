@@ -161,6 +161,10 @@
       // chance that a kill / closure drops gear
       killGear: 0.02, eliteGear: 0.3, closeGear: 0.2, superGear: 0.6,
       superTome: 0.3, killTome: 0.003, healOrb: 0.035, healOrbPct: 0.06,
+      // Scroll of Identification: chance per kill (monster / elite / boss), per chest opened, per super fissure closed. The door loot bonus
+      // multiplies the kill and closure chances. Found scrolls go to the sealed scroll count of the run (banked on leave / win, lost on death).
+      killScroll: 0.012, eliteScroll: 0.2, bossScroll: 1, chestScroll: 0.4, superScroll: 0.5, scrollCap: 99,
+      unidentifiedFrom: 1,            // items of this rarity or higher drop unidentified (stats hidden until a scroll is used)
       chestItems: [1, 1, 1, 1, 1, 1, 1, 1, 1, 2],
       // rarity weights: common, magic, rare, epic, legendary
       rarity: [62, 26, 9, 2.5, 0.5],

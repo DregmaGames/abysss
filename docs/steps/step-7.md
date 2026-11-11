@@ -20,6 +20,11 @@ the best equipped items came from drops, not the shop.
   the numbers) and the tables in `src/balance.js`. No other code. Sonnet, new session: implement
   from that spec, including the career simulation.
 - The career run counts as bot runs: 10 consecutive runs, not 30, unless the user allows more.
+- Scroll of Identification (added with step 6b): items of rarity 1+ drop unidentified (`it.unid`) and are identified with a scroll
+  (`gear.scrolls`, per class; `BAL.loot` has the drop chances). The economy must price the scroll (buy price in the town shop, probably
+  a sell price too) and add a merchant NPC inside some rooms (a rare room feature, like the chest) that sells scrolls (and possibly
+  potions) for gold, paid from the run's gold. Bought scrolls follow the scroll rule: a scroll bought in a run is sealed (banked on leave
+  or win, lost on death) like one found.
 
 ## Test budget
 

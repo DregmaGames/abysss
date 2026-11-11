@@ -132,7 +132,7 @@ const ids = o => Object.keys(o).map(k => o[k] && o[k].id).join(',');
   const total = g => g.bag.length + Object.values(g.equipped).filter(Boolean).length;
   store.data[KEY] = old(2);
   let s = G.loadSave();
-  check('save: v2 loads as v4, gear goes to mage (default), 24 items + 1 worn, junk dropped', s.v === 4 && total(s.gears.mage) === 25 && s.gears.mage.bag[0].name === 'Old helmet' && !s.gear);
+  check('save: v2 loads as v5, gear goes to mage (default), 24 items + 1 worn, junk dropped', s.v === 5 && total(s.gears.mage) === 25 && s.gears.mage.bag[0].name === 'Old helmet' && !s.gear);
   check('save: other classes start empty (none stored, gearOf makes empty)', !s.gears.warrior && total(G.gearOf(s, 'warrior')) === 0 && total(G.gearOf(s, 'archer')) === 0);
   check('save: worn gear, settings and stats survive', s.gears.mage.equipped.helmet.id === 40 && s.settings.zoom === 1 && s.stats.runs === 7);
   check('save: item ids cannot collide with new drops (nextId raised)', s.gears.mage.nextId >= 41, 'nextId ' + s.gears.mage.nextId);
@@ -152,13 +152,13 @@ const ids = o => Object.keys(o).map(k => o[k] && o[k].id).join(',');
   store.data[KEY] = JSON.stringify({ v: 2, gear: { equipped: {} } });
   check('save: a v2 save with no bag field loads', Array.isArray(G.loadSave().gears.mage.bag));
   store.data[KEY] = '{not json';
-  check('save: corrupt data gives a fresh save', G.loadSave().v === 4);
+  check('save: corrupt data gives a fresh save', G.loadSave().v === 5);
   // a full round trip: a run that leaves writes the bag to the save of the class that played
   store.data[KEY] = old(2);
   const sv = G.loadSave(), g = G.gearOf(sv, 'warrior'), sim = new G.Sim({ seed: 2, gear: g, cls: 'warrior' });
   sim.bag.push(G.rollItem(sim.rngRoom, 1, 0, sim.B, g, sim.cls)); sim.cheatChoice(); sim.leave(); G.storeSave(sv);
   const st = JSON.parse(store.data[KEY]);
-  check('save: banking goes to the playing class (warrior 1 item, mage still 25)', st.v === 4 && total(st.gears.warrior) === 1 && total(st.gears.mage) === 25);
+  check('save: banking goes to the playing class (warrior 1 item, mage still 25)', st.v === 5 && total(st.gears.warrior) === 1 && total(st.gears.mage) === 25);
   const sv2 = G.loadSave();
   check('save: v4 round trips; switching class shows the other stash', total(G.gearOf(sv2, 'warrior')) === 1 && total(G.gearOf(sv2, 'mage')) === 25 && total(G.gearOf(sv2, 'archer')) === 0);
   // equipping in one class does not touch another
@@ -167,6 +167,66 @@ const ids = o => Object.keys(o).map(k => o[k] && o[k].id).join(',');
   check('save: equip and discard on one class leave the other untouched', total(G.gearOf(sv2, 'warrior')) === before && G.gearScore(G.gearOf(sv2, 'warrior')) === 0);
   // the sim of one class uses only that class's gear score
   check('sim: gear score of the played class only', G.gearScore(mg) > 0 && G.gearScore(G.gearOf(sv2, 'archer')) === 0);
+})();
+
+(function identification() {
+  const store = { data: {}, getItem(k) { return k in this.data ? this.data[k] : null; }, setItem(k, v) { this.data[k] = v; } };
+  const G = load(store), B = G.BAL, KEY = 'riftscar.save.v2';
+  const sim0 = new G.Sim({ seed: 8, gear: G.newGear() });
+  // rolling: commons identified, everything higher unidentified; stats are rolled at the drop (hidden, not rerolled)
+  const rolled = []; for (let i = 0; i < 400; i++) rolled.push(G.rollItem(sim0.rngRoom, 3, 1, B, sim0.gear, sim0.cls));
+  check('identify: commons drop identified, rarity 1+ drop unidentified', rolled.every(it => !!it.unid === (it.rarity >= 1)) && rolled.some(it => it.rarity === 0) && rolled.some(it => it.rarity >= 3));
+  check('identify: an unidentified item still carries its rolled stats', rolled.filter(it => it.unid).every(it => Object.keys(it.stats).length === it.rarity + 1));
+  // same seed, same drops (the flag costs no rng draw): the stats of two sims are equal, and identifying changes nothing but the flag
+  const a = new G.Sim({ seed: 8, gear: G.newGear() }), b = new G.Sim({ seed: 8, gear: G.newGear() });
+  const ia = G.rollItem(a.rngRoom, 3, 1, B, a.gear, a.cls), ib = G.rollItem(b.rngRoom, 3, 1, B, b.gear, b.cls);
+  let rare = ia; for (let i = 0; i < 50 && !rare.unid; i++) rare = G.rollItem(a.rngRoom, 3, 1, B, a.gear, a.cls);
+  const snap = JSON.stringify(Object.assign({}, rare, { unid: 0 }));
+  a.gear.scrolls = 1; a.bag.push(rare);
+  check('identify: same seed gives the same item', JSON.stringify(ia) === JSON.stringify(ib));
+  check('identify: an unidentified item cannot be equipped (sim and bag)', a.equipFromSealed(0) === null && a.bag.length === 1 && G.equipFromBag({ equipped: {}, bag: [rare] }, 0, B, a.clsId) === null);
+  check('identify: a scroll identifies one item and spends one scroll (kept)', a.identifySealed(0) && !rare.unid && (a.gear.scrolls | 0) === 0 && a.identified === 1);
+  check('identify: identifying reveals the rolled stats, no reroll', JSON.stringify(Object.assign({}, rare, { unid: 0 })) === snap);
+  check('identify: no scroll, no identify; an identified item cannot be identified again', (() => { const u = Object.assign({}, rare, { unid: true }); a.bag.push(u); const r1 = a.identifySealed(a.bag.length - 1); return !r1 && u.unid && !a.identifySealed(0); })());
+  // sealed scrolls are spent before kept ones; banked on leave / win, lost on death
+  const mkS = (kept, sealed) => { const s = new G.Sim({ seed: 8, gear: G.newGear() }); s.gear.scrolls = kept; s.scrolls = sealed; return s; };
+  let s = mkS(2, 1); s.bag.push(Object.assign({}, rare, { unid: true }), Object.assign({}, rare, { unid: true }));
+  s.identifySealed(0); check('scrolls: a sealed scroll is spent first', s.scrolls === 0 && s.gear.scrolls === 2);
+  s.identifySealed(1); check('scrolls: then a kept one', s.gear.scrolls === 1);
+  s = mkS(2, 3); s.cheatChoice(); s.leave();
+  check('scrolls: leaving banks the sealed scrolls into the kept count (2 + 3)', s.gear.scrolls === 5 && s.result.scrollsKept === 3 && s.scrolls === 0);
+  s = mkS(2, 3); s.hurtPlayer(9999);
+  check('scrolls: death loses the sealed scrolls, the kept ones stay', s.gear.scrolls === 2 && s.scrolls === 0 && s.state === 'dead');
+  s = mkS(98, 5); s.cheatChoice(); s.leave();
+  check('scrolls: the kept count is capped (' + B.loot.scrollCap + ')', s.gear.scrolls === B.loot.scrollCap);
+  s = new G.Sim({ seed: 8, gear: G.newGear(), testRoom: true }); s.scrolls = 2; s.state = 'choice'; s.leave();
+  check('scrolls: the test room banks nothing', (s.gear.scrolls | 0) === 0);
+  // drops: scrolls come from monsters (rarely), elites, bosses and chests; they go to the sealed count
+  function scrollsFrom(type, n) { let c = 0; for (let seed = 1; seed <= 6; seed++) { const q = new G.Sim({ seed, gear: G.newGear() }); q.loadRoom(1); for (let k = 0; k < n / 6; k++) { q.spawnMonster(type, q.player.x + 30, q.player.y, 0); q.kill(q.monsters[q.monsters.length - 1]); } c += q.drops.filter(d => d.kind === 'scroll').length; } return c; }
+  const n = 3000, pi = scrollsFrom('imp', n) / n, pw = scrollsFrom('warden', 600) / 600;
+  check('scrolls: an imp drops a scroll about ' + B.loot.killScroll * 100 + '% of kills, a warden more', pi > B.loot.killScroll * 0.6 && pi < B.loot.killScroll * 1.6 && pw > pi * 5, (pi * 100).toFixed(2) + '% imp, ' + (pw * 100).toFixed(1) + '% warden');
+  const q = new G.Sim({ seed: 3, gear: G.newGear() }); q.loadRoom(1); q.spawnDrop('scroll', q.player.x, q.player.y, null); q.drops[0].age = 1; q.updateDrops ? q.updateDrops(0.1) : q.updatePickups(0.1);
+  check('scrolls: walking over a dropped scroll adds it to the sealed count', q.scrolls === 1 && q.drops.length === 0);
+  // title: identify from the kept bag
+  const g = G.newGear(); g.scrolls = 1; g.bag.push(Object.assign({}, rare, { unid: true }), Object.assign({}, rare, { unid: true }));
+  check('identify: on the title the kept bag item is identified with a kept scroll, one per scroll', G.identifyInBag(g, 0) && !g.bag[0].unid && g.scrolls === 0 && !G.identifyInBag(g, 1) && g.bag[1].unid);
+  // saves: old items count as identified; scrolls are per class and survive the round trip
+  const it = { id: 3, slot: 'armor', rarity: 3, ilvl: 4, name: 'Old armor', stats: { armor: 9, hp: 4 }, power: 20 };
+  store.data[KEY] = JSON.stringify({ v: 3, gear: { equipped: { armor: it }, bag: [Object.assign({}, it, { id: 4 })], nextId: 5 }, settings: { cls: 'archer' } });
+  let sv = G.loadSave(), ag = G.gearOf(sv, 'archer');
+  check('save: items of an old save are identified (rare, no unid flag), scrolls 0, all on the archer', ag.equipped.armor.rarity === 3 && !ag.equipped.armor.unid && !ag.bag[0].unid && ag.scrolls === 0 && G.canEquipNow(ag.bag[0], B, 'archer'));
+  store.data[KEY] = JSON.stringify({ v: 4, gears: { mage: { equipped: {}, bag: [it], nextId: 9 } }, settings: {} });
+  sv = G.loadSave();
+  check('save: a v4 save loads as v5, its items identified, scrolls 0', sv.v === 5 && sv.gears.mage.scrolls === 0 && !sv.gears.mage.bag[0].unid);
+  G.gearOf(sv, 'warrior').scrolls = 4; sv.gears.mage.bag.push(Object.assign({}, it, { id: 10, unid: true })); G.storeSave(sv);
+  const sv3 = G.loadSave();
+  check('save: scrolls and unidentified items round trip, per class', G.gearOf(sv3, 'warrior').scrolls === 4 && G.gearOf(sv3, 'mage').scrolls === 0 && sv3.gears.mage.bag[1].unid === true);
+  // the bot: identifies the best usable unidentified item first, equips only identified own-class items
+  const bg = G.newGear(); bg.scrolls = 1;
+  const mk2 = (id, rarity, slot) => ({ id, slot, rarity, ilvl: 2, name: 'x', stats: { hp: 30 }, power: 5, unid: true });
+  bg.bag.push(mk2(1, 1, 'helmet'), mk2(2, 3, 'armor'), mk2(3, 2, 'boots'));
+  G.Bot.prepareGear(bg, B, 'mage');
+  check('bot: with one scroll it identifies the highest rarity item and equips it, leaves the others', !!bg.equipped.armor && !bg.equipped.helmet && !bg.equipped.boots && bg.scrolls === 0 && bg.bag.every(i => i.unid));
 })();
 
 console.log(fails ? fails + ' check(s) FAILED' : 'all checks passed');

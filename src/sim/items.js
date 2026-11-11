@@ -34,6 +34,7 @@
     var name = (rarity === 0 ? (!wd || wd.worn ? 'Worn ' : '') : PREFIX[keys[1]] + ' ') + base;
     var it = { id: gear.nextId++, slot: slot, rarity: rarity, ilvl: ilvl, name: name, stats: stats, power: ilvl * (2 + rarity) };
     if (wtype) it.wtype = wtype;
+    if (rarity >= B.loot.unidentifiedFrom) it.unid = true;      // stats are rolled now, only hidden until identified (no reroll)
     return it;
   };
 
@@ -47,6 +48,23 @@
   G.canEquip = function (item, B, clsId) {
     var c = item && item.slot === 'weapon' && item.wtype ? G.weaponClass(B, item.wtype) : null;
     return !c || c === G.classDef(B, clsId).id;
+  };
+  // identification (step 6b): an item with `unid` set shows its type, name and rarity but not its stats, and cannot be equipped.
+  // Items without the flag (commons, everything from old saves) are identified.
+  G.isUnid = function (item) { return !!(item && item.unid); };
+  G.canEquipNow = function (item, B, clsId) { return !!item && !item.unid && G.canEquip(item, B, clsId); };
+  // scrolls kept for a class: gear.scrolls. A scroll is spent from `sealed` first (lost on death), then from the kept ones.
+  G.useScroll = function (gear, sealed) {
+    if (sealed > 0) return 'sealed';
+    if ((gear.scrolls | 0) > 0) { gear.scrolls--; return 'kept'; }
+    return null;
+  };
+  // between runs: identify the item at gear.bag[idx] with a kept scroll
+  G.identifyInBag = function (gear, idx) {
+    var it = gear.bag[idx];
+    if (!it || !it.unid || (gear.scrolls | 0) < 1) return false;
+    gear.scrolls--; it.unid = false;
+    return true;
   };
   // "Warrior weapon" for a weapon only another class can use, else null
   G.foreignClass = function (item, B, clsId) {
@@ -84,7 +102,7 @@
 
   G.equipFromBag = function (gear, idx, B, clsId) {
     var item = gear.bag[idx];
-    if (!item || !G.canEquip(item, B, clsId)) return null;
+    if (!G.canEquipNow(item, B, clsId)) return null;
     var key = G.targetSlot(gear, item, B), old = gear.equipped[key];
     gear.equipped[key] = item;
     if (old) gear.bag[idx] = old; else gear.bag.splice(idx, 1);
@@ -105,6 +123,12 @@
     var order = items.slice().sort(function (a, b) { return G.itemValue(b, B) - G.itemValue(a, B) || a.id - b.id; }), kept = 0;
     order.forEach(function (it) { if (gear.bag.length < B.loot.stashSize) { gear.bag.push(it); kept++; } });
     return { kept: kept, lost: items.length - kept };
+  };
+  // banks the sealed scroll count into the kept one (cap B.loot.scrollCap); returns how many were kept
+  G.bankScrolls = function (gear, n, B) {
+    var have = gear.scrolls | 0, now = Math.min(B.loot.scrollCap, have + n);
+    gear.scrolls = now;
+    return now - have;
   };
   // best rarity in a list of items (-1 when empty)
   G.bestRarity = function (items) {

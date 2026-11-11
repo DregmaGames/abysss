@@ -643,6 +643,28 @@ abbbbbbbbp
 abbbbbbbbp
 .aaaaaaaap
 ''', L)))
+    # Scroll of Identification: a rolled parchment with a gold seal; i_unid: the "?" drawn over an unidentified item
+    L = 'a=skin b=skin_d r=wood g=gold h=gold_d'
+    add('i_scroll', outline(parse('''
+.rrrrrrrr.
+rbaaaaaabr
+.baaghaab.
+.baghhgab.
+.baaaaaab.
+.baaghaab.
+rbaaaaaabr
+.rrrrrrrr.
+''', L)))
+    L = 'g=gold h=gold_d w=white'
+    add('i_unid', outline(parse('''
+.ggg.
+g...g
+...g.
+..g..
+..g..
+.....
+..g..
+''', L)))
     for nm, rx, ry in (('shadow_s', 6, 2.5), ('shadow_m', 9, 3.5), ('shadow_l', 16, 6)):
         im = blank(int(rx * 2), int(ry * 2) + 1)
         ellipse(im, rx, ry + 0.5, rx, ry, 'void', 120)

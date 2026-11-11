@@ -166,6 +166,7 @@
     var gearP = def.boss ? 1 : (def.elite ? L.eliteGear : L.killGear);
     if (rng.chance(this.lootP(gearP))) this.spawnItem(m.x, m.y, def.boss ? L.luck.boss : (def.elite ? L.luck.elite : L.luck.kill));
     if (!def.boss && rng.chance(L.killTome)) this.spawnDrop('tome', m.x, m.y, null);
+    if (rng.chance(this.lootP(def.boss ? L.bossScroll : (def.elite ? L.eliteScroll : L.killScroll)))) this.spawnDrop('scroll', m.x, m.y, null);
     if (this.stats.leech) this.heal(this.stats.leech);
     if (src !== 'kfx' && this.fxOn.kill.length) this.runFx('kill', m, this.baseDmg(), null);
   };
@@ -396,6 +397,10 @@
         p.tomes++;
         this.emit({ t: 'pickup', kind: 'tome' });
         if (this.state === 'play' && p.pending === 0) { this.openLevelUp(true); return; }
+      } else if (dr.kind === 'scroll') {
+        this.drops.splice(i, 1);
+        this.scrolls++; this.scrollsFound++;
+        this.emit({ t: 'pickup', kind: 'scroll' });
       } else if (this.bag.length < this.B.loot.bagSize) {
         this.drops.splice(i, 1);
         this.bag.push(dr.item);

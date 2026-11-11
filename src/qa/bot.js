@@ -47,11 +47,12 @@
   // other classes' weapons first, then the weakest, until there is room for a full sealed bag.
   Bot.prepareGear = function (gear, B, clsId) {
     var g = gear, i, changed = true, guard = 0;
+    Bot.identifyBest(g.bag, B, clsId, function () { return g.scrolls | 0; }, function (k) { return G.identifyInBag(g, k); });
     while (changed && guard++ < 60) {
       changed = false;
       for (i = 0; i < g.bag.length; i++) {
         var it = g.bag[i], cur = g.equipped[G.targetSlot(g, it, B)];
-        if (!G.canEquip(it, B, clsId)) continue;
+        if (!G.canEquipNow(it, B, clsId)) continue;
         if (!cur || G.itemValue(it, B) > G.itemValue(cur, B) + 0.01) { G.equipFromBag(g, i, B, clsId); changed = true; break; }
       }
     }
@@ -107,13 +108,27 @@
   };
 
   // In a run: equip what is better from the sealed bag (own-class weapons only).
+  // The rule for scrolls: identify the unidentified items that the class can use, highest rarity first (then item level), while scrolls last.
+  Bot.identifyBest = function (items, B, clsId, scrolls, identify) {
+    var guard = 0;
+    while (scrolls() > 0 && guard++ < 40) {
+      var best = -1, i, it, bi;
+      for (i = 0; i < items.length; i++) {
+        it = items[i];
+        if (!it.unid || !G.canEquip(it, B, clsId)) continue;
+        if (best < 0 || it.rarity > items[best].rarity || (it.rarity === items[best].rarity && it.ilvl > items[best].ilvl)) best = i;
+      }
+      if (best < 0 || !identify(best)) return;
+    }
+  };
   Bot.prototype.manageGear = function () {
     var sim = this.sim, g = sim.gear, B = sim.B, i, changed = true, guard = 0;
+    Bot.identifyBest(sim.bag, B, sim.clsId, function () { return sim.scrollsHeld(); }, function (k) { return sim.identifySealed(k); });
     while (changed && guard++ < 30) {
       changed = false;
       for (i = 0; i < sim.bag.length; i++) {
         var it = sim.bag[i], cur = g.equipped[G.targetSlot(g, it, B)];
-        if (!G.canEquip(it, B, sim.clsId)) continue;
+        if (!G.canEquipNow(it, B, sim.clsId)) continue;
         if (!cur || G.itemValue(it, B) > G.itemValue(cur, B) + 0.01) { sim.equipFromSealed(i); changed = true; break; }
       }
     }
@@ -261,6 +276,6 @@
     var abilInfo = { build: bot.buildId, slots: sim.player.slots.slice(), abil: Object.assign({}, sim.player.abil), fams: G.familyCounts(sim.player.abil, sim.B) };
     return Object.assign({ seed: seed, cls: sim.clsId, result: softlock ? 'softlock' : (sim.state === 'won' ? 'win' : (sim.state === 'left' ? 'left' : (sim.state === 'dead' ? 'dead' : 'timeout'))),
       room: sim.roomIndex, phase: sim.phase, rooms: sim.roomsCleared, seconds: Math.round(sim.tick / 60), level: sim.player.level,
-      kills: sim.kills, hp: Math.round(sim.player.hp), gearScore: G.gearScore(gear), bag: sim.result, doors: sim.doorLog.slice(), worstStuck: Math.round(worstStuck), minHp: minHp, roomSeconds: roomTicks.map(function (t) { return Math.round(t / 60); }) }, abilInfo);
+      kills: sim.kills, hp: Math.round(sim.player.hp), gearScore: G.gearScore(gear), bag: sim.result, identified: sim.identified | 0, doors: sim.doorLog.slice(), worstStuck: Math.round(worstStuck), minHp: minHp, roomSeconds: roomTicks.map(function (t) { return Math.round(t / 60); }) }, abilInfo);
   };
 })(globalThis.G = globalThis.G || {});
