@@ -14,12 +14,12 @@
       if (d < bd && this.los(p.x, p.y, m.x, m.y)) { bd = d; best = m; }
     }
     if (!best) return;
-    var a = Math.atan2(best.y - p.y, best.x - p.x), life = s.range / P.boltSpeed * 1.2;
+    var a = G.M.atan2(best.y - p.y, best.x - p.x), life = s.range / P.boltSpeed * 1.2;
     if (Math.abs(best.x - p.x) > 2) p.face = best.x > p.x ? 1 : -1;
     for (i = -s.multi; i <= s.multi; i++) {
       var ang = a + i * 0.22, crit = this.rngCombat.chance(s.crit);
       var dmg = s.dmg * (i === 0 ? 1 : P.sideBoltDmg) * (crit ? P.critMult : 1);
-      this.bolts.push({ id: this.nextId++, x: p.x, y: p.y - 2, vx: Math.cos(ang) * P.boltSpeed, vy: Math.sin(ang) * P.boltSpeed,
+      this.bolts.push({ id: this.nextId++, x: p.x, y: p.y - 2, vx: G.M.cos(ang) * P.boltSpeed, vy: G.M.sin(ang) * P.boltSpeed,
         r: P.boltR, dmg: dmg, crit: crit, life: life, pierce: s.pierce, hit: {} });
     }
     p.atkCd = s.atkInterval;
@@ -83,10 +83,10 @@
 
   S.spawnOrb = function (kind, x, y, v) {
     var a = this.rngCombat.range(0, 6.283), sp = this.rngCombat.range(20, 60);
-    this.orbs.push({ id: this.nextId++, kind: kind, x: x, y: y, v: v, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, magnet: false, age: 0 });
+    this.orbs.push({ id: this.nextId++, kind: kind, x: x, y: y, v: v, vx: G.M.cos(a) * sp, vy: G.M.sin(a) * sp, magnet: false, age: 0 });
   };
   S.spawnDrop = function (kind, x, y, item) {
-    var a = this.rngRoom.range(0, 6.283), d = this.rngRoom.range(6, 14), nx = x + Math.cos(a) * d, ny = y + Math.sin(a) * d;
+    var a = this.rngRoom.range(0, 6.283), d = this.rngRoom.range(6, 14), nx = x + G.M.cos(a) * d, ny = y + G.M.sin(a) * d;
     if (this.boxHits(nx, ny, 6)) { nx = x; ny = y; }
     this.drops.push({ id: this.nextId++, kind: kind, x: nx, y: ny, item: item, age: 0 });
     this.emit({ t: 'drop', x: nx, y: ny, kind: kind, rarity: item ? item.rarity : 2 });
@@ -107,7 +107,7 @@
     return this.fieldDir(this.flow, m.x, m.y) || { x: (p.x - m.x) / (d || 1), y: (p.y - m.y) / (d || 1) };
   };
   S.fireShot = function (m, ang, speed, dmg, kind) {
-    this.shots.push({ id: this.nextId++, x: m.x, y: m.y, vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed, r: kind === 'big' ? 3.5 : 2.5, dmg: dmg, life: 5, kind: kind });
+    this.shots.push({ id: this.nextId++, x: m.x, y: m.y, vx: G.M.cos(ang) * speed, vy: G.M.sin(ang) * speed, r: kind === 'big' ? 3.5 : 2.5, dmg: dmg, life: 5, kind: kind });
   };
 
   S.updateMonsters = function (dt) {
@@ -134,7 +134,7 @@
       } else if (def.ai === 'chase' || def.ai === 'weave' || frenzy) {
         dir = this.steer(m, p, d);
         if (def.ai === 'weave' && !frenzy && d > 14) {      // bats swerve side to side as they close in
-          var wv = Math.sin(m.age * 7 + m.id) * def.weave, cw = Math.cos(wv), sw = Math.sin(wv);
+          var wv = G.M.sin(m.age * 7 + m.id) * def.weave, cw = G.M.cos(wv), sw = G.M.sin(wv);
           dir = { x: dir.x * cw - dir.y * sw, y: dir.x * sw + dir.y * cw };
         }
         this.move(m, dir.x * sp * dt, dir.y * sp * dt);
@@ -143,7 +143,7 @@
         if (m.wind > 0) {
           m.wind -= dt;
           if (m.wind <= 0) {
-            var a = Math.atan2(dy, dx);
+            var a = G.M.atan2(dy, dx);
             if (def.ai === 'elite') for (j = -1; j <= 1; j++) this.fireShot(m, a + j * def.spread, def.shotSpeed, def.shotDmg * m.mul, 'orb');
             else this.fireShot(m, a, def.shotSpeed, def.shotDmg * m.mul, 'bone');
             m.cd = def.shotEvery;

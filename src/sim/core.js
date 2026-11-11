@@ -30,7 +30,7 @@
   S.emit = function (o) { if (this.keepEvents) this.events.push(o); };
   S.progress = function () { this.progressTick = this.tick; };
   S.stuckSeconds = function () { return (this.tick - this.progressTick) * this.B.DT; };
-  S.expFor = function (level) { var E = this.B.exp; return Math.round(E.base + E.grow * Math.pow(level - 1, E.pow)); };
+  S.expFor = function (level) { var E = this.B.exp; return Math.round(E.base + E.grow * G.M.pow(level - 1, E.pow)); };
 
   // derived stats = base + gear + passives (pure; also used by the inventory screen outside a run)
   G.computeStats = function (B, gear, passives) {

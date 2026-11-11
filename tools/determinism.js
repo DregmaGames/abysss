@@ -3,12 +3,19 @@
 //  1. every room of N run seeds is generated twice and compared (tiles, fissure cells, layout hash)
 //  2. different seeds must give different rooms
 //  3. a full bot run of a seed is played twice and must end identically
+//  4. the sim runs with a Math whose inexact functions throw: sin, cos, atan2, pow, exp, log... give
+//     different last bits in Node, Chrome, Firefox and Safari, so the sim must use G.M (src/rng.js)
 'use strict';
 const fs = require('fs'), path = require('path'), vm = require('vm');
 const ROOT = path.dirname(__dirname);
 const SIM = ['balance.js', 'rng.js', 'mapgen.js', 'sim/items.js', 'sim/passives.js', 'sim/core.js', 'sim/combat.js', 'sim/fissures.js', 'sim/boss.js', 'qa/bot.js', 'save.js'];
+const INEXACT = ['sin', 'cos', 'tan', 'asin', 'acos', 'atan', 'atan2', 'sinh', 'cosh', 'tanh', 'asinh', 'acosh', 'atanh',
+  'exp', 'expm1', 'log', 'log1p', 'log2', 'log10', 'pow', 'cbrt', 'hypot'];
+const StrictMath = {};
+for (const k of Object.getOwnPropertyNames(Math)) StrictMath[k] = Math[k];
+for (const k of INEXACT) StrictMath[k] = () => { throw new Error(`Math.${k} is engine-dependent: use G.M.${k} (src/rng.js)`); };
 function load() {
-  const ctx = { Math, console, Uint8Array, Int16Array, Object, JSON, Array };
+  const ctx = { Math: StrictMath, console, Uint8Array, Int16Array, Object, JSON, Array };
   ctx.globalThis = ctx; vm.createContext(ctx);
   for (const f of SIM) vm.runInContext(fs.readFileSync(path.join(ROOT, 'src', f), 'utf8'), ctx, { filename: f });
   return ctx.G;

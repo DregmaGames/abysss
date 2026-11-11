@@ -48,7 +48,7 @@
         f.spawnCd -= dt;
         if (f.queue.length && f.spawnCd <= 0) {
           var a = this.rngRoom.range(0, 6.283), d = this.rngRoom.range(0, f.big ? 10 : 6);
-          this.spawnMonster(f.queue.shift(), f.x + Math.cos(a) * d, f.y + Math.sin(a) * d, f.id);
+          this.spawnMonster(f.queue.shift(), f.x + G.M.cos(a) * d, f.y + G.M.sin(a) * d, f.id);
           f.spawnCd = f.big ? F.superSpawnEvery : F.spawnEvery;
         }
         if (!f.queue.length && f.alive <= 0) {

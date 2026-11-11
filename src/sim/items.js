@@ -14,7 +14,7 @@
   G.STAT_ORDER = ['hp', 'armor', 'dmgPct', 'atkPct', 'crit', 'movePct', 'rangePct', 'pulsePct', 'cdrPct', 'regen', 'expPct'];
 
   G.rollRarity = function (rng, luck, B) {
-    var w = B.loot.rarity.map(function (v, i) { return v * Math.pow(1 + luck, i); });
+    var w = B.loot.rarity.map(function (v, i) { return v * G.M.pow(1 + luck, i); });
     return rng.weighted(w);
   };
 

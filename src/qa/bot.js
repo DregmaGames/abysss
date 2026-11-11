@@ -6,7 +6,7 @@
   var KEEP = { imp: 44, bat: 38, skeleton: 36, hound: 64, warden: 56, tyrant: 76 };
   var PICK = { multi: 12, power: 10, haste: 10, pierce: 9, vital: 7, crit: 7, ward: 6, regen: 6, leech: 6, swift: 5, pulse: 4, range: 4, blink: 3, wisdom: 3 };
   var DIRS = [];
-  for (var i = 0; i < 16; i++) DIRS.push({ x: Math.cos(i / 16 * 6.2832), y: Math.sin(i / 16 * 6.2832) });
+  for (var i = 0; i < 16; i++) DIRS.push({ x: G.M.cos(i / 16 * 6.2832), y: G.M.sin(i / 16 * 6.2832) });
 
   function Bot(sim) {
     this.sim = sim; this.room = null; this.field = null; this.goalTile = -1; this.orbit = 1;
