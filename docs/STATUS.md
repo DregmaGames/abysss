@@ -11,6 +11,10 @@ Design decisions live in the plan doc (the user has it); this file is what an ag
 - User feedback on step 2 (2026-11-11): played the test room and approved it; crossing cracks with
   the dodge feels good.
 - Step 4 (warrior, four weapon types) on branch `step-4-warrior`. Step 4b (archer) on `step-4b-archer`, built on it. Classes are data: `docs/classes.md`.
+- Step 5 (abilities and families) on branch `step-5-abilities`: spec written (`docs/specs/abilities.md`), data tables
+  in `src/balance.js` (`abilityRules`, `families`, `abilities`, `builds`; not read by the sim yet). Implementation pending
+  (Sonnet, new session). Data-only change: `sim_bot --seeds 1-10 --json` identical before/after for all three classes
+  (mage 3 wins 2,6,7; warrior 3 wins 7,9,10; archer 3 wins 2,6,7); determinism passes.
 - `main` is the working base. One branch per step: `step-N-<slug>`.
 
 ## Last measured (2026-11-11, step 4b: archer)
