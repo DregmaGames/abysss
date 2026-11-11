@@ -1,6 +1,6 @@
 # Step 2: Playable test room
 
-Model: Sonnet 5.5. Branch: `step-2-test-room`.
+Model: Opus 5.5 (the user's choice: this step is visual and about feel). Branch: `step-2-test-room`.
 
 Read `CLAUDE.md` and `docs/STATUS.md` first. Do only this step. Do not read the plan doc.
 
