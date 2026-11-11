@@ -1,7 +1,6 @@
 // Ability effects (docs/specs/abilities.md, sections 6 and 7): monster statuses, triggers and effect kinds,
 // orbiting bodies, ground zones, delayed echo attacks. Runs only for classes with `abilitySystem`.
-// Batch A kinds: dot, chill, mark, chain, burst, split, echo, orbit, zone, heal. The other kinds of the
-// spec (bounce, wave, whirl, fan, buff, leech, execute) are batch B and do nothing here.
+// Kinds: dot, chill, mark, chain, burst, split, echo, orbit, zone, heal, bounce, wave, whirl, fan, buff, leech, execute.
 (function (G) {
   var S = G.Sim.prototype;
   var STATUS_OF = { burning: 'burn', chilled: 'chill', poisoned: 'poison', bleeding: 'bleed', marked: 'mark' };
@@ -13,13 +12,15 @@
   // Called by recalc(): turn the owned abilities into per-trigger effect lists (ranks and weapon type
   // resolved), in the order the spec fixes: slot 0, 1, 2, then family effects in `families` order.
   S.compileFx = function () {
-    var p = this.player, B = this.B, on = { hit: [], crit: [], strike: [], attack: [], kill: [] }, defs = {}, keys = [], perm = [];
+    var p = this.player, B = this.B, on = { hit: [], crit: [], strike: [], attack: [], kill: [] }, defs = {}, keys = [], perm = [], pre = [], mods = { bounce: null };
     var W = G.weaponOf(this.cls, this.gear), wt = W && W.id, i;
     function push(key, id, fam, f) {
       if (f.k === 'orbit') {
         defs[key] = f; keys.push(key);
         if (f.on === 'always') { perm.push(key); return; }
       }
+      if (f.k === 'bounce') { if (!mods.bounce || f.n > mods.bounce.n) mods.bounce = f; return; }       // a property of every attack bolt
+      if (f.k === 'whirl' || f.k === 'fan') { pre.push({ key: key, id: id, fam: fam, f: f }); return; }  // change the attack itself, run before it
       if (on[f.on]) on[f.on].push({ key: key, id: id, fam: fam, f: f });
     }
     for (i = 0; i < p.slots.length; i++) {
@@ -34,7 +35,7 @@
       if (t >= 2 && F.t4.fx) list = list.concat(F.t4.fx);
       list.forEach(function (f, j) { push('fam:' + fam + '/' + j, null, fam, f); });
     });
-    this.fxOn = on; this.orbitDefs = defs; this.orbitKeys = keys;
+    this.fxOn = on; this.fxPre = pre; this.boltMods = mods; this.orbitDefs = defs; this.orbitKeys = keys;
     // orbiting bodies: drop those of abilities that are gone, make the permanent ones
     this.orbiters = this.orbiters.filter(function (o) { return defs[o.key]; });
     perm.forEach(function (key) {
@@ -130,7 +131,32 @@
   };
   // a normal attack fired at `best`: the `attack` effects (counters count normal attacks only)
   S.runAttackFx = function (best) {
-    if (this.fxOn.attack.length) this.runFx('attack', best, this.stats.dmg, null);
+    if (this.fxOn.attack.length) this.runFx('attack', best, this.baseDmg(), null);
+  };
+
+  // hero buffs (stacks that refresh): total of one stat, and the damage multiplier
+  S.buffTotal = function (stat) {
+    var b = this.player.buffs, k, t = 0;
+    for (k in b) if (b[k].stat === stat) t += b[k].v * b[k].n;
+    return t;
+  };
+  S.dmgBuff = function () { var t = this.buffTotal('dmgPct'); return t ? 1 + t / 100 : 1; };
+  S.baseDmg = function () { return this.stats.dmg * this.dmgBuff(); };
+
+  // whirl and fan change the attack that is about to happen: returns a context for swing / shootBolts, or null.
+  // Their `every` counters count normal attacks.
+  S.preAttack = function () {
+    var list = this.fxPre, p = this.player, ctx = null, i, e, f;
+    for (i = 0; i < list.length; i++) {
+      e = list[i]; f = e.f;
+      var n = (p.every[e.key] || 0) + 1;
+      if (n < f.every) { p.every[e.key] = n; continue; }
+      p.every[e.key] = 0;
+      ctx = ctx || {};
+      if (f.k === 'whirl') { ctx.arc = Math.PI * 2; ctx.dmgMul = (ctx.dmgMul || 1) * f.dmg; ctx.whirl = true; }
+      else { ctx.fanSide = Math.max(ctx.fanSide || 0, f.side); ctx.fanDmg = f.dmg; }
+    }
+    return ctx;
   };
 
   // ------------------------------------------------------------- effect kinds
@@ -170,7 +196,23 @@
         if (this.zones.length > R.maxZones) this.zones.shift();
         this.emit({ t: 'zone', x: cx, y: cy, r: f.r * s.areaMult, dur: f.t * s.durMult, fam: e.fam });
         break;
-      default: break;    // batch B kinds: bounce, wave, whirl, fan, buff, leech, execute
+      case 'wave': this.waveFx(f, m, base); break;
+      case 'buff':
+        var bf = p.buffs[e.key];
+        if (!bf) bf = p.buffs[e.key] = { stat: f.stat, v: f.v, n: 0, t: 0 };
+        bf.v = f.v; bf.n = Math.min(f.stacks, bf.n + 1); bf.t = f.t;
+        break;
+      case 'leech':
+        var room = this.leechLeft;
+        if (room > 0) { var hl = Math.min(base * f.pct, room); this.leechLeft -= hl; this.heal(hl); }
+        break;
+      case 'execute':
+        if (!m.dead && !m.def.elite && !m.def.boss && m.hp <= f.below * m.maxHp) {
+          this.emit({ t: 'execute', x: m.x, y: m.y });
+          this.damageMonster(m, m.hp, false, 'fx');
+        }
+        break;
+      default: break;
     }
   };
 
@@ -233,10 +275,21 @@
     }
   };
 
+  // Thunder Wave: a piercing projectile from the hero toward the target; walls stop it, it fires no hit triggers.
+  S.waveFx = function (f, m, base) {
+    if (this.bolts.length >= this.B.abilityRules.maxBolts) return;
+    var p = this.player, s = this.stats, C = this.cls, A = C.attack, W = G.weaponOf(C, this.gear);
+    var a = G.M.atan2(m.y - p.y, m.x - p.x), kn = (W ? W.knock : A.knock) / 2, kne = (W ? W.knockElite : A.knockElite) / 2;
+    this.bolts.push({ id: this.nextId++, x: p.x, y: p.y, vx: G.M.cos(a) * f.speed, vy: G.M.sin(a) * f.speed, r: f.r,
+      dmg: base * f.dmg * s.fxMult, crit: false, life: f.range / f.speed, pierce: 9999, knock: kn * s.knockMult, knockElite: kne * s.knockMult,
+      hit: {}, src: 'fx', fxb: true, wave: true });
+  };
+
   // ------------------------------------------------------------------ per tick
   // echoes, orbiting bodies and ground zones (after the player, before monsters move)
   S.updateEffects = function (dt) {
     var s = this.stats, p = this.player, R = this.B.abilityRules, i, j, m;
+    for (var bk in p.buffs) { p.buffs[bk].t -= dt; if (p.buffs[bk].t <= 0) delete p.buffs[bk]; }
     if (this.echoes.length) {
       var due = [], rest = [];
       for (i = 0; i < this.echoes.length; i++) {
@@ -249,7 +302,7 @@
         var best = this.findTarget();
         if (!best) continue;
         this.emit({ t: 'echo', x: p.x, y: p.y });
-        if (this.cls.attack.kind === 'arc') this.swing(best); else this.shootBolts(best, { echo: true, dmgMul: due[i].dmg });
+        if (this.cls.attack.kind === 'arc') this.swing(best, { echo: true, dmgMul: due[i].dmg }); else this.shootBolts(best, { echo: true, dmgMul: due[i].dmg });
       }
     }
     // orbiting bodies: one angle per group, bodies spread evenly on the ring
@@ -268,7 +321,7 @@
           var dx = m.x - o.x, dy = m.y - o.y, rr = R.orbitR + m.r;
           if (dx * dx + dy * dy >= rr * rr || (o.hit[m.id] || 0) > this.tick) continue;
           o.hit[m.id] = this.tick + Math.ceil(def.hitEvery * 60);
-          this.damageMonster(m, s.dmg * def.dmg * s.fxMult, false, 'fx');
+          this.damageMonster(m, this.baseDmg() * def.dmg * s.fxMult, false, 'fx');
         }
       }
     }

@@ -23,11 +23,69 @@
     else if (c === 'settings') P.openSettings(scene, P.back);
     else if (c === 'result') P.openResult(scene, P.resultState);
     else if (c === 'debug') P.openDebug(scene);
+    else if (c === 'abilities') P.openAbilities(scene);
   };
   function sim() { return G.gameScene && G.screen !== 'title' ? G.gameScene.sim : null; }
   function gear() { var s = sim(); return s ? s.gear : G.save.gear; }
   function fmt(v, d) { return d ? v.toFixed(d) : '' + Math.round(v); }
   function statText(k, v) { var lab = G.STAT_LABEL[k]; return '+' + (k === 'regen' ? v.toFixed(1) : v) + lab[1] + ' ' + lab[0]; }
+
+  // ------------------------------------------------------------ abilities
+  // The hero's abilities in this run: the active slots (rank, what it does), the passives, and the family progress.
+  P.openAbilities = function (scene) {
+    if (P.L) P.L.destroy();
+    var s = sim();
+    if (!s) { P.openInventory(scene); return; }
+    var V = G.view, B = s.B, p = s.player, wide = V.W >= 300, C = s.cls, wt = (G.weaponOf(C, s.gear) || {}).id;
+    P.current = 'abilities'; P.scene = scene; G.paused = true; G.screen = 'inventory';
+    var pw = wide ? Math.min(V.W - 8, 340) : Math.min(V.W - 8, 264), ph = Math.min(V.H - 8, wide ? 262 : 400);
+    var L = P.L = UI.modal(scene, pw, ph, 'ABILITIES'), x0 = L.x + 8, y = L.y + 20, inner = pw - 16, i;
+    L.button(L.x + pw - 22, L.y + 3, 18, 16, '', function () { P.close(); }, { icon: 'i_close', name: 'abil_close' });
+    L.button(L.x + pw - 70, L.y + 3, 44, 16, 'BACK', function () { P.openInventory(scene); }, { name: 'abil_back' });
+    var counts = G.familyCounts(p.abil, B);
+
+    L.text(x0, y, 'ACTIVE', 'ui_dim'); y += 10;
+    for (i = 0; i < B.abilityRules.slots; i++) {
+      var id = p.slots[i];
+      if (!id) { L.panel(x0, y, inner, 24, 'inset', 1); L.image(x0 + 12, y + 12, 'slot', 2).setAlpha(0.5); L.text(x0 + 24, y + 8, 'Empty slot', 'ui_dim'); y += 26; continue; }
+      var info = G.abilityInfo(id, B, p.abil[id], s.clsId, wt), F = B.families[info.fam];
+      var dt = L.text(x0 + 24, y + 13, info.desc, 'ui_text').setMaxWidth(inner - 30), rh = Math.max(24, dt.height + 16);
+      L.panel(x0, y, inner, rh, 'inset', 1);
+      L.image(x0 + 12, y + rh / 2, 'fam_' + info.fam, 2);
+      L.text(x0 + 24, y + 3, info.name, G.ABILITY_COLOR[info.rarity]);
+      for (var r = 0; r < info.max; r++) L.bar(x0 + inner - 5 - (info.max - r) * 7, y + 4, 5, 3, r < info.rank ? F.icon : 'ui_line', 3);
+      y += rh + 2;
+    }
+    y += 3;
+    var pas = Object.keys(p.abil).filter(function (k) { return B.abilities[k].type === 'passive'; });
+    L.text(x0, y, 'PASSIVE', 'ui_dim'); y += 10;
+    if (!pas.length) { L.text(x0, y, 'None yet', 'ui_dim'); y += 10; }
+    var cols = wide ? 3 : 1, cw = Math.floor(inner / cols);
+    pas.forEach(function (k, j) {
+      var pi = G.abilityInfo(k, B, p.abil[k], s.clsId, wt), px = x0 + (j % cols) * cw, py = y + Math.floor(j / cols) * 10;
+      L.image(px + 4, py + 4, 'fam_' + pi.fam, 2).setScale(0.5);
+      var nm = L.text(px + 10, py, pi.name + ' ' + pi.rank + '/' + pi.max, G.ABILITY_COLOR[pi.rarity]);
+      if (!wide) { var t = L.text(0, py, pi.desc, 'ui_dim'); t.x = x0 + inner - t.width; if (t.x < px + 14 + nm.width) t.setVisible(false); }
+    });
+    y += Math.ceil(pas.length / cols) * 10 + 3;
+
+    L.text(x0, y, 'FAMILIES', 'ui_dim'); y += 10;
+    var fams = Object.keys(B.families).filter(function (f) { return counts[f]; });
+    if (!fams.length) L.text(x0, y, 'None yet', 'ui_dim');
+    fams.forEach(function (f) {
+      var F = B.families[f], n = counts[f], tier = G.famTier(n, B);
+      L.image(x0 + 6, y + 5, 'fam_' + f, 2);
+      L.text(x0 + 14, y + 1, F.name, F.text);
+      for (var j = 0; j < 4; j++) {
+        var thr = j === 1 || j === 3;
+        L.bar(x0 + 54 + j * 9, y, 7, 7, thr ? 'ui_warn' : 'ui_line', 2);
+        L.bar(x0 + 55 + j * 9, y + 1, 5, 5, j < n ? F.icon : 'ui_bg', 2.2);
+      }
+      var t4 = wide ? F.t4.desc.split(':')[0] : F.t4.desc, bonus = tier >= 2 ? t4 : (tier === 1 ? F.t2.desc : 'next at 2: ' + F.t2.desc);
+      var bt = L.text(x0 + 94, y + 1, bonus, tier ? 'ui_good' : 'ui_dim').setMaxWidth(inner - 96);
+      y += Math.max(13, bt.height + 4);
+    });
+  };
 
   // ------------------------------------------------------------- inventory
   P.openInventory = function (scene, keepSel) {
@@ -41,8 +99,9 @@
     var x0 = L.x, y0 = L.y;
     L.button(x0 + pw - 22, y0 + 3, 18, 16, '', function () { P.close(); }, { icon: 'i_close', name: 'inv_close' });
     L.button(x0 + pw - 44, y0 + 3, 18, 16, '', function () { P.openSettings(scene, 'inventory'); }, { icon: 'i_gear', name: 'inv_settings' });
+    if (s) L.button(x0 + pw - 116, y0 + 3, 68, 16, 'ABILITIES', function () { P.openAbilities(scene); }, { name: 'inv_abil' });
 
-    var passives = s ? (s.useAbil ? s.player.abil : s.player.passives) : {}, cls = s ? s.clsId : G.cls;
+    var passives = s ? s.player.abil : {}, cls = s ? s.clsId : G.cls;
     var stats = G.computeStats(B, g, passives, cls), base = G.computeStats(B, { equipped: {} }, passives, cls);
     function select(sel) {
       // tapping the selected thing again acts on it (equip / unequip)

@@ -4,12 +4,12 @@
 // Reports win rate, deaths per room, softlocks, and the seeds used.
 // --career N: play N consecutive runs keeping gear (always the highest unlocked tier).
 // --class id: play this class (BAL.classes; default BAL.defaultClass).
-// --build id: the bot's named ability build (BAL.builds.<class>.<id>; default: the class's first). Classes with the ability system only.
+// --build id: the bot's named ability build (BAL.builds.<class>.<id>; default: the class's first). 
 // --set classes.mage.base.hp=120: override a balance number for this invocation (for tuning experiments).
 'use strict';
 const fs = require('fs'), path = require('path'), vm = require('vm');
 const ROOT = path.dirname(__dirname);
-const SIM = ['balance.js', 'rng.js', 'mapgen.js', 'sim/items.js', 'sim/passives.js', 'sim/abilities.js', 'sim/core.js', 'sim/effects.js', 'sim/combat.js',
+const SIM = ['balance.js', 'rng.js', 'mapgen.js', 'sim/items.js', 'sim/abilities.js', 'sim/core.js', 'sim/effects.js', 'sim/combat.js',
   'sim/fissures.js', 'sim/boss.js', 'qa/bot.js', 'save.js'];
 
 function load() {
@@ -79,7 +79,7 @@ function main() {
     worstStuck: Math.max(...res.map(r => r.worstStuck)), winSeeds: res.filter(r => r.result === 'win').map(r => r.seed),
     wallSeconds: +((Date.now() - t0) / 1000).toFixed(1)
   };
-  if (res.length && res[0].build) {      // ability-system classes: what the build came to
+  if (res.length && res[0].build) {      // what the build came to
     const wr = res.filter(r => r.result === 'win'), fam = G.BAL.builds[res[0].cls][res[0].build].fams[0];
     summary.build = res[0].build;
     summary.avgWinSeconds = wr.length ? Math.round(wr.reduce((t, r) => t + r.seconds, 0) / wr.length) : null;

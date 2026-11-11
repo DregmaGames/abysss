@@ -154,6 +154,7 @@
             fx.shake(0.12);
             break;
           case 'chain': this.chains.push({ pts: e.pts, life: 7, c: e.fam ? G.BAL.families[e.fam].icon : 'gold' }); fx.burst(e.pts[2], e.pts[3], 'gold', 3, 40, 0.2); break;
+          case 'execute': fx.burst(e.x, e.y, 'ui_bad', 8, 70, 0.3); fx.shake(0.15); break;
           case 'echo': fx.burst(e.x, e.y, 'tome2', 5, 50, 0.25); break;
           case 'volley':
             var vf = this.cls.sprite.fx;
@@ -164,7 +165,7 @@
           case 'swing':
             this.swingT = 9;
             // melee: a crescent of sparks swept along the arc (leading edge bright), a nick of shake on a crit
-            var sc = this.cls.sprite.slash || 'ui_text';
+            var sc = e.whirl ? 'white' : (this.cls.sprite.slash || 'ui_text');
             for (var sr = 0; sr < 2; sr++) for (var sa = -5; sa <= 5; sa++) {
               var ang = e.a + sa / 10 * e.arc, rr = e.r * (sr ? 0.62 : 0.95) + 5;
               fx.spark(e.x + Math.cos(ang) * rr, e.y - 4 + Math.sin(ang) * rr, e.crit ? 'ui_warn' : (Math.abs(sa) > 3 && !sr ? 'white' : sc), 0.14 + Math.abs(sa) * 0.012);
@@ -266,13 +267,15 @@
       });
       this.drawHealthBars();
       this.list('bolts', sim.bolts, function (b) {
-        var A = self.cls.attack, s = self.add.image(b.x, b.y, 'atlas', A.frame).setDepth(8000);
-        s.gl = self.add.image(b.x, b.y, 'atlas', 'glow_s').setDepth(-640).setBlendMode(ADD).setTint(UI.hex(A.glow)).setAlpha(0.5);
+        var A = self.cls.attack, wv = !!b.wave, s = self.add.image(b.x, b.y, 'atlas', wv ? 'bolt' : A.frame).setDepth(8000);
+        if (wv) s.setTint(UI.hex('gold'));       // Thunder Wave: a gold bolt
+        s.wv = wv;
+        s.gl = self.add.image(b.x, b.y, 'atlas', 'glow_s').setDepth(-640).setBlendMode(ADD).setTint(UI.hex(wv ? 'gold' : A.glow)).setAlpha(0.5);
         return s;
       }, function (s, b) {
         s.setPosition(b.x, b.y - 6); s.gl.setPosition(b.x, b.y);
-        if (self.cls.attack.rotate) s.setRotation(Math.atan2(b.vy, b.vx));
-        if (!self.fx.quiet && (tick + b.id) % 2 === 0) self.fx.spark(b.x, b.y - 6, b.crit ? 'ui_warn' : self.cls.attack.glow, 0.18);
+        if (self.cls.attack.rotate && !s.wv) s.setRotation(Math.atan2(b.vy, b.vx));
+        if (!self.fx.quiet && (tick + b.id) % 2 === 0) self.fx.spark(b.x, b.y - 6, s.wv ? 'gold' : (b.crit ? 'ui_warn' : self.cls.attack.glow), 0.18);
       });
       this.list('shots', sim.shots, function (b) { return self.add.image(b.x, b.y, 'atlas', SHOT_FRAME[b.kind] || 'shot').setDepth(8000); },
         function (s, b) { s.setPosition(b.x, b.y - 4); if (b.kind === 'bone') s.setFlip(((tick >> 2) & 1) === 1, ((tick >> 3) & 1) === 1); });

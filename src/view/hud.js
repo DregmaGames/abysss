@@ -171,52 +171,15 @@
       if (sim.state !== 'levelup') { this.level = null; return; }
       if (G.Panels.isOpen()) G.Panels.close();
       this.dropStick();
-      if (sim.useAbil) { this.openAbilityLevel(); this.botWait = this.game_.speed > 4 ? 1 : 30; G.screen = 'levelup'; return; }
-      var n = sim.choices.length, row = V.W >= 300, gap = 6;
-      var cw = row ? Math.min(108, Math.floor((V.W - 24 - gap * (n - 1)) / n)) : Math.min(V.W - 24, 230), ch = row ? 88 : 46;
-      var mw = row ? n * cw + (n - 1) * gap + 16 : cw + 16, mh = row ? 40 + ch + 8 : 40 + n * (ch + gap) + 4;
-      var m = this.level = UI.modal(this, mw, mh, null);
-      UI.centerX(m.text(0, m.y + 7, sim.choiceTome ? 'ABILITY TOME' : 'LEVEL ' + sim.player.level, 'ui_warn', true), V.W / 2);
-      UI.centerX(m.text(0, m.y + 26, 'Choose one passive', 'ui_dim'), V.W / 2);
-      sim.choices.forEach(function (id, i) {
-        var info = G.passiveInfo(id, B, sim.clsId), lvl = sim.player.passives[id] || 0, col = G.PASSIVE_COLOR[info.rarity];
-        var cx = row ? m.x + 8 + i * (cw + gap) : m.x + 8, cy = row ? m.y + 40 : m.y + 40 + i * (ch + gap);
-        var bg = m.panel(cx, cy, cw, ch, 'btn', 1);
-        if (row) {
-          m.image(cx + cw / 2, cy + 14, 'p_' + id);
-          UI.centerX(m.text(0, cy + 25, info.name, col), cx + cw / 2);
-          UI.centerX(m.text(0, cy + 36, G.PASSIVE_RARITY[info.rarity] + '  Lv ' + (lvl + 1) + '/' + info.max, 'ui_dim'), cx + cw / 2);
-          m.text(cx + 6, cy + 50, info.desc, 'ui_text').setMaxWidth(cw - 12);
-          m.text(cx + 5, cy + 5, '' + (i + 1), 'ui_dim');
-        } else {
-          m.image(cx + 13, cy + 14, 'p_' + id);
-          m.text(cx + 26, cy + 5, info.name, col);
-          m.text(cx + 26, cy + 15, G.PASSIVE_RARITY[info.rarity] + '  Lv ' + (lvl + 1) + '/' + info.max, 'ui_dim');
-          m.text(cx + 26, cy + 26, info.desc, 'ui_text').setMaxWidth(cw - 32);
-        }
-        bg.setInteractive({ useHandCursor: true });
-        bg.on('pointerover', function () { bg.setFrame('btn_hot'); });
-        bg.on('pointerout', function () { bg.setFrame('btn'); });
-        bg.on('pointerdown', function () { self.pickLevel(i); });
-        UI.hit('card_' + i, cx, cy, cw, ch);
-      });
-      this.botWait = this.game_.speed > 4 ? 1 : 30;
-      G.screen = 'levelup';
+      this.openAbilityLevel(); this.botWait = this.game_.speed > 4 ? 1 : 30; G.screen = 'levelup';
     },
     pickLevel: function (i) {
       var sim = this.game_.sim;
       if (!this.level || sim.state !== 'levelup') return;
-      if (sim.useAbil) {
-        if (this.pickCard >= 0) { if (i < 3) this.applyAbility(this.pickCard, i); return; }     // slot picker: i is the slot
-        if (!sim.choices[i]) return;
-        if (sim.needsSlot(i)) { this.pickCard = i; this.openLevel(); return; }                 // open the slot picker
-        this.applyAbility(i, 0);
-        return;
-      }
+      if (this.pickCard >= 0) { if (i < 3) this.applyAbility(this.pickCard, i); return; }     // slot picker: i is the slot
       if (!sim.choices[i]) return;
-      this.level.destroy(); this.level = null;
-      G.screen = 'game';
-      sim.choosePassive(i);            // may emit another 'levelup', handled next frame
+      if (sim.needsSlot(i)) { this.pickCard = i; this.openLevel(); return; }                 // open the slot picker
+      this.applyAbility(i, 0);
     },
     applyAbility: function (i, slot) {
       var sim = this.game_.sim;
@@ -384,7 +347,6 @@
       if (this.SL) this.SL.destroy();
       this.SL = null;
       var sim = this.game_.sim;
-      if (!sim.useAbil) return;
       var V = G.view, B = sim.B, p = sim.player, SL = this.SL = UI.layer(this, 100), x0 = Math.round((V.W - 57) / 2), y0 = V.H - 24, j, r;
       for (j = 0; j < 3; j++) {
         var id = p.slots[j], x = x0 + j * 20;
@@ -406,10 +368,8 @@
         this.hpText.setText(key);
         UI.centerX(this.hpText, X + 15 + 33);
       }
-      if (sim.useAbil) {
-        var sk = p.slots.map(function (id) { return id ? id + p.abil[id] : '-'; }).join(',') + '|' + G.view.W + 'x' + G.view.H;
-        if (L.slots !== sk) { L.slots = sk; this.drawSlots(); }
-      }
+      var sk = p.slots.map(function (id) { return id ? id + p.abil[id] : '-'; }).join(',') + '|' + G.view.W + 'x' + G.view.H;
+      if (L.slots !== sk) { L.slots = sk; this.drawSlots(); }
       if (L.lv !== p.level) { L.lv = p.level; this.lvText.setText('LV ' + p.level); }
       var xp = Math.round(44 * Math.min(1, p.exp / p.expNext));
       if (L.xp !== xp) { L.xp = xp; this.xpFill.setDisplaySize(Math.max(0.01, xp), 3); }
@@ -469,7 +429,7 @@
       }
       if (sim.state === 'levelup' && !this.level) this.openLevel();
       if (this.level && gs.bot && !G.manualLevel && --this.botWait <= 0) {
-        if (sim.useAbil) { var pk = gs.bot.pickAbility(); this.applyAbility(pk.i, pk.slot); } else this.pickLevel(gs.bot.pickPassive());
+        var pk = gs.bot.pickAbility(); this.applyAbility(pk.i, pk.slot);
       }
       if (this.endT > 0 && --this.endT === 0) G.Panels.openResult(this, sim.state);
     }

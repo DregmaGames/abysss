@@ -20,43 +20,55 @@
     var p = this.player, s = this.stats, best = this.findTarget();
     if (!best) return;
     if (Math.abs(best.x - p.x) > 2) p.face = best.x > p.x ? 1 : -1;
-    if (this.cls.attack.kind === 'arc') this.swing(best); else this.shootBolts(best);
-    if (this.useAbil) this.runAttackFx(best);
-    p.atkCd = s.atkInterval;
+    var ctx = this.fxPre.length ? this.preAttack() : null;
+    if (this.cls.attack.kind === 'arc') this.swing(best, ctx); else this.shootBolts(best, ctx);
+    this.runAttackFx(best);
+    p.atkCd = s.atkInterval / (1 + this.buffTotal('atkPct') / 100);
   };
 
   // projectile: one bolt at the target, plus `multi` side bolts on each side
   // ctx (abilities): { echo, dmgMul } for an echo attack
   S.shootBolts = function (best, ctx) {
-    var p = this.player, s = this.stats, C = this.cls, A = C.attack, i, mul = ctx ? ctx.dmgMul : 1;
+    var p = this.player, s = this.stats, C = this.cls, A = C.attack, i, mul = ctx && ctx.dmgMul || 1;
     var a = G.M.atan2(best.y - p.y, best.x - p.x), life = s.range / A.speed * A.life;
-    for (i = -s.multi; i <= s.multi; i++) {
-      var ang = a + i * A.spread, crit = this.rngCombat.chance(s.crit);
-      var dmg = s.dmg * (i === 0 ? 1 : A.sideDmg) * (crit ? s.critMult : 1);
+    var fan = ctx && ctx.fanSide || 0, bounce = this.boltMods.bounce, db = this.dmgBuff();
+    this.leechLeft = s.maxHp * this.B.abilityRules.leechCap;
+    for (i = -s.multi - fan; i <= s.multi + fan; i++) {
+      var ang = a + i * A.spread, crit = this.rngCombat.chance(s.crit), extra = Math.abs(i) > s.multi;
+      var dmg = s.dmg * (i === 0 ? 1 : (extra ? ctx.fanDmg : A.sideDmg)) * (crit ? s.critMult : 1);
+      if (db !== 1) dmg *= db;
       if (ctx) dmg *= mul;
       this.bolts.push({ id: this.nextId++, x: p.x, y: p.y - 2, vx: G.M.cos(ang) * A.speed, vy: G.M.sin(ang) * A.speed,
-        r: A.r, dmg: dmg, crit: crit, life: life, pierce: s.pierce, knock: A.knock, knockElite: A.knockElite, hit: {}, atk: true, main: i === 0 });
+        r: A.r, dmg: dmg, crit: crit, life: life, pierce: s.pierce, knock: A.knock, knockElite: A.knockElite, hit: {}, atk: true, main: i === 0,
+        bounce: bounce ? bounce.n : 0 });
     }
-    if (!ctx) this.emit({ t: 'cast', x: p.x, y: p.y });
+    if (!(ctx && ctx.echo)) this.emit({ t: 'cast', x: p.x, y: p.y });
   };
 
   // melee: one swing toward the target that hits every monster within reach (s.range + its radius)
-  // inside an arc of A.arc radians centred on the target. One crit roll per swing.
-  S.swing = function (best) {
+  // inside an arc centred on the target. One crit roll per swing.
+  // ctx (abilities): { echo, dmgMul, arc } (arc = full width in rad, set by Whirlwind)
+  S.swing = function (best, ctx) {
     var p = this.player, s = this.stats, C = this.cls, A = C.attack, i;
     var dx = best.x - p.x, dy = best.y - p.y, l = Math.sqrt(dx * dx + dy * dy) || 1, ux = dx / l, uy = dy / l;
-    var W = G.weaponOf(C, this.gear), arc = W ? W.arc : A.arc, kn = W ? W.knock : A.knock, kne = W ? W.knockElite : A.knockElite;
-    var cosHalf = G.M.cos(arc / 2), crit = this.rngCombat.chance(s.crit), dmg = s.dmg * (crit ? s.critMult : 1);
-    this.emit({ t: 'swing', x: p.x, y: p.y, a: G.M.atan2(uy, ux), arc: arc, r: s.range, crit: crit, w: W ? W.id : null });
+    var W = G.weaponOf(C, this.gear), arc = (ctx && ctx.arc) || (W ? W.arc : A.arc), kn = W ? W.knock : A.knock, kne = W ? W.knockElite : A.knockElite;
+    if (s.arcMult !== 1) arc = Math.min(arc * s.arcMult, Math.PI * 2);
+    var cosHalf = G.M.cos(arc / 2), crit = this.rngCombat.chance(s.crit), dmg = s.dmg * (crit ? s.critMult : 1), db = this.dmgBuff();
+    if (db !== 1) dmg *= db;
+    if (ctx && ctx.dmgMul) dmg *= ctx.dmgMul;
+    var km = s.knockMult;
+    this.leechLeft = s.maxHp * this.B.abilityRules.leechCap;
+    this.emit({ t: 'swing', x: p.x, y: p.y, a: G.M.atan2(uy, ux), arc: arc, r: s.range, crit: crit, w: W ? W.id : null, whirl: !!(ctx && ctx.whirl) });
     for (i = this.monsters.length - 1; i >= 0; i--) {
       var m = this.monsters[i];
       if (m.dead) continue;
       var mx = m.x - p.x, my = m.y - p.y, d = Math.sqrt(mx * mx + my * my) || 0.01;
       if (d - m.r > s.range) continue;
       if (m !== best && (mx * ux + my * uy) / d < cosHalf) continue;
-      var k = m.def.boss ? 0 : (m.def.elite ? kne : kn);
+      var k = (m.def.boss ? 0 : (m.def.elite ? kne : kn)) * km;
       m.kx += mx / d * k; m.ky += my / d * k;
       this.damageMonster(m, dmg, crit);
+      this.onAttackHit(m === best ? { main: true, struck: false } : { main: false, struck: true }, m, dmg, crit);
     }
   };
 
@@ -155,7 +167,7 @@
     if (rng.chance(gearP)) this.spawnItem(m.x, m.y, def.boss ? L.luck.boss : (def.elite ? L.luck.elite : L.luck.kill));
     if (!def.boss && rng.chance(L.killTome)) this.spawnDrop('tome', m.x, m.y, null);
     if (this.stats.leech) this.heal(this.stats.leech);
-    if (this.useAbil && src !== 'kfx' && this.fxOn.kill.length) this.runFx('kill', m, this.stats.dmg, null);
+    if (src !== 'kfx' && this.fxOn.kill.length) this.runFx('kill', m, this.baseDmg(), null);
   };
 
   S.spawnOrb = function (kind, x, y, v) {
@@ -289,6 +301,22 @@
   };
 
   // ------------------------------------------------------------- projectiles
+  // Ricochet: turn a spent bolt toward the nearest living monster it has not hit, in range and in sight
+  S.bounceBolt = function (b) {
+    var f = this.boltMods.bounce, ms = this.monsters, best = null, bd = f.r, i;
+    for (i = 0; i < ms.length; i++) {
+      var q = ms[i];
+      if (q.dead || q.emerge > 0 || b.hit[q.id]) continue;
+      var dx = q.x - b.x, dy = q.y - b.y, d = Math.sqrt(dx * dx + dy * dy);
+      if (d < bd && this.los(b.x, b.y, q.x, q.y)) { bd = d; best = q; }
+    }
+    if (!best) return false;
+    var sp = Math.sqrt(b.vx * b.vx + b.vy * b.vy), a = G.M.atan2(best.y - b.y, best.x - b.x);
+    b.vx = G.M.cos(a) * sp; b.vy = G.M.sin(a) * sp;
+    b.dmg *= f.fall;
+    b.life = Math.max(b.life, f.r / sp + 0.05);
+    return true;
+  };
   S.updateProjectiles = function (dt) {
     var p = this.player, i, j, b;
     for (i = this.bolts.length - 1; i >= 0; i--) {
@@ -305,8 +333,10 @@
         var l = Math.sqrt(b.vx * b.vx + b.vy * b.vy), k = m.def.boss ? 0 : (m.def.elite ? b.knockElite : b.knock);
         m.kx += b.vx / l * k; m.ky += b.vy / l * k;
         this.damageMonster(m, b.dmg, b.crit, b.src || 'atk');
-        if (b.atk && this.useAbil) this.onAttackHit(b, m, b.dmg, b.crit);
-        if (b.pierce > 0) b.pierce--; else gone = true;
+        if (b.atk) this.onAttackHit(b, m, b.dmg, b.crit);
+        if (b.pierce > 0) b.pierce--;
+        else if (b.bounce > 0 && this.bounceBolt(b)) b.bounce--;
+        else gone = true;
       }
       if (gone) this.bolts.splice(i, 1);
     }

@@ -11,12 +11,30 @@ Design decisions live in the plan doc (the user has it); this file is what an ag
 - User feedback on step 2 (2026-11-11): played the test room and approved it; crossing cracks with
   the dodge feels good.
 - Step 4 (warrior, four weapon types) on branch `step-4-warrior`. Step 4b (archer) on `step-4b-archer`, built on it. Classes are data: `docs/classes.md`.
-- Step 5 (abilities and families) on branch `step-5-abilities`: spec `docs/specs/abilities.md` (with "Implementation notes (batch A)"),
-  data in `src/balance.js` (`abilityRules`, `families`, `abilities`, `builds`). **Batch A done**: offers (1 of 3, offer roll), 3 active slots
-  with the replace choice, ranks, families with bonuses at 2 and 4, monster statuses, the mage group fully playable (class flag
-  `abilitySystem`), level-up screen, bot builds. Warrior and archer still run the old passives (batch B: their groups, the remaining
-  kinds `bounce wave whirl fan buff leech execute`, removing the old passive code).
+- Step 5 (abilities and families) on branch `step-5-abilities`: spec `docs/specs/abilities.md` (with "Implementation notes (batch A)" and
+  "(batch B)"), data in `src/balance.js` (`abilityRules`, `families`, `abilities`, `builds`). **Done (batches A and B)**: offers (1 of 3),
+  3 active slots with the replace choice, ranks, families with bonuses at 2 and 4, monster statuses, all three class groups (mage,
+  warrior with weapon overrides, archer) and the shared pool, every effect kind, level-up screen, bot builds, the ABILITIES page of the
+  equipment panel. The old passives (table, files, flags) are gone.
 - `main` is the working base. One branch per step: `step-N-<slug>`.
+
+## Last measured (2026-11-11, step 5 batch B: warrior and archer abilities)
+
+- Node bot seeds 1-10 per build (`--class c --build b`): warrior blade 3 wins (5,7,10), avg win 352 s, level 18.1, Steel 4 in 9 runs;
+  blood 3 (3,5,10), 395 s, level 20.8, Blood 4 in 10; thunder 4 (5,6,8,10), 299 s, level 20.3, Storm 4 in 9.
+  Archer plague 4 (5,6,8,9), 356 s, level 17.1, Venom 4 in 7; marks 4 (1,2,3,9), 399 s, level 17.6, Steel 4 in 9; winter 4 (1,3,6,7),
+  370 s, level 15.6, Frost 4 in 5 (target 6). No softlocks, no timeouts, worst stuck 17 s. Wins are earlier than the 480-600 s target.
+- Mage 3 builds seeds 1-10 identical field by field before and after (pyro 4, storm 3, frost 2).
+- Tuning (first runs: blade 2, blood 7, thunder 3, plague 3, marks 0, winter 4): Bloodreaver nerfed (Rend dps x0.7, Blood Drinker
+  pct x0.4-0.75, Frenzy v x0.5, Iron Body hp 15..60, Second Wind regen x0.6); Poison Tips dps x1.5, Toxic Cloud dps x1.3; Marksman: Ricochet
+  n 2/3/4 r 100 fall 1.0, Hunter's Mark pct 0.25/0.35/0.5, Split Shot rare w 6 (was epic w 3; without it the build is 0 of 10). Several are
+  beyond the spec's +-50%. Ten seeds are noisy: a change to any shared number moves other builds by 1-2 wins.
+- Determinism passes, including all 9 builds seed 3 twice with the inexact Math functions throwing.
+- Browser bot `qa/bot.js --seeds 3,4,5` default builds: warrior 1 win (5), archer 1 win (5), 0 errors, 0 softlocks, all match Node.
+  Mage was not rerun in the browser (its sim is unchanged).
+- Screenshots of the ABILITIES page: `/tmp/step5b_landscape.png`, `/tmp/step5b_portrait.png` (warrior, 3 actives, 9 passives, 4 families).
+- Not run: `qa/screens.js`, `qa/session.js`, `qa/test_room.js`, the level-up cards with the warrior or archer by hand (the browser bot
+  picked from them), the 3 builds per class in the browser, touch on the new page.
 
 ## Last measured (2026-11-11, step 5 batch A: mage abilities)
 
@@ -98,6 +116,10 @@ Design decisions live in the plan doc (the user has it); this file is what an ag
 
 ## Still rough
 
+- Step 5: abilities use family icons only (no per-ability icons); effect art is placeholder (rings, sparks, a gold bolt for Thunder Wave, no
+  wave or whirl sprite); the numbers are balanced by 10-seed bot runs only; the bot wins in 300-400 s, short of the 480-600 s design target;
+  Winter Hunter reaches Frost 4 in only 5 of 10 runs; the epic abilities are rarely taken.
+
 - Step 4: warrior swing art is sparks plus a rotating held weapon (no slash sprite); weapon types are
   balanced by 10-seed bot runs only (noise). HUD skill button and input are still called `pulse`. Item
   names shown for a warrior weapon do not say the type in the stat line beyond the name. The bot does
@@ -116,7 +138,7 @@ Design decisions live in the plan doc (the user has it); this file is what an ag
 
 - Dying loses the sealed bag; equipped gear is kept.
 - Bats fly over open cracks; the boss ignores them; other monsters walk around.
-- 3 active ability slots, family bonuses at 2 and 4.
+- 3 active ability slots, family bonuses at 2 and 4. Split Shot is rare, not epic (see batch B notes).
 - Where the web version is published (needed before step 11).
 
 ## Code map
@@ -132,7 +154,7 @@ Sim (no Phaser, deterministic, runs in Node):
 - `src/sim/fissures.js`: the crack network (`setupFissures`, `networkKill`, `darkenSeg`,
   `spawnFromCluster`, `crackHits`, `crackOnLine`), super fissure, chest, exit, objective.
 - `src/sim/combat.js`: auto-attack (`shootBolts` or `swing`, event `swing`), `castSkill` -> pulse, monster AI, `steer`, projectiles, pickups, kills.
-- `src/sim/boss.js`, `src/sim/items.js`, `src/sim/passives.js` (old passives: warrior and archer until batch B), `src/save.js`.
+- `src/sim/boss.js`, `src/sim/items.js`, `src/save.js`.
 - `src/sim/abilities.js`: pool, offers, family tiers, stats, card info. `src/sim/effects.js`: statuses, triggers, effect kinds, orbit, zones, echoes.
 - `src/qa/bot.js`: the bot (`G.Bot(sim, buildId)`, `G.botRun`); `crossDir` dodges across cracks; `pickAbility` follows a build.
 - Test room: `Sim({ testRoom: true })` loads `B.run.testRoom`; `restartTestRoom` reloads it on clear.

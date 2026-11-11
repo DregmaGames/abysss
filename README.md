@@ -9,7 +9,7 @@ file: `dist/riftscar.html`. No bundler, no package installs.
 2. Kill what comes out. When its monsters are dead the fissure closes and leaves an orange-edged scar.
 3. With every fissure sealed, the super fissure in the middle opens. Beat its wave to close it.
 4. Open the chest, take the gate to the next room. Ten rooms; the Rift Tyrant is in the tenth.
-5. Kills give EXP (pick 1 of 3 passives per level), closures and monsters drop gear and ability
+5. Kills give EXP (pick 1 of 3 abilities per level: actives that change the attack, passives, family bonuses), closures and monsters drop gear and ability
    tomes. Gear is kept between runs; gear score unlocks harder tiers and also scales the monsters.
 
 Controls: WASD / arrows move, SPACE dodge, Q or E pulse, I inventory, ESC settings.

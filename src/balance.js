@@ -28,20 +28,17 @@
     //           width in rad, knock / knockElite; extra bolts and pierce do nothing for it).
     //   dodge:  dist px, time s, iframes s, cd s (optional knock px and hit = share of dmg: shoves what the dodge touches).   skill: the active button (kind 'pulse' only, for now).
     //   sprite: atlas frame prefix (<frames>_0..2), glow and dash tints (palette keys), attack frame.
-    //   passives: the level-up pool, in roll order (the order is part of the run: changing it changes runs).
-    //   abilitySystem: true = level-ups roll from BAL.abilities (docs/specs/abilities.md) instead of `passives` (batch A: mage only).
-    //   bot: QA bot hints. keep: multiplier on its keep-away distances; pick: passive preference.
+    //   group: optional ability group (default = the class id): the level-up pool is BAL.abilities of that group + 'shared'.
+    //   bot: QA bot hints. keep: multiplier on its keep-away distances. The ability builds are in BAL.builds.
     classes: {
       mage: {
         name: 'Mage',
-        abilitySystem: true,   // uses the new ability system (BAL.abilities, pool = the group `group || id` + shared); others still use `passives`
         base: { r: 5, hp: 100, speed: 78, dmg: 10, atkInterval: 0.5, range: 112, crit: 0.05, critMult: 1.8 },
         attack: { kind: 'bolt', firstCd: 0.4, speed: 250, r: 3, sideDmg: 0.6, spread: 0.22, life: 1.2, knock: 34, knockElite: 14, frame: 'bolt', glow: 'orb' },
         dodge: { dist: 54, time: 0.16, iframes: 0.34, cd: 1.6 },
         skill: { kind: 'pulse', name: 'Pulse', dmg: 26, radius: 54, cd: 7, knock: 200 },
         sprite: { frames: 'mage', glow: 'mb2', dash: 'mb3' },
-        passives: ['power', 'haste', 'vital', 'swift', 'range', 'wisdom', 'regen', 'crit', 'pulse', 'blink', 'ward', 'pierce', 'multi', 'leech'],
-        bot: { keep: 1, pick: { multi: 12, power: 10, haste: 10, pierce: 9, vital: 7, crit: 7, ward: 6, regen: 6, leech: 6, swift: 5, pulse: 4, range: 4, blink: 3, wisdom: 3 } }
+        bot: { keep: 1 }
       },
       warrior: {
         name: 'Warrior',
@@ -61,9 +58,7 @@
         dodge: { dist: 58, time: 0.17, iframes: 0.3, cd: 1.9, knock: 150, hit: 0.5 },
         skill: { kind: 'pulse', name: 'Shockwave', dmg: 30, radius: 46, cd: 8, knock: 230 },
         sprite: { frames: 'warrior', glow: 'em2', dash: 'iron3', fx: ['em4', 'em3', 'em2'], slash: 'iron3' },
-        passives: ['power', 'haste', 'vital', 'swift', 'wisdom', 'regen', 'crit', 'pulse', 'blink', 'ward', 'leech', 'range'],
-        passiveNames: { power: 'Heavy Blows', haste: 'Quick Strikes', blink: 'Charge Mastery', pulse: 'Shockwave Mastery', range: 'Long Reach', ward: 'Plate Armour', crit: 'Killer Instinct', leech: 'Bloodthirst' },
-        bot: { keep: 0.8, pick: { power: 10, haste: 10, vital: 9, ward: 8, crit: 7, regen: 7, leech: 7, swift: 6, blink: 6, pulse: 5, range: 5, wisdom: 3 } }
+        bot: { keep: 0.8 }
       },
       archer: {
         name: 'Archer',
@@ -74,10 +69,7 @@
         // Volley: a ring of `count` arrows (each `pierce` enemies, dmg = skill dmg incl. pulse passives) flying `range` px
         skill: { kind: 'volley', name: 'Volley', dmg: 14, count: 14, pierce: 1, range: 120, speed: 260, cd: 7, knock: 40 },
         sprite: { frames: 'archer', glow: 'rg1', dash: 'rg3', fx: ['rg4', 'rg3', 'rg2'] },
-        passives: ['power', 'haste', 'crit', 'vital', 'swift', 'range', 'wisdom', 'regen', 'pulse', 'blink', 'ward', 'pierce', 'multi', 'leech'],
-        passiveNames: { power: 'Strong Draw', haste: 'Quick Nock', vital: 'Hardy', swift: 'Fleet Foot', range: 'Eagle Eye', crit: 'Deadeye', pulse: 'Volley Mastery', blink: 'Roll Mastery',
-          ward: 'Leather Guard', pierce: 'Piercing Arrow', multi: 'Twin Arrow', leech: 'Hunter\'s Feast', regen: 'Forest Mending', wisdom: 'Lore of the Wild' },
-        bot: { keep: 1.2, pick: { pierce: 12, multi: 11, power: 10, haste: 10, crit: 8, vital: 7, ward: 6, regen: 6, leech: 6, swift: 5, pulse: 4, range: 4, blink: 3, wisdom: 3 } }
+        bot: { keep: 1.2 }
       }
     },
     defaultClass: 'mage',
@@ -178,28 +170,9 @@
       cap: { movePct: 30, cdrPct: 45, crit: 60 }
     },
 
-    // max: max level. w: roll weight. rarity 0 common, 1 rare, 2 epic.
-    passives: {
-      power:  { rarity: 0, max: 5, w: 10, dmgPct: 12 },
-      haste:  { rarity: 0, max: 5, w: 10, atkPct: 10 },
-      vital:  { rarity: 0, max: 5, w: 9, hp: 18 },
-      swift:  { rarity: 0, max: 3, w: 7, movePct: 7 },
-      range:  { rarity: 0, max: 3, w: 6, rangePct: 10 },
-      wisdom: { rarity: 0, max: 3, w: 6, expPct: 15 },
-      regen:  { rarity: 1, max: 3, w: 5, regen: 0.6 },
-      crit:   { rarity: 1, max: 4, w: 5, crit: 7 },
-      pulse:  { rarity: 1, max: 3, w: 4, pulsePct: 30, pulseCdPct: 15 },
-      blink:  { rarity: 1, max: 3, w: 4, dodgeCdPct: 15 },
-      ward:   { rarity: 1, max: 3, w: 5, armor: 8 },
-      pierce: { rarity: 2, max: 2, w: 2, pierce: 1 },
-      multi:  { rarity: 2, max: 2, w: 2, multi: 1 },
-      leech:  { rarity: 2, max: 2, w: 2, leech: 1.5 }
-    },
-    tomeRareBoost: 2.5,               // ability tomes weight rare/epic passives higher
 
     // ---------------------------------------------------------------- abilities (step 5)
-    // The ability system: docs/specs/abilities.md. Batch A: read by the sim for classes with `abilitySystem`
-    // (the mage); the old `passives` table above still serves the warrior and the archer until batch B.
+    // The ability system: docs/specs/abilities.md. Every class uses it (level-ups roll from `abilities`).
     // Numbers: a plain number is the same at every rank; an array has one value per rank (length = max),
     // the value is the total at that rank (not an increment). Shares (dmg, dps, pct, slow) are fractions.
     // Damage shares are of `base`: the triggering hit's damage for on: hit / strike / crit, else the
@@ -329,14 +302,14 @@
                      fx: [{ k: 'execute', on: 'hit', below: [0.12, 0.16, 0.2] }] },
       wr_rend:     { grp: 'warrior', fam: 'blood', type: 'active', rarity: 0, w: 10, max: 3, name: 'Rend',
                      desc: 'Hits bleed: {0.dps%}% of the hit per second, stacks {0.stacks}x, {0.t} s',
-                     fx: [{ k: 'dot', on: 'hit', dot: 'bleed', dps: [0.2, 0.25, 0.3], stacks: 3, t: 3 }] },
+                     fx: [{ k: 'dot', on: 'hit', dot: 'bleed', dps: [0.14, 0.17, 0.2], stacks: 3, t: 3 }] },
       wr_drain:    { grp: 'warrior', fam: 'blood', type: 'active', rarity: 1, w: 6, max: 3, name: 'Blood Drinker',
                      desc: 'Heal {0.pct%}% of damage dealt by swings. +{s.hp} max HP',
                      stats: { hp: [10, 20, 30] },
-                     fx: [{ k: 'leech', on: 'hit', pct: [0.04, 0.06, 0.08] }] },
+                     fx: [{ k: 'leech', on: 'hit', pct: [0.015, 0.02, 0.03] }] },
       wr_frenzy:   { grp: 'warrior', fam: 'blood', type: 'active', rarity: 2, w: 3, max: 3, name: 'Frenzy',
                      desc: 'Kills give +{0.v}% attack speed for {0.t} s (stacks {0.stacks}x)',
-                     fx: [{ k: 'buff', on: 'kill', stat: 'atkPct', v: [6, 8, 10], stacks: 5, t: 4 }] },
+                     fx: [{ k: 'buff', on: 'kill', stat: 'atkPct', v: [3, 4, 5], stacks: 5, t: 4 }] },
       wr_flame:    { grp: 'warrior', fam: 'fire', type: 'active', rarity: 0, w: 10, max: 3, name: 'Flame Blade',
                      desc: 'Hits burn: {0.dps%}% of the hit per second for {0.t} s',
                      fx: [{ k: 'dot', on: 'hit', dot: 'burn', dps: [0.35, 0.5, 0.65], t: 3 }] },
@@ -361,9 +334,9 @@
       wr_p_heavy:  { grp: 'warrior', fam: 'steel', type: 'passive', rarity: 0, w: 10, max: 5, name: 'Heavy Blows', desc: '+{s.dmgPct}% damage', stats: { dmgPct: [10, 20, 30, 40, 50] } },
       wr_p_plate:  { grp: 'warrior', fam: 'steel', type: 'passive', rarity: 0, w: 8, max: 3, name: 'Plate Armour', desc: '+{s.armor} armor', stats: { armor: [8, 16, 24] } },
       wr_p_giant:  { grp: 'warrior', fam: 'steel', type: 'passive', rarity: 1, w: 5, max: 3, name: 'Giant Slayer', desc: '+{s.elitePct}% damage to elites and bosses', stats: { elitePct: [12, 24, 36] } },
-      wr_p_iron:   { grp: 'warrior', fam: 'blood', type: 'passive', rarity: 0, w: 9, max: 4, name: 'Iron Body', desc: '+{s.hp} max HP', stats: { hp: [25, 50, 75, 100] } },
+      wr_p_iron:   { grp: 'warrior', fam: 'blood', type: 'passive', rarity: 0, w: 9, max: 4, name: 'Iron Body', desc: '+{s.hp} max HP', stats: { hp: [15, 30, 45, 60] } },
       wr_p_berserk: { grp: 'warrior', fam: 'blood', type: 'passive', rarity: 1, w: 5, max: 3, name: 'Berserker', desc: '+{s.lowHpPct}% damage while under half HP', stats: { lowHpPct: [20, 35, 50] } },
-      wr_p_wind:   { grp: 'warrior', fam: 'blood', type: 'passive', rarity: 1, w: 5, max: 3, name: 'Second Wind', desc: '+{s.regen} HP per second', stats: { regen: [0.8, 1.6, 2.4] } },
+      wr_p_wind:   { grp: 'warrior', fam: 'blood', type: 'passive', rarity: 1, w: 5, max: 3, name: 'Second Wind', desc: '+{s.regen} HP per second', stats: { regen: [0.5, 1, 1.5] } },
       wr_p_smolder: { grp: 'warrior', fam: 'fire', type: 'passive', rarity: 1, w: 6, max: 3, name: 'Smoldering Steel', desc: '+{s.dotPct}% burn and bleed damage', stats: { dotPct: [20, 40, 60] } },
       wr_p_wild:   { grp: 'warrior', fam: 'fire', type: 'passive', rarity: 0, w: 6, max: 3, name: 'Wildfire', desc: '+{s.areaPct}% area of explosions and zones', stats: { areaPct: [12, 24, 36] } },
       wr_p_fury:   { grp: 'warrior', fam: 'fire', type: 'passive', rarity: 1, w: 5, max: 3, name: 'Blazing Fury', desc: '+{s.fxPct}% ability effect damage', stats: { fxPct: [12, 24, 36] } },
@@ -374,20 +347,20 @@
       // ===== ARCHER: long-range hunter, few strong arrows that pierce. Venom, Steel, Frost, Storm =====
       ar_poison:   { grp: 'archer', fam: 'venom', type: 'active', rarity: 0, w: 10, max: 3, name: 'Poison Tips',
                      desc: 'Arrows poison: {0.dps%}% of the hit per second per stack, {0.stacks} stacks, {0.t} s',
-                     fx: [{ k: 'dot', on: 'hit', dot: 'poison', dps: [0.12, 0.16, 0.2], stacks: 4, t: 4 }] },
+                     fx: [{ k: 'dot', on: 'hit', dot: 'poison', dps: [0.18, 0.24, 0.3], stacks: 4, t: 4 }] },
       ar_cloud:    { grp: 'archer', fam: 'venom', type: 'active', rarity: 1, w: 6, max: 3, name: 'Toxic Cloud',
                      desc: '{0.chance%}% chance: a toxic cloud on the target, {0.dps%}% per second, poisons',
-                     fx: [{ k: 'zone', on: 'strike', chance: [0.3, 0.35, 0.4], at: 'target', r: 28, t: 4, dps: [0.3, 0.4, 0.5], apply: { poison: { dps: 0.1, stacks: 4, t: 3 } } }] },
+                     fx: [{ k: 'zone', on: 'strike', chance: [0.3, 0.35, 0.4], at: 'target', r: 28, t: 4, dps: [0.4, 0.52, 0.65], apply: { poison: { dps: 0.1, stacks: 4, t: 3 } } }] },
       ar_plague:   { grp: 'archer', fam: 'venom', type: 'active', rarity: 2, w: 3, max: 3, name: 'Plague Arrow',
                      desc: 'Kills burst into poison: {0.dmg%}% in radius {0.r}, poisons',
                      fx: [{ k: 'burst', on: 'kill', at: 'target', r: 36, dmg: [0.4, 0.55, 0.7], knock: 0, apply: { poison: { dps: 0.12, stacks: 4, t: 4 } } }] },
       ar_ricochet: { grp: 'archer', fam: 'steel', type: 'active', rarity: 0, w: 10, max: 3, name: 'Ricochet', only: 'bolt',
                      desc: 'Arrows bounce to {0.n} more enemies ({0.fall%}% damage each bounce)',
-                     fx: [{ k: 'bounce', n: [1, 2, 3], r: 70, fall: 0.8 }] },
+                     fx: [{ k: 'bounce', n: [2, 3, 4], r: 100, fall: 1.0 }] },
       ar_mark:     { grp: 'archer', fam: 'steel', type: 'active', rarity: 1, w: 6, max: 3, name: 'Hunter\'s Mark',
                      desc: 'The first enemy hit is marked: +{0.pct%}% damage taken for {0.t} s',
-                     fx: [{ k: 'mark', on: 'strike', pct: [0.12, 0.18, 0.24], t: 4 }] },
-      ar_split:    { grp: 'archer', fam: 'steel', type: 'active', rarity: 2, w: 3, max: 3, name: 'Split Shot', only: 'bolt',
+                     fx: [{ k: 'mark', on: 'strike', pct: [0.25, 0.35, 0.5], t: 4 }] },
+      ar_split:    { grp: 'archer', fam: 'steel', type: 'active', rarity: 1, w: 6, max: 3, name: 'Split Shot', only: 'bolt',
                      desc: '+{s.multi} side arrow on each side',
                      stats: { multi: [1, 1, 2], dmgPct: [0, 5, 5] } },
       ar_frost:    { grp: 'archer', fam: 'frost', type: 'active', rarity: 0, w: 10, max: 3, name: 'Frost Arrow',

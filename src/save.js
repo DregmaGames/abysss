@@ -1,4 +1,4 @@
-// Persistence: gear and settings survive between runs (localStorage); level and passives do not.
+// Persistence: gear and settings survive between runs (localStorage); level and abilities do not.
 (function (G) {
   var KEY = 'riftscar.save.v2';
   var SLOTS = ['helmet', 'armor', 'gloves', 'boots', 'belt', 'weapon', 'shield'];

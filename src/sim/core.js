@@ -21,15 +21,15 @@
     this.cheats = opts.cheats || {};     // debug panel toggles: god, noCd (see the cheats section below)
     this.player = { x: 0, y: 0, r: C.base.r, hp: C.base.hp, maxHp: C.base.hp, fx: 0, fy: -1, face: 1, moving: false,
       atkCd: C.attack.firstCd, dodgeCd: 0, dashT: 0, dashX: 0, dashY: 0, iframes: 0, pulseCd: 0,
-      level: 1, exp: 0, expNext: this.expFor(1), passives: {}, pending: 0, tomes: 0, walk: true,
+      level: 1, exp: 0, expNext: this.expFor(1), pending: 0, tomes: 0, walk: true,
       abil: {}, slots: [null, null, null], every: {}, buffs: {},
       crackBlock: false, blockTick: -999, dashOver: false };
     this.stats = {};
-    // ability system (classes with `abilitySystem`): offer pool, effect state (src/sim/effects.js)
-    this.useAbil = !!C.abilitySystem;
-    this.pool = this.useAbil ? G.abilityPool(B, C.id) : null;
+    // abilities: offer pool, effect state (src/sim/effects.js)
+    this.pool = G.abilityPool(B, C.id);
     this.orbiters = []; this.orbitAng = {}; this.zones = []; this.echoes = [];
     this.fxOn = { hit: [], crit: [], strike: [], attack: [], kill: [] }; this.orbitDefs = {}; this.orbitKeys = [];
+    this.fxPre = []; this.boltMods = { bounce: null }; this.leechLeft = 0;
     this.recalc();
     this.player.hp = this.stats.maxHp;
     this.testRoom = opts.testRoom ? B.run.testRoom : -1;   // test room: one room, restarted on clear
@@ -61,11 +61,11 @@
   };
   G.classIds = function (B) { return Object.keys(B.classes); };
 
-  // derived stats = class base + gear + passives (pure; also used by the inventory screen outside a run)
-  // `passives`: the old { id: level } map, or for a class with `abilitySystem` the player's `abil` map
-  G.computeStats = function (B, gear, passives, cls) {
+  // derived stats = class base + gear + abilities (pure; also used by the inventory screen outside a run)
+  // `abil`: the player's { abilityId: rank } map
+  G.computeStats = function (B, gear, abil, cls) {
     var C = G.classDef(B, cls), P = C.base, cap = B.items.cap, g = G.gearStats(gear, B, cls), s = {}, W0 = G.weaponOf(C, gear);
-    var p = C.abilitySystem ? G.abilityStats(passives || {}, B, W0 && W0.id) : G.passiveSums(passives || {}, B);
+    var p = G.abilityStats(abil || {}, B, W0 && W0.id);
     function v(k) { return (g[k] || 0) + (p[k] || 0); }
     s.maxHp = Math.round(P.hp + v('hp'));
     s.dmg = P.dmg * (1 + v('dmgPct') / 100);
@@ -82,7 +82,7 @@
     s.regen = v('regen');
     s.expMult = 1 + v('expPct') / 100;
     s.pierce = (P.pierce || 0) + (p.pierce || 0); s.multi = p.multi || 0; s.leech = p.leech || 0;
-    // ability multipliers (1 when the stat is absent: classes on the old passives are unchanged)
+    // ability multipliers (1 when the stat is absent)
     s.critMult = P.critMult + (p.critDmg || 0) / 100;
     s.dotMult = 1 + (p.dotPct || 0) / 100; s.chillMult = 1 + (p.chillPct || 0) / 100; s.chilledMult = 1 + (p.chilledPct || 0) / 100;
     s.durMult = 1 + (p.durPct || 0) / 100; s.procMult = 1 + (p.procPct || 0) / 100; s.fxMult = 1 + (p.fxPct || 0) / 100;
@@ -90,13 +90,13 @@
     s.arcMult = 1 + (p.arcPct || 0) / 100; s.knockMult = 1 + (p.knockPct || 0) / 100;
     return s;
   };
-  // called whenever gear or passives change: stats apply immediately
+  // called whenever gear or abilities change: stats apply immediately
   S.recalc = function () {
-    var oldMax = this.stats.maxHp || 0, s = this.stats = G.computeStats(this.B, this.gear, this.useAbil ? this.player.abil : this.player.passives, this.clsId), pl = this.player;
+    var oldMax = this.stats.maxHp || 0, s = this.stats = G.computeStats(this.B, this.gear, this.player.abil, this.clsId), pl = this.player;
     pl.maxHp = s.maxHp;
     if (oldMax && s.maxHp > oldMax) pl.hp += s.maxHp - oldMax;
     if (pl.hp > s.maxHp) pl.hp = s.maxHp;
-    if (this.useAbil) this.compileFx();
+    this.compileFx();
   };
 
   S.loadRoom = function (index) {
@@ -228,7 +228,8 @@
       p.dashT -= dt;
       if (p.dashT <= 0) this.emit({ t: 'land', x: p.x, y: p.y, cross: p.dashOver });
     } else if (p.moving) {
-      this.move(p, mx * s.speed * dt, my * s.speed * dt);
+      var spd = s.speed * (1 + this.buffTotal('movePct') / 100);
+      this.move(p, mx * spd * dt, my * spd * dt);
       // pushing into an open crack: tell the view where, at most every blockedEvery seconds
       if (p.crackBlock && this.tick - p.blockTick >= P.blockedEvery * 60) {
         p.blockTick = this.tick;
@@ -266,7 +267,7 @@
   };
   S.openLevelUp = function (tome) {
     var p = this.player;
-    this.choices = this.useAbil ? G.rollAbilities(this.rngLevel, p, this.B, this.pool, tome) : G.rollPassives(this.rngLevel, p.passives, this.B, tome, this.cls.passives);
+    this.choices = G.rollAbilities(this.rngLevel, p, this.B, this.pool, tome);
     this.choiceTome = tome;
     if (!this.choices.length) {           // everything maxed: heal instead
       if (tome) p.tomes--; else p.pending--;
@@ -276,20 +277,8 @@
     this.state = 'levelup';
     this.emit({ t: 'levelup', tome: tome });
   };
-  S.choosePassive = function (i) {
-    if (this.useAbil) return this.chooseAbility(i, 0);
-    if (this.state !== 'levelup' || !this.choices[i]) return false;
-    var p = this.player, id = this.choices[i];
-    p.passives[id] = (p.passives[id] || 0) + 1;
-    if (this.choiceTome) p.tomes--; else { p.pending--; this.heal(p.maxHp * this.B.player.levelHeal); }
-    this.recalc();
-    this.state = 'play';
-    this.choices = [];
-    this.emit({ t: 'passive', id: id });
-    if (p.pending > 0) this.openLevelUp(false);
-    else if (p.tomes > 0) this.openLevelUp(true);
-    return true;
-  };
+  // kept for callers without a slot choice (the view without a HUD): a full-slot card replaces slot 0
+  S.choosePassive = function (i) { return this.chooseAbility(i, 0); };
 
   // ability system: is card i a new active while all slots are taken (the player must pick a slot to replace)?
   S.needsSlot = function (i) {
@@ -312,6 +301,7 @@
           at = slot; replaced = p.slots[at];
           delete p.abil[replaced];
           for (k in p.every) if (k.indexOf(replaced + '/') === 0) delete p.every[k];
+          for (k in p.buffs) if (k.indexOf(replaced + '/') === 0) delete p.buffs[k];
         }
         p.slots[at] = id;
       }
@@ -334,7 +324,7 @@
   // debug panel: the actives of the class's default bot build (up to the slot count)
   S.defaultActives = function () {
     var b = this.B.builds && this.B.builds[this.clsId], B = this.B, out = [];
-    if (!this.useAbil || !b) return out;
+    if (!b) return out;
     b[Object.keys(b)[0]].order.forEach(function (id) { if (B.abilities[id].type === 'active' && out.length < B.abilityRules.slots) out.push(id); });
     return out;
   };
@@ -389,7 +379,7 @@
     else if (this.phase === 'exit') { p.x = this.exit.x; p.y = this.exit.y; }
     this.progress();
   };
-  // test room: the same room again, full HP; level, passives and gear are kept
+  // test room: the same room again, full HP; level, abilities and gear are kept
   S.restartTestRoom = function () {
     this.loops++;
     this.player.hp = this.player.maxHp;
@@ -415,7 +405,7 @@
     var dt = this.B.DT;
     this.tick++;
     this.updatePlayer(dt);
-    if (this.useAbil) this.updateEffects(dt);
+    this.updateEffects(dt);
     this.updateFlow();
     this.updateFissures(dt);
     this.updateMonsters(dt);

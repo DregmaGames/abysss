@@ -551,3 +551,37 @@ spec was open (simplest reading):
 - Debug panel: `ABILITIES` gives the default build's 3 actives. Family icons `fam_<id>` are in `tools/pixelart.py`.
 - Tuning (batch A, Storm build was 0 of 10): `mg_chain` radius 60 -> 90 and damage x1.5; `mg_twin` chance x1.5 and
   damage 0.8 -> 1.0 (both within the +-50% allowed). Other numbers are as written.
+
+
+## Implementation notes (batch B)
+
+Batch B = the warrior and archer groups, the remaining kinds, the switch of all three classes, removing the old passives.
+Choices made where the spec was open (simplest reading):
+
+- **Switch**: every class uses the ability system, so the `abilitySystem` flag, `useAbil`, `src/sim/passives.js`, `BAL.passives`,
+  `BAL.tomeRareBoost`, the classes' `passives`, `passiveNames` and `bot.pick`, `G.passiveInfo` / `rollPassives` / `passiveSums`,
+  `Bot.pickPassive` and the old level-up card code are deleted. `S.choosePassive(i)` stays as `chooseAbility(i, 0)`.
+- **`whirl` and `fan`** are not in the `attack` list: `S.preAttack()` runs them before the attack (their `every` counters count normal
+  attacks) and returns the context for `swing` / `shootBolts`. A whirl swing is a full circle (`s.arcMult` does not widen it further);
+  fan extra bolts are those beyond `s.multi` and use the fan's `dmg` share instead of `sideDmg`.
+- **`bounce`** is compiled into `sim.boltMods.bounce` (the one with the highest `n`); `shootBolts` copies `n` into each attack bolt.
+  The bolt turns only when it has no pierce left; split children and fan bolts of the volley skill never bounce (children have no field,
+  the volley is not an attack bolt).
+- **`wave`** is a bolt with `fxb` and `wave` flags, source `fx`, pierce 9999, no hit triggers. Drawn as the mage `bolt` frame in gold.
+- **`leech`**: budget `leechCap` x max HP, reset at the start of every swing and every bolt volley of an attack (and echo); one budget
+  per attack, not per monster.
+- **`execute`**: the monster dies by a `fx` hit for its remaining HP (so `kill` effects fire); elites and the boss are never executed.
+- **`buff`**: stacks per effect key on `player.buffs`; `atkPct` divides the next `atkCd`, `dmgPct` multiplies attack damage and the
+  base of `attack`, `kill` and orbit effects (`S.baseDmg()`), `movePct` multiplies move speed. A replaced active drops its buffs.
+  Buff time ignores `durPct`.
+- **Swings** now fire `hit` / `crit` for every monster hit and `strike` for `best` (the swing's target); `knockPct` applies to swings.
+- `castPulse` is still its own loop (not merged with `areaHit`), so the Shockwave numbers are unchanged.
+- **Character panel**: the equipment panel (opened with I or the bag button) has an `ABILITIES` button (only during a run) that opens
+  a page listing the 3 active slots (family icon, name, rank pips, description at the current rank and weapon type), the passives with
+  rank, and the families with 4 pips and their reached bonus. Per-ability icons were not made: family icons are used everywhere.
+  Hit names for QA: `inv_abil`, `abil_back`, `abil_close`.
+- **Tuning** (10 seeds, `--build`): see `docs/STATUS.md` for the numbers. Changed: Rend dps 0.2/0.25/0.3 -> 0.14/0.17/0.2,
+  Blood Drinker pct 0.04/0.06/0.08 -> 0.015/0.02/0.03, Frenzy v 6/8/10 -> 3/4/5, Iron Body hp 25..100 -> 15/30/45/60, Second Wind
+  regen 0.8/1.6/2.4 -> 0.5/1/1.5 (Bloodreaver was 6-7 of 10); Poison Tips dps x1.5, Toxic Cloud dps x1.3 (Plaguebringer 1 of 10);
+  Ricochet n 1/2/3 -> 2/3/4, r 100, fall 1.0, Hunter's Mark pct 0.25/0.35/0.5, and Split Shot is now rare (w 6) instead of epic w 3,
+  because the Marksman got 0 of 10 and the 3-arrow volley is what makes it work. Some of these are beyond the +-50% of section 13.

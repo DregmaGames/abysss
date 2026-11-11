@@ -38,20 +38,17 @@
     //           width in rad, knock / knockElite; extra bolts and pierce do nothing for it).
     //   dodge:  dist px, time s, iframes s, cd s (optional knock px and hit = share of dmg: shoves what the dodge touches).   skill: the active button (kind 'pulse' only, for now).
     //   sprite: atlas frame prefix (<frames>_0..2), glow and dash tints (palette keys), attack frame.
-    //   passives: the level-up pool, in roll order (the order is part of the run: changing it changes runs).
-    //   abilitySystem: true = level-ups roll from BAL.abilities (docs/specs/abilities.md) instead of `passives` (batch A: mage only).
-    //   bot: QA bot hints. keep: multiplier on its keep-away distances; pick: passive preference.
+    //   group: optional ability group (default = the class id): the level-up pool is BAL.abilities of that group + 'shared'.
+    //   bot: QA bot hints. keep: multiplier on its keep-away distances. The ability builds are in BAL.builds.
     classes: {
       mage: {
         name: 'Mage',
-        abilitySystem: true,   // uses the new ability system (BAL.abilities, pool = the group `group || id` + shared); others still use `passives`
         base: { r: 5, hp: 100, speed: 78, dmg: 10, atkInterval: 0.5, range: 112, crit: 0.05, critMult: 1.8 },
         attack: { kind: 'bolt', firstCd: 0.4, speed: 250, r: 3, sideDmg: 0.6, spread: 0.22, life: 1.2, knock: 34, knockElite: 14, frame: 'bolt', glow: 'orb' },
         dodge: { dist: 54, time: 0.16, iframes: 0.34, cd: 1.6 },
         skill: { kind: 'pulse', name: 'Pulse', dmg: 26, radius: 54, cd: 7, knock: 200 },
         sprite: { frames: 'mage', glow: 'mb2', dash: 'mb3' },
-        passives: ['power', 'haste', 'vital', 'swift', 'range', 'wisdom', 'regen', 'crit', 'pulse', 'blink', 'ward', 'pierce', 'multi', 'leech'],
-        bot: { keep: 1, pick: { multi: 12, power: 10, haste: 10, pierce: 9, vital: 7, crit: 7, ward: 6, regen: 6, leech: 6, swift: 5, pulse: 4, range: 4, blink: 3, wisdom: 3 } }
+        bot: { keep: 1 }
       },
       warrior: {
         name: 'Warrior',
@@ -71,9 +68,7 @@
         dodge: { dist: 58, time: 0.17, iframes: 0.3, cd: 1.9, knock: 150, hit: 0.5 },
         skill: { kind: 'pulse', name: 'Shockwave', dmg: 30, radius: 46, cd: 8, knock: 230 },
         sprite: { frames: 'warrior', glow: 'em2', dash: 'iron3', fx: ['em4', 'em3', 'em2'], slash: 'iron3' },
-        passives: ['power', 'haste', 'vital', 'swift', 'wisdom', 'regen', 'crit', 'pulse', 'blink', 'ward', 'leech', 'range'],
-        passiveNames: { power: 'Heavy Blows', haste: 'Quick Strikes', blink: 'Charge Mastery', pulse: 'Shockwave Mastery', range: 'Long Reach', ward: 'Plate Armour', crit: 'Killer Instinct', leech: 'Bloodthirst' },
-        bot: { keep: 0.8, pick: { power: 10, haste: 10, vital: 9, ward: 8, crit: 7, regen: 7, leech: 7, swift: 6, blink: 6, pulse: 5, range: 5, wisdom: 3 } }
+        bot: { keep: 0.8 }
       },
       archer: {
         name: 'Archer',
@@ -84,10 +79,7 @@
         // Volley: a ring of `count` arrows (each `pierce` enemies, dmg = skill dmg incl. pulse passives) flying `range` px
         skill: { kind: 'volley', name: 'Volley', dmg: 14, count: 14, pierce: 1, range: 120, speed: 260, cd: 7, knock: 40 },
         sprite: { frames: 'archer', glow: 'rg1', dash: 'rg3', fx: ['rg4', 'rg3', 'rg2'] },
-        passives: ['power', 'haste', 'crit', 'vital', 'swift', 'range', 'wisdom', 'regen', 'pulse', 'blink', 'ward', 'pierce', 'multi', 'leech'],
-        passiveNames: { power: 'Strong Draw', haste: 'Quick Nock', vital: 'Hardy', swift: 'Fleet Foot', range: 'Eagle Eye', crit: 'Deadeye', pulse: 'Volley Mastery', blink: 'Roll Mastery',
-          ward: 'Leather Guard', pierce: 'Piercing Arrow', multi: 'Twin Arrow', leech: 'Hunter\'s Feast', regen: 'Forest Mending', wisdom: 'Lore of the Wild' },
-        bot: { keep: 1.2, pick: { pierce: 12, multi: 11, power: 10, haste: 10, crit: 8, vital: 7, ward: 6, regen: 6, leech: 6, swift: 5, pulse: 4, range: 4, blink: 3, wisdom: 3 } }
+        bot: { keep: 1.2 }
       }
     },
     defaultClass: 'mage',
@@ -188,28 +180,9 @@
       cap: { movePct: 30, cdrPct: 45, crit: 60 }
     },
 
-    // max: max level. w: roll weight. rarity 0 common, 1 rare, 2 epic.
-    passives: {
-      power:  { rarity: 0, max: 5, w: 10, dmgPct: 12 },
-      haste:  { rarity: 0, max: 5, w: 10, atkPct: 10 },
-      vital:  { rarity: 0, max: 5, w: 9, hp: 18 },
-      swift:  { rarity: 0, max: 3, w: 7, movePct: 7 },
-      range:  { rarity: 0, max: 3, w: 6, rangePct: 10 },
-      wisdom: { rarity: 0, max: 3, w: 6, expPct: 15 },
-      regen:  { rarity: 1, max: 3, w: 5, regen: 0.6 },
-      crit:   { rarity: 1, max: 4, w: 5, crit: 7 },
-      pulse:  { rarity: 1, max: 3, w: 4, pulsePct: 30, pulseCdPct: 15 },
-      blink:  { rarity: 1, max: 3, w: 4, dodgeCdPct: 15 },
-      ward:   { rarity: 1, max: 3, w: 5, armor: 8 },
-      pierce: { rarity: 2, max: 2, w: 2, pierce: 1 },
-      multi:  { rarity: 2, max: 2, w: 2, multi: 1 },
-      leech:  { rarity: 2, max: 2, w: 2, leech: 1.5 }
-    },
-    tomeRareBoost: 2.5,               // ability tomes weight rare/epic passives higher
 
     // ---------------------------------------------------------------- abilities (step 5)
-    // The ability system: docs/specs/abilities.md. Batch A: read by the sim for classes with `abilitySystem`
-    // (the mage); the old `passives` table above still serves the warrior and the archer until batch B.
+    // The ability system: docs/specs/abilities.md. Every class uses it (level-ups roll from `abilities`).
     // Numbers: a plain number is the same at every rank; an array has one value per rank (length = max),
     // the value is the total at that rank (not an increment). Shares (dmg, dps, pct, slow) are fractions.
     // Damage shares are of `base`: the triggering hit's damage for on: hit / strike / crit, else the
@@ -339,14 +312,14 @@
                      fx: [{ k: 'execute', on: 'hit', below: [0.12, 0.16, 0.2] }] },
       wr_rend:     { grp: 'warrior', fam: 'blood', type: 'active', rarity: 0, w: 10, max: 3, name: 'Rend',
                      desc: 'Hits bleed: {0.dps%}% of the hit per second, stacks {0.stacks}x, {0.t} s',
-                     fx: [{ k: 'dot', on: 'hit', dot: 'bleed', dps: [0.2, 0.25, 0.3], stacks: 3, t: 3 }] },
+                     fx: [{ k: 'dot', on: 'hit', dot: 'bleed', dps: [0.14, 0.17, 0.2], stacks: 3, t: 3 }] },
       wr_drain:    { grp: 'warrior', fam: 'blood', type: 'active', rarity: 1, w: 6, max: 3, name: 'Blood Drinker',
                      desc: 'Heal {0.pct%}% of damage dealt by swings. +{s.hp} max HP',
                      stats: { hp: [10, 20, 30] },
-                     fx: [{ k: 'leech', on: 'hit', pct: [0.04, 0.06, 0.08] }] },
+                     fx: [{ k: 'leech', on: 'hit', pct: [0.015, 0.02, 0.03] }] },
       wr_frenzy:   { grp: 'warrior', fam: 'blood', type: 'active', rarity: 2, w: 3, max: 3, name: 'Frenzy',
                      desc: 'Kills give +{0.v}% attack speed for {0.t} s (stacks {0.stacks}x)',
-                     fx: [{ k: 'buff', on: 'kill', stat: 'atkPct', v: [6, 8, 10], stacks: 5, t: 4 }] },
+                     fx: [{ k: 'buff', on: 'kill', stat: 'atkPct', v: [3, 4, 5], stacks: 5, t: 4 }] },
       wr_flame:    { grp: 'warrior', fam: 'fire', type: 'active', rarity: 0, w: 10, max: 3, name: 'Flame Blade',
                      desc: 'Hits burn: {0.dps%}% of the hit per second for {0.t} s',
                      fx: [{ k: 'dot', on: 'hit', dot: 'burn', dps: [0.35, 0.5, 0.65], t: 3 }] },
@@ -371,9 +344,9 @@
       wr_p_heavy:  { grp: 'warrior', fam: 'steel', type: 'passive', rarity: 0, w: 10, max: 5, name: 'Heavy Blows', desc: '+{s.dmgPct}% damage', stats: { dmgPct: [10, 20, 30, 40, 50] } },
       wr_p_plate:  { grp: 'warrior', fam: 'steel', type: 'passive', rarity: 0, w: 8, max: 3, name: 'Plate Armour', desc: '+{s.armor} armor', stats: { armor: [8, 16, 24] } },
       wr_p_giant:  { grp: 'warrior', fam: 'steel', type: 'passive', rarity: 1, w: 5, max: 3, name: 'Giant Slayer', desc: '+{s.elitePct}% damage to elites and bosses', stats: { elitePct: [12, 24, 36] } },
-      wr_p_iron:   { grp: 'warrior', fam: 'blood', type: 'passive', rarity: 0, w: 9, max: 4, name: 'Iron Body', desc: '+{s.hp} max HP', stats: { hp: [25, 50, 75, 100] } },
+      wr_p_iron:   { grp: 'warrior', fam: 'blood', type: 'passive', rarity: 0, w: 9, max: 4, name: 'Iron Body', desc: '+{s.hp} max HP', stats: { hp: [15, 30, 45, 60] } },
       wr_p_berserk: { grp: 'warrior', fam: 'blood', type: 'passive', rarity: 1, w: 5, max: 3, name: 'Berserker', desc: '+{s.lowHpPct}% damage while under half HP', stats: { lowHpPct: [20, 35, 50] } },
-      wr_p_wind:   { grp: 'warrior', fam: 'blood', type: 'passive', rarity: 1, w: 5, max: 3, name: 'Second Wind', desc: '+{s.regen} HP per second', stats: { regen: [0.8, 1.6, 2.4] } },
+      wr_p_wind:   { grp: 'warrior', fam: 'blood', type: 'passive', rarity: 1, w: 5, max: 3, name: 'Second Wind', desc: '+{s.regen} HP per second', stats: { regen: [0.5, 1, 1.5] } },
       wr_p_smolder: { grp: 'warrior', fam: 'fire', type: 'passive', rarity: 1, w: 6, max: 3, name: 'Smoldering Steel', desc: '+{s.dotPct}% burn and bleed damage', stats: { dotPct: [20, 40, 60] } },
       wr_p_wild:   { grp: 'warrior', fam: 'fire', type: 'passive', rarity: 0, w: 6, max: 3, name: 'Wildfire', desc: '+{s.areaPct}% area of explosions and zones', stats: { areaPct: [12, 24, 36] } },
       wr_p_fury:   { grp: 'warrior', fam: 'fire', type: 'passive', rarity: 1, w: 5, max: 3, name: 'Blazing Fury', desc: '+{s.fxPct}% ability effect damage', stats: { fxPct: [12, 24, 36] } },
@@ -384,20 +357,20 @@
       // ===== ARCHER: long-range hunter, few strong arrows that pierce. Venom, Steel, Frost, Storm =====
       ar_poison:   { grp: 'archer', fam: 'venom', type: 'active', rarity: 0, w: 10, max: 3, name: 'Poison Tips',
                      desc: 'Arrows poison: {0.dps%}% of the hit per second per stack, {0.stacks} stacks, {0.t} s',
-                     fx: [{ k: 'dot', on: 'hit', dot: 'poison', dps: [0.12, 0.16, 0.2], stacks: 4, t: 4 }] },
+                     fx: [{ k: 'dot', on: 'hit', dot: 'poison', dps: [0.18, 0.24, 0.3], stacks: 4, t: 4 }] },
       ar_cloud:    { grp: 'archer', fam: 'venom', type: 'active', rarity: 1, w: 6, max: 3, name: 'Toxic Cloud',
                      desc: '{0.chance%}% chance: a toxic cloud on the target, {0.dps%}% per second, poisons',
-                     fx: [{ k: 'zone', on: 'strike', chance: [0.3, 0.35, 0.4], at: 'target', r: 28, t: 4, dps: [0.3, 0.4, 0.5], apply: { poison: { dps: 0.1, stacks: 4, t: 3 } } }] },
+                     fx: [{ k: 'zone', on: 'strike', chance: [0.3, 0.35, 0.4], at: 'target', r: 28, t: 4, dps: [0.4, 0.52, 0.65], apply: { poison: { dps: 0.1, stacks: 4, t: 3 } } }] },
       ar_plague:   { grp: 'archer', fam: 'venom', type: 'active', rarity: 2, w: 3, max: 3, name: 'Plague Arrow',
                      desc: 'Kills burst into poison: {0.dmg%}% in radius {0.r}, poisons',
                      fx: [{ k: 'burst', on: 'kill', at: 'target', r: 36, dmg: [0.4, 0.55, 0.7], knock: 0, apply: { poison: { dps: 0.12, stacks: 4, t: 4 } } }] },
       ar_ricochet: { grp: 'archer', fam: 'steel', type: 'active', rarity: 0, w: 10, max: 3, name: 'Ricochet', only: 'bolt',
                      desc: 'Arrows bounce to {0.n} more enemies ({0.fall%}% damage each bounce)',
-                     fx: [{ k: 'bounce', n: [1, 2, 3], r: 70, fall: 0.8 }] },
+                     fx: [{ k: 'bounce', n: [2, 3, 4], r: 100, fall: 1.0 }] },
       ar_mark:     { grp: 'archer', fam: 'steel', type: 'active', rarity: 1, w: 6, max: 3, name: 'Hunter\'s Mark',
                      desc: 'The first enemy hit is marked: +{0.pct%}% damage taken for {0.t} s',
-                     fx: [{ k: 'mark', on: 'strike', pct: [0.12, 0.18, 0.24], t: 4 }] },
-      ar_split:    { grp: 'archer', fam: 'steel', type: 'active', rarity: 2, w: 3, max: 3, name: 'Split Shot', only: 'bolt',
+                     fx: [{ k: 'mark', on: 'strike', pct: [0.25, 0.35, 0.5], t: 4 }] },
+      ar_split:    { grp: 'archer', fam: 'steel', type: 'active', rarity: 1, w: 6, max: 3, name: 'Split Shot', only: 'bolt',
                      desc: '+{s.multi} side arrow on each side',
                      stats: { multi: [1, 1, 2], dmgPct: [0, 5, 5] } },
       ar_frost:    { grp: 'archer', fam: 'frost', type: 'active', rarity: 0, w: 10, max: 3, name: 'Frost Arrow',
@@ -983,58 +956,6 @@
   G.dropFromBag = function (gear, idx) { return gear.bag.splice(idx, 1)[0] || null; };
 })(globalThis.G = globalThis.G || {});
 
-// ---- src/sim/passives.js
-// Level-up passives: names, descriptions (generated from the balance file), and the 1-of-3 roll.
-(function (G) {
-  var NAME = { power: 'Arcane Power', haste: 'Quick Cast', vital: 'Vitality', swift: 'Swiftness', range: 'Far Sight',
-    wisdom: 'Wisdom', regen: 'Mending', crit: 'Keen Eye', pulse: 'Pulse Mastery', blink: 'Blink Mastery',
-    ward: 'Warding', pierce: 'Piercing Bolt', multi: 'Split Bolt', leech: 'Soul Leech' };
-  G.PASSIVE_RARITY = ['Common', 'Rare', 'Epic'];
-  G.PASSIVE_COLOR = ['r_common', 'r_rare', 'r_epic'];
-  G.passiveInfo = function (id, B, clsId) {
-    var d = B.passives[id], desc, C = clsId ? G.classDef(B, clsId) : null;
-    switch (id) {
-      case 'power': desc = '+' + d.dmgPct + '% damage'; break;
-      case 'haste': desc = '+' + d.atkPct + '% attack speed'; break;
-      case 'vital': desc = '+' + d.hp + ' max HP'; break;
-      case 'swift': desc = '+' + d.movePct + '% move speed'; break;
-      case 'range': desc = '+' + d.rangePct + '% range'; break;
-      case 'wisdom': desc = '+' + d.expPct + '% EXP gain'; break;
-      case 'regen': desc = '+' + d.regen + ' HP per second'; break;
-      case 'crit': desc = '+' + d.crit + '% crit chance'; break;
-      case 'pulse': desc = '+' + d.pulsePct + '% ' + (C ? C.skill.name.toLowerCase() : 'pulse') + ' damage, -' + d.pulseCdPct + '% cooldown'; break;
-      case 'blink': desc = '-' + d.dodgeCdPct + '% dodge cooldown'; break;
-      case 'ward': desc = '+' + d.armor + ' armor'; break;
-      case 'pierce': desc = 'Bolts pierce +' + d.pierce + ' enemy'; break;
-      case 'multi': desc = '+' + d.multi + ' side bolt'; break;
-      case 'leech': desc = 'Heal ' + d.leech + ' HP per kill'; break;
-    }
-    return { id: id, name: (C && C.passiveNames && C.passiveNames[id]) || NAME[id], desc: desc, rarity: d.rarity, max: d.max };
-  };
-
-  // up to 3 distinct passives that are not at max level, from the class pool (default: all, table order)
-  G.rollPassives = function (rng, owned, B, tome, pool) {
-    var ids = (pool || Object.keys(B.passives)).filter(function (id) { return (owned[id] || 0) < B.passives[id].max; });
-    var out = [];
-    while (out.length < 3 && ids.length) {
-      var w = ids.map(function (id) { var d = B.passives[id]; return d.w * (tome && d.rarity > 0 ? B.tomeRareBoost : 1); });
-      var i = rng.weighted(w);
-      out.push(ids[i]);
-      ids.splice(i, 1);
-    }
-    return out;
-  };
-
-  G.passiveSums = function (owned, B) {
-    var out = {};
-    for (var id in owned) {
-      var d = B.passives[id];
-      for (var k in d) if (k !== 'rarity' && k !== 'max' && k !== 'w') out[k] = (out[k] || 0) + d[k] * owned[id];
-    }
-    return out;
-  };
-})(globalThis.G = globalThis.G || {});
-
 // ---- src/sim/abilities.js
 // Abilities (docs/specs/abilities.md): data helpers, family bonuses, stats, offers and the 1-of-3 roll.
 // Pure functions of the balance table and the player's `abil` map ({ id: rank }); no sim state here.
@@ -1167,15 +1088,15 @@
     this.cheats = opts.cheats || {};     // debug panel toggles: god, noCd (see the cheats section below)
     this.player = { x: 0, y: 0, r: C.base.r, hp: C.base.hp, maxHp: C.base.hp, fx: 0, fy: -1, face: 1, moving: false,
       atkCd: C.attack.firstCd, dodgeCd: 0, dashT: 0, dashX: 0, dashY: 0, iframes: 0, pulseCd: 0,
-      level: 1, exp: 0, expNext: this.expFor(1), passives: {}, pending: 0, tomes: 0, walk: true,
+      level: 1, exp: 0, expNext: this.expFor(1), pending: 0, tomes: 0, walk: true,
       abil: {}, slots: [null, null, null], every: {}, buffs: {},
       crackBlock: false, blockTick: -999, dashOver: false };
     this.stats = {};
-    // ability system (classes with `abilitySystem`): offer pool, effect state (src/sim/effects.js)
-    this.useAbil = !!C.abilitySystem;
-    this.pool = this.useAbil ? G.abilityPool(B, C.id) : null;
+    // abilities: offer pool, effect state (src/sim/effects.js)
+    this.pool = G.abilityPool(B, C.id);
     this.orbiters = []; this.orbitAng = {}; this.zones = []; this.echoes = [];
     this.fxOn = { hit: [], crit: [], strike: [], attack: [], kill: [] }; this.orbitDefs = {}; this.orbitKeys = [];
+    this.fxPre = []; this.boltMods = { bounce: null }; this.leechLeft = 0;
     this.recalc();
     this.player.hp = this.stats.maxHp;
     this.testRoom = opts.testRoom ? B.run.testRoom : -1;   // test room: one room, restarted on clear
@@ -1207,11 +1128,11 @@
   };
   G.classIds = function (B) { return Object.keys(B.classes); };
 
-  // derived stats = class base + gear + passives (pure; also used by the inventory screen outside a run)
-  // `passives`: the old { id: level } map, or for a class with `abilitySystem` the player's `abil` map
-  G.computeStats = function (B, gear, passives, cls) {
+  // derived stats = class base + gear + abilities (pure; also used by the inventory screen outside a run)
+  // `abil`: the player's { abilityId: rank } map
+  G.computeStats = function (B, gear, abil, cls) {
     var C = G.classDef(B, cls), P = C.base, cap = B.items.cap, g = G.gearStats(gear, B, cls), s = {}, W0 = G.weaponOf(C, gear);
-    var p = C.abilitySystem ? G.abilityStats(passives || {}, B, W0 && W0.id) : G.passiveSums(passives || {}, B);
+    var p = G.abilityStats(abil || {}, B, W0 && W0.id);
     function v(k) { return (g[k] || 0) + (p[k] || 0); }
     s.maxHp = Math.round(P.hp + v('hp'));
     s.dmg = P.dmg * (1 + v('dmgPct') / 100);
@@ -1228,7 +1149,7 @@
     s.regen = v('regen');
     s.expMult = 1 + v('expPct') / 100;
     s.pierce = (P.pierce || 0) + (p.pierce || 0); s.multi = p.multi || 0; s.leech = p.leech || 0;
-    // ability multipliers (1 when the stat is absent: classes on the old passives are unchanged)
+    // ability multipliers (1 when the stat is absent)
     s.critMult = P.critMult + (p.critDmg || 0) / 100;
     s.dotMult = 1 + (p.dotPct || 0) / 100; s.chillMult = 1 + (p.chillPct || 0) / 100; s.chilledMult = 1 + (p.chilledPct || 0) / 100;
     s.durMult = 1 + (p.durPct || 0) / 100; s.procMult = 1 + (p.procPct || 0) / 100; s.fxMult = 1 + (p.fxPct || 0) / 100;
@@ -1236,13 +1157,13 @@
     s.arcMult = 1 + (p.arcPct || 0) / 100; s.knockMult = 1 + (p.knockPct || 0) / 100;
     return s;
   };
-  // called whenever gear or passives change: stats apply immediately
+  // called whenever gear or abilities change: stats apply immediately
   S.recalc = function () {
-    var oldMax = this.stats.maxHp || 0, s = this.stats = G.computeStats(this.B, this.gear, this.useAbil ? this.player.abil : this.player.passives, this.clsId), pl = this.player;
+    var oldMax = this.stats.maxHp || 0, s = this.stats = G.computeStats(this.B, this.gear, this.player.abil, this.clsId), pl = this.player;
     pl.maxHp = s.maxHp;
     if (oldMax && s.maxHp > oldMax) pl.hp += s.maxHp - oldMax;
     if (pl.hp > s.maxHp) pl.hp = s.maxHp;
-    if (this.useAbil) this.compileFx();
+    this.compileFx();
   };
 
   S.loadRoom = function (index) {
@@ -1374,7 +1295,8 @@
       p.dashT -= dt;
       if (p.dashT <= 0) this.emit({ t: 'land', x: p.x, y: p.y, cross: p.dashOver });
     } else if (p.moving) {
-      this.move(p, mx * s.speed * dt, my * s.speed * dt);
+      var spd = s.speed * (1 + this.buffTotal('movePct') / 100);
+      this.move(p, mx * spd * dt, my * spd * dt);
       // pushing into an open crack: tell the view where, at most every blockedEvery seconds
       if (p.crackBlock && this.tick - p.blockTick >= P.blockedEvery * 60) {
         p.blockTick = this.tick;
@@ -1412,7 +1334,7 @@
   };
   S.openLevelUp = function (tome) {
     var p = this.player;
-    this.choices = this.useAbil ? G.rollAbilities(this.rngLevel, p, this.B, this.pool, tome) : G.rollPassives(this.rngLevel, p.passives, this.B, tome, this.cls.passives);
+    this.choices = G.rollAbilities(this.rngLevel, p, this.B, this.pool, tome);
     this.choiceTome = tome;
     if (!this.choices.length) {           // everything maxed: heal instead
       if (tome) p.tomes--; else p.pending--;
@@ -1422,20 +1344,8 @@
     this.state = 'levelup';
     this.emit({ t: 'levelup', tome: tome });
   };
-  S.choosePassive = function (i) {
-    if (this.useAbil) return this.chooseAbility(i, 0);
-    if (this.state !== 'levelup' || !this.choices[i]) return false;
-    var p = this.player, id = this.choices[i];
-    p.passives[id] = (p.passives[id] || 0) + 1;
-    if (this.choiceTome) p.tomes--; else { p.pending--; this.heal(p.maxHp * this.B.player.levelHeal); }
-    this.recalc();
-    this.state = 'play';
-    this.choices = [];
-    this.emit({ t: 'passive', id: id });
-    if (p.pending > 0) this.openLevelUp(false);
-    else if (p.tomes > 0) this.openLevelUp(true);
-    return true;
-  };
+  // kept for callers without a slot choice (the view without a HUD): a full-slot card replaces slot 0
+  S.choosePassive = function (i) { return this.chooseAbility(i, 0); };
 
   // ability system: is card i a new active while all slots are taken (the player must pick a slot to replace)?
   S.needsSlot = function (i) {
@@ -1458,6 +1368,7 @@
           at = slot; replaced = p.slots[at];
           delete p.abil[replaced];
           for (k in p.every) if (k.indexOf(replaced + '/') === 0) delete p.every[k];
+          for (k in p.buffs) if (k.indexOf(replaced + '/') === 0) delete p.buffs[k];
         }
         p.slots[at] = id;
       }
@@ -1480,7 +1391,7 @@
   // debug panel: the actives of the class's default bot build (up to the slot count)
   S.defaultActives = function () {
     var b = this.B.builds && this.B.builds[this.clsId], B = this.B, out = [];
-    if (!this.useAbil || !b) return out;
+    if (!b) return out;
     b[Object.keys(b)[0]].order.forEach(function (id) { if (B.abilities[id].type === 'active' && out.length < B.abilityRules.slots) out.push(id); });
     return out;
   };
@@ -1535,7 +1446,7 @@
     else if (this.phase === 'exit') { p.x = this.exit.x; p.y = this.exit.y; }
     this.progress();
   };
-  // test room: the same room again, full HP; level, passives and gear are kept
+  // test room: the same room again, full HP; level, abilities and gear are kept
   S.restartTestRoom = function () {
     this.loops++;
     this.player.hp = this.player.maxHp;
@@ -1561,7 +1472,7 @@
     var dt = this.B.DT;
     this.tick++;
     this.updatePlayer(dt);
-    if (this.useAbil) this.updateEffects(dt);
+    this.updateEffects(dt);
     this.updateFlow();
     this.updateFissures(dt);
     this.updateMonsters(dt);
@@ -1586,8 +1497,7 @@
 // ---- src/sim/effects.js
 // Ability effects (docs/specs/abilities.md, sections 6 and 7): monster statuses, triggers and effect kinds,
 // orbiting bodies, ground zones, delayed echo attacks. Runs only for classes with `abilitySystem`.
-// Batch A kinds: dot, chill, mark, chain, burst, split, echo, orbit, zone, heal. The other kinds of the
-// spec (bounce, wave, whirl, fan, buff, leech, execute) are batch B and do nothing here.
+// Kinds: dot, chill, mark, chain, burst, split, echo, orbit, zone, heal, bounce, wave, whirl, fan, buff, leech, execute.
 (function (G) {
   var S = G.Sim.prototype;
   var STATUS_OF = { burning: 'burn', chilled: 'chill', poisoned: 'poison', bleeding: 'bleed', marked: 'mark' };
@@ -1599,13 +1509,15 @@
   // Called by recalc(): turn the owned abilities into per-trigger effect lists (ranks and weapon type
   // resolved), in the order the spec fixes: slot 0, 1, 2, then family effects in `families` order.
   S.compileFx = function () {
-    var p = this.player, B = this.B, on = { hit: [], crit: [], strike: [], attack: [], kill: [] }, defs = {}, keys = [], perm = [];
+    var p = this.player, B = this.B, on = { hit: [], crit: [], strike: [], attack: [], kill: [] }, defs = {}, keys = [], perm = [], pre = [], mods = { bounce: null };
     var W = G.weaponOf(this.cls, this.gear), wt = W && W.id, i;
     function push(key, id, fam, f) {
       if (f.k === 'orbit') {
         defs[key] = f; keys.push(key);
         if (f.on === 'always') { perm.push(key); return; }
       }
+      if (f.k === 'bounce') { if (!mods.bounce || f.n > mods.bounce.n) mods.bounce = f; return; }       // a property of every attack bolt
+      if (f.k === 'whirl' || f.k === 'fan') { pre.push({ key: key, id: id, fam: fam, f: f }); return; }  // change the attack itself, run before it
       if (on[f.on]) on[f.on].push({ key: key, id: id, fam: fam, f: f });
     }
     for (i = 0; i < p.slots.length; i++) {
@@ -1620,7 +1532,7 @@
       if (t >= 2 && F.t4.fx) list = list.concat(F.t4.fx);
       list.forEach(function (f, j) { push('fam:' + fam + '/' + j, null, fam, f); });
     });
-    this.fxOn = on; this.orbitDefs = defs; this.orbitKeys = keys;
+    this.fxOn = on; this.fxPre = pre; this.boltMods = mods; this.orbitDefs = defs; this.orbitKeys = keys;
     // orbiting bodies: drop those of abilities that are gone, make the permanent ones
     this.orbiters = this.orbiters.filter(function (o) { return defs[o.key]; });
     perm.forEach(function (key) {
@@ -1716,7 +1628,32 @@
   };
   // a normal attack fired at `best`: the `attack` effects (counters count normal attacks only)
   S.runAttackFx = function (best) {
-    if (this.fxOn.attack.length) this.runFx('attack', best, this.stats.dmg, null);
+    if (this.fxOn.attack.length) this.runFx('attack', best, this.baseDmg(), null);
+  };
+
+  // hero buffs (stacks that refresh): total of one stat, and the damage multiplier
+  S.buffTotal = function (stat) {
+    var b = this.player.buffs, k, t = 0;
+    for (k in b) if (b[k].stat === stat) t += b[k].v * b[k].n;
+    return t;
+  };
+  S.dmgBuff = function () { var t = this.buffTotal('dmgPct'); return t ? 1 + t / 100 : 1; };
+  S.baseDmg = function () { return this.stats.dmg * this.dmgBuff(); };
+
+  // whirl and fan change the attack that is about to happen: returns a context for swing / shootBolts, or null.
+  // Their `every` counters count normal attacks.
+  S.preAttack = function () {
+    var list = this.fxPre, p = this.player, ctx = null, i, e, f;
+    for (i = 0; i < list.length; i++) {
+      e = list[i]; f = e.f;
+      var n = (p.every[e.key] || 0) + 1;
+      if (n < f.every) { p.every[e.key] = n; continue; }
+      p.every[e.key] = 0;
+      ctx = ctx || {};
+      if (f.k === 'whirl') { ctx.arc = Math.PI * 2; ctx.dmgMul = (ctx.dmgMul || 1) * f.dmg; ctx.whirl = true; }
+      else { ctx.fanSide = Math.max(ctx.fanSide || 0, f.side); ctx.fanDmg = f.dmg; }
+    }
+    return ctx;
   };
 
   // ------------------------------------------------------------- effect kinds
@@ -1756,7 +1693,23 @@
         if (this.zones.length > R.maxZones) this.zones.shift();
         this.emit({ t: 'zone', x: cx, y: cy, r: f.r * s.areaMult, dur: f.t * s.durMult, fam: e.fam });
         break;
-      default: break;    // batch B kinds: bounce, wave, whirl, fan, buff, leech, execute
+      case 'wave': this.waveFx(f, m, base); break;
+      case 'buff':
+        var bf = p.buffs[e.key];
+        if (!bf) bf = p.buffs[e.key] = { stat: f.stat, v: f.v, n: 0, t: 0 };
+        bf.v = f.v; bf.n = Math.min(f.stacks, bf.n + 1); bf.t = f.t;
+        break;
+      case 'leech':
+        var room = this.leechLeft;
+        if (room > 0) { var hl = Math.min(base * f.pct, room); this.leechLeft -= hl; this.heal(hl); }
+        break;
+      case 'execute':
+        if (!m.dead && !m.def.elite && !m.def.boss && m.hp <= f.below * m.maxHp) {
+          this.emit({ t: 'execute', x: m.x, y: m.y });
+          this.damageMonster(m, m.hp, false, 'fx');
+        }
+        break;
+      default: break;
     }
   };
 
@@ -1819,10 +1772,21 @@
     }
   };
 
+  // Thunder Wave: a piercing projectile from the hero toward the target; walls stop it, it fires no hit triggers.
+  S.waveFx = function (f, m, base) {
+    if (this.bolts.length >= this.B.abilityRules.maxBolts) return;
+    var p = this.player, s = this.stats, C = this.cls, A = C.attack, W = G.weaponOf(C, this.gear);
+    var a = G.M.atan2(m.y - p.y, m.x - p.x), kn = (W ? W.knock : A.knock) / 2, kne = (W ? W.knockElite : A.knockElite) / 2;
+    this.bolts.push({ id: this.nextId++, x: p.x, y: p.y, vx: G.M.cos(a) * f.speed, vy: G.M.sin(a) * f.speed, r: f.r,
+      dmg: base * f.dmg * s.fxMult, crit: false, life: f.range / f.speed, pierce: 9999, knock: kn * s.knockMult, knockElite: kne * s.knockMult,
+      hit: {}, src: 'fx', fxb: true, wave: true });
+  };
+
   // ------------------------------------------------------------------ per tick
   // echoes, orbiting bodies and ground zones (after the player, before monsters move)
   S.updateEffects = function (dt) {
     var s = this.stats, p = this.player, R = this.B.abilityRules, i, j, m;
+    for (var bk in p.buffs) { p.buffs[bk].t -= dt; if (p.buffs[bk].t <= 0) delete p.buffs[bk]; }
     if (this.echoes.length) {
       var due = [], rest = [];
       for (i = 0; i < this.echoes.length; i++) {
@@ -1835,7 +1799,7 @@
         var best = this.findTarget();
         if (!best) continue;
         this.emit({ t: 'echo', x: p.x, y: p.y });
-        if (this.cls.attack.kind === 'arc') this.swing(best); else this.shootBolts(best, { echo: true, dmgMul: due[i].dmg });
+        if (this.cls.attack.kind === 'arc') this.swing(best, { echo: true, dmgMul: due[i].dmg }); else this.shootBolts(best, { echo: true, dmgMul: due[i].dmg });
       }
     }
     // orbiting bodies: one angle per group, bodies spread evenly on the ring
@@ -1854,7 +1818,7 @@
           var dx = m.x - o.x, dy = m.y - o.y, rr = R.orbitR + m.r;
           if (dx * dx + dy * dy >= rr * rr || (o.hit[m.id] || 0) > this.tick) continue;
           o.hit[m.id] = this.tick + Math.ceil(def.hitEvery * 60);
-          this.damageMonster(m, s.dmg * def.dmg * s.fxMult, false, 'fx');
+          this.damageMonster(m, this.baseDmg() * def.dmg * s.fxMult, false, 'fx');
         }
       }
     }
@@ -1906,43 +1870,55 @@
     var p = this.player, s = this.stats, best = this.findTarget();
     if (!best) return;
     if (Math.abs(best.x - p.x) > 2) p.face = best.x > p.x ? 1 : -1;
-    if (this.cls.attack.kind === 'arc') this.swing(best); else this.shootBolts(best);
-    if (this.useAbil) this.runAttackFx(best);
-    p.atkCd = s.atkInterval;
+    var ctx = this.fxPre.length ? this.preAttack() : null;
+    if (this.cls.attack.kind === 'arc') this.swing(best, ctx); else this.shootBolts(best, ctx);
+    this.runAttackFx(best);
+    p.atkCd = s.atkInterval / (1 + this.buffTotal('atkPct') / 100);
   };
 
   // projectile: one bolt at the target, plus `multi` side bolts on each side
   // ctx (abilities): { echo, dmgMul } for an echo attack
   S.shootBolts = function (best, ctx) {
-    var p = this.player, s = this.stats, C = this.cls, A = C.attack, i, mul = ctx ? ctx.dmgMul : 1;
+    var p = this.player, s = this.stats, C = this.cls, A = C.attack, i, mul = ctx && ctx.dmgMul || 1;
     var a = G.M.atan2(best.y - p.y, best.x - p.x), life = s.range / A.speed * A.life;
-    for (i = -s.multi; i <= s.multi; i++) {
-      var ang = a + i * A.spread, crit = this.rngCombat.chance(s.crit);
-      var dmg = s.dmg * (i === 0 ? 1 : A.sideDmg) * (crit ? s.critMult : 1);
+    var fan = ctx && ctx.fanSide || 0, bounce = this.boltMods.bounce, db = this.dmgBuff();
+    this.leechLeft = s.maxHp * this.B.abilityRules.leechCap;
+    for (i = -s.multi - fan; i <= s.multi + fan; i++) {
+      var ang = a + i * A.spread, crit = this.rngCombat.chance(s.crit), extra = Math.abs(i) > s.multi;
+      var dmg = s.dmg * (i === 0 ? 1 : (extra ? ctx.fanDmg : A.sideDmg)) * (crit ? s.critMult : 1);
+      if (db !== 1) dmg *= db;
       if (ctx) dmg *= mul;
       this.bolts.push({ id: this.nextId++, x: p.x, y: p.y - 2, vx: G.M.cos(ang) * A.speed, vy: G.M.sin(ang) * A.speed,
-        r: A.r, dmg: dmg, crit: crit, life: life, pierce: s.pierce, knock: A.knock, knockElite: A.knockElite, hit: {}, atk: true, main: i === 0 });
+        r: A.r, dmg: dmg, crit: crit, life: life, pierce: s.pierce, knock: A.knock, knockElite: A.knockElite, hit: {}, atk: true, main: i === 0,
+        bounce: bounce ? bounce.n : 0 });
     }
-    if (!ctx) this.emit({ t: 'cast', x: p.x, y: p.y });
+    if (!(ctx && ctx.echo)) this.emit({ t: 'cast', x: p.x, y: p.y });
   };
 
   // melee: one swing toward the target that hits every monster within reach (s.range + its radius)
-  // inside an arc of A.arc radians centred on the target. One crit roll per swing.
-  S.swing = function (best) {
+  // inside an arc centred on the target. One crit roll per swing.
+  // ctx (abilities): { echo, dmgMul, arc } (arc = full width in rad, set by Whirlwind)
+  S.swing = function (best, ctx) {
     var p = this.player, s = this.stats, C = this.cls, A = C.attack, i;
     var dx = best.x - p.x, dy = best.y - p.y, l = Math.sqrt(dx * dx + dy * dy) || 1, ux = dx / l, uy = dy / l;
-    var W = G.weaponOf(C, this.gear), arc = W ? W.arc : A.arc, kn = W ? W.knock : A.knock, kne = W ? W.knockElite : A.knockElite;
-    var cosHalf = G.M.cos(arc / 2), crit = this.rngCombat.chance(s.crit), dmg = s.dmg * (crit ? s.critMult : 1);
-    this.emit({ t: 'swing', x: p.x, y: p.y, a: G.M.atan2(uy, ux), arc: arc, r: s.range, crit: crit, w: W ? W.id : null });
+    var W = G.weaponOf(C, this.gear), arc = (ctx && ctx.arc) || (W ? W.arc : A.arc), kn = W ? W.knock : A.knock, kne = W ? W.knockElite : A.knockElite;
+    if (s.arcMult !== 1) arc = Math.min(arc * s.arcMult, Math.PI * 2);
+    var cosHalf = G.M.cos(arc / 2), crit = this.rngCombat.chance(s.crit), dmg = s.dmg * (crit ? s.critMult : 1), db = this.dmgBuff();
+    if (db !== 1) dmg *= db;
+    if (ctx && ctx.dmgMul) dmg *= ctx.dmgMul;
+    var km = s.knockMult;
+    this.leechLeft = s.maxHp * this.B.abilityRules.leechCap;
+    this.emit({ t: 'swing', x: p.x, y: p.y, a: G.M.atan2(uy, ux), arc: arc, r: s.range, crit: crit, w: W ? W.id : null, whirl: !!(ctx && ctx.whirl) });
     for (i = this.monsters.length - 1; i >= 0; i--) {
       var m = this.monsters[i];
       if (m.dead) continue;
       var mx = m.x - p.x, my = m.y - p.y, d = Math.sqrt(mx * mx + my * my) || 0.01;
       if (d - m.r > s.range) continue;
       if (m !== best && (mx * ux + my * uy) / d < cosHalf) continue;
-      var k = m.def.boss ? 0 : (m.def.elite ? kne : kn);
+      var k = (m.def.boss ? 0 : (m.def.elite ? kne : kn)) * km;
       m.kx += mx / d * k; m.ky += my / d * k;
       this.damageMonster(m, dmg, crit);
+      this.onAttackHit(m === best ? { main: true, struck: false } : { main: false, struck: true }, m, dmg, crit);
     }
   };
 
@@ -2041,7 +2017,7 @@
     if (rng.chance(gearP)) this.spawnItem(m.x, m.y, def.boss ? L.luck.boss : (def.elite ? L.luck.elite : L.luck.kill));
     if (!def.boss && rng.chance(L.killTome)) this.spawnDrop('tome', m.x, m.y, null);
     if (this.stats.leech) this.heal(this.stats.leech);
-    if (this.useAbil && src !== 'kfx' && this.fxOn.kill.length) this.runFx('kill', m, this.stats.dmg, null);
+    if (src !== 'kfx' && this.fxOn.kill.length) this.runFx('kill', m, this.baseDmg(), null);
   };
 
   S.spawnOrb = function (kind, x, y, v) {
@@ -2175,6 +2151,22 @@
   };
 
   // ------------------------------------------------------------- projectiles
+  // Ricochet: turn a spent bolt toward the nearest living monster it has not hit, in range and in sight
+  S.bounceBolt = function (b) {
+    var f = this.boltMods.bounce, ms = this.monsters, best = null, bd = f.r, i;
+    for (i = 0; i < ms.length; i++) {
+      var q = ms[i];
+      if (q.dead || q.emerge > 0 || b.hit[q.id]) continue;
+      var dx = q.x - b.x, dy = q.y - b.y, d = Math.sqrt(dx * dx + dy * dy);
+      if (d < bd && this.los(b.x, b.y, q.x, q.y)) { bd = d; best = q; }
+    }
+    if (!best) return false;
+    var sp = Math.sqrt(b.vx * b.vx + b.vy * b.vy), a = G.M.atan2(best.y - b.y, best.x - b.x);
+    b.vx = G.M.cos(a) * sp; b.vy = G.M.sin(a) * sp;
+    b.dmg *= f.fall;
+    b.life = Math.max(b.life, f.r / sp + 0.05);
+    return true;
+  };
   S.updateProjectiles = function (dt) {
     var p = this.player, i, j, b;
     for (i = this.bolts.length - 1; i >= 0; i--) {
@@ -2191,8 +2183,10 @@
         var l = Math.sqrt(b.vx * b.vx + b.vy * b.vy), k = m.def.boss ? 0 : (m.def.elite ? b.knockElite : b.knock);
         m.kx += b.vx / l * k; m.ky += b.vy / l * k;
         this.damageMonster(m, b.dmg, b.crit, b.src || 'atk');
-        if (b.atk && this.useAbil) this.onAttackHit(b, m, b.dmg, b.crit);
-        if (b.pierce > 0) b.pierce--; else gone = true;
+        if (b.atk) this.onAttackHit(b, m, b.dmg, b.crit);
+        if (b.pierce > 0) b.pierce--;
+        else if (b.bounce > 0 && this.bounceBolt(b)) b.bounce--;
+        else gone = true;
       }
       if (gone) this.bolts.splice(i, 1);
     }
@@ -2633,22 +2627,16 @@
   var DIRS = [];
   for (var i = 0; i < 16; i++) DIRS.push({ x: G.M.cos(i / 16 * 6.2832), y: G.M.sin(i / 16 * 6.2832) });
 
-  // buildId: one of BAL.builds[cls] (default: the first); only used by classes with the ability system
+  // buildId: one of BAL.builds[cls] (default: the first)
   function Bot(sim, buildId) {
-    // class hints (BAL.classes.<id>.bot): keep-away multiplier and passive preference
-    this.melee = sim.cls.attack.kind === 'arc'; this.keep = sim.cls.bot.keep; this.pick = sim.cls.bot.pick;
+    // class hint (BAL.classes.<id>.bot): keep-away multiplier
+    this.melee = sim.cls.attack.kind === 'arc'; this.keep = sim.cls.bot.keep;
     var builds = sim.B.builds && sim.B.builds[sim.clsId];
     this.buildId = builds ? (builds[buildId] ? buildId : Object.keys(builds)[0]) : null;
     this.order = builds ? builds[this.buildId].order : [];
     this.sim = sim; this.room = null; this.field = null; this.goalTile = -1; this.orbit = 1;
     this.thinkTick = -999; this.mx = 0; this.my = 0; this.wantDodge = false; this.wantPulse = false;
   }
-
-  Bot.prototype.pickPassive = function () {
-    var c = this.sim.choices, best = 0, PICK = this.pick;
-    for (var i = 1; i < c.length; i++) if ((PICK[c[i]] || 0) > (PICK[c[best]] || 0)) best = i;
-    return best;
-  };
 
   // Level-up card for a build (spec section 11). Score of an ability: its place in the build order (L - k), else
   // 0.5 for a passive or an active already owned, 0.6 for a new active with a free slot, -1 for a new active
@@ -2848,7 +2836,7 @@
     var maxTicks = (opts.maxSeconds || 1200) * 60, softlock = false, worstStuck = 0, roomTicks = [], last = 0, lastRoom = 0, minHp = sim.B.run.roomMult.map(function () { return 1; });
     while (sim.tick < maxTicks && (sim.state === 'play' || sim.state === 'levelup')) {
       if (sim.state === 'levelup') {
-        if (sim.useAbil) { var pk = bot.pickAbility(); sim.chooseAbility(pk.i, pk.slot); } else sim.choosePassive(bot.pickPassive());
+        var pk = bot.pickAbility(); sim.chooseAbility(pk.i, pk.slot);
         continue;
       }
       bot.update();
@@ -2860,11 +2848,8 @@
       if (st > worstStuck) worstStuck = st;
       if (st > sim.B.softlockSeconds) { softlock = true; break; }
     }
-    var abilInfo = {};
-    if (sim.useAbil) {      // the build and what it came to (only for classes with the ability system)
-      var fc = G.familyCounts(sim.player.abil, sim.B);
-      abilInfo = { build: bot.buildId, slots: sim.player.slots.slice(), abil: Object.assign({}, sim.player.abil), fams: fc };
-    }
+    // the build and what it came to
+    var abilInfo = { build: bot.buildId, slots: sim.player.slots.slice(), abil: Object.assign({}, sim.player.abil), fams: G.familyCounts(sim.player.abil, sim.B) };
     return Object.assign({ seed: seed, cls: sim.clsId, result: softlock ? 'softlock' : (sim.state === 'won' ? 'win' : (sim.state === 'dead' ? 'dead' : 'timeout')),
       room: sim.roomIndex, phase: sim.phase, rooms: sim.roomsCleared, seconds: Math.round(sim.tick / 60), level: sim.player.level,
       kills: sim.kills, hp: Math.round(sim.player.hp), gearScore: G.gearScore(gear), worstStuck: Math.round(worstStuck), minHp: minHp, roomSeconds: roomTicks.map(function (t) { return Math.round(t / 60); }) }, abilInfo);
@@ -2872,7 +2857,7 @@
 })(globalThis.G = globalThis.G || {});
 
 // ---- src/save.js
-// Persistence: gear and settings survive between runs (localStorage); level and passives do not.
+// Persistence: gear and settings survive between runs (localStorage); level and abilities do not.
 (function (G) {
   var KEY = 'riftscar.save.v2';
   var SLOTS = ['helmet', 'armor', 'gloves', 'boots', 'belt', 'weapon', 'shield'];
@@ -3761,6 +3746,7 @@
             fx.shake(0.12);
             break;
           case 'chain': this.chains.push({ pts: e.pts, life: 7, c: e.fam ? G.BAL.families[e.fam].icon : 'gold' }); fx.burst(e.pts[2], e.pts[3], 'gold', 3, 40, 0.2); break;
+          case 'execute': fx.burst(e.x, e.y, 'ui_bad', 8, 70, 0.3); fx.shake(0.15); break;
           case 'echo': fx.burst(e.x, e.y, 'tome2', 5, 50, 0.25); break;
           case 'volley':
             var vf = this.cls.sprite.fx;
@@ -3771,7 +3757,7 @@
           case 'swing':
             this.swingT = 9;
             // melee: a crescent of sparks swept along the arc (leading edge bright), a nick of shake on a crit
-            var sc = this.cls.sprite.slash || 'ui_text';
+            var sc = e.whirl ? 'white' : (this.cls.sprite.slash || 'ui_text');
             for (var sr = 0; sr < 2; sr++) for (var sa = -5; sa <= 5; sa++) {
               var ang = e.a + sa / 10 * e.arc, rr = e.r * (sr ? 0.62 : 0.95) + 5;
               fx.spark(e.x + Math.cos(ang) * rr, e.y - 4 + Math.sin(ang) * rr, e.crit ? 'ui_warn' : (Math.abs(sa) > 3 && !sr ? 'white' : sc), 0.14 + Math.abs(sa) * 0.012);
@@ -3873,13 +3859,15 @@
       });
       this.drawHealthBars();
       this.list('bolts', sim.bolts, function (b) {
-        var A = self.cls.attack, s = self.add.image(b.x, b.y, 'atlas', A.frame).setDepth(8000);
-        s.gl = self.add.image(b.x, b.y, 'atlas', 'glow_s').setDepth(-640).setBlendMode(ADD).setTint(UI.hex(A.glow)).setAlpha(0.5);
+        var A = self.cls.attack, wv = !!b.wave, s = self.add.image(b.x, b.y, 'atlas', wv ? 'bolt' : A.frame).setDepth(8000);
+        if (wv) s.setTint(UI.hex('gold'));       // Thunder Wave: a gold bolt
+        s.wv = wv;
+        s.gl = self.add.image(b.x, b.y, 'atlas', 'glow_s').setDepth(-640).setBlendMode(ADD).setTint(UI.hex(wv ? 'gold' : A.glow)).setAlpha(0.5);
         return s;
       }, function (s, b) {
         s.setPosition(b.x, b.y - 6); s.gl.setPosition(b.x, b.y);
-        if (self.cls.attack.rotate) s.setRotation(Math.atan2(b.vy, b.vx));
-        if (!self.fx.quiet && (tick + b.id) % 2 === 0) self.fx.spark(b.x, b.y - 6, b.crit ? 'ui_warn' : self.cls.attack.glow, 0.18);
+        if (self.cls.attack.rotate && !s.wv) s.setRotation(Math.atan2(b.vy, b.vx));
+        if (!self.fx.quiet && (tick + b.id) % 2 === 0) self.fx.spark(b.x, b.y - 6, s.wv ? 'gold' : (b.crit ? 'ui_warn' : self.cls.attack.glow), 0.18);
       });
       this.list('shots', sim.shots, function (b) { return self.add.image(b.x, b.y, 'atlas', SHOT_FRAME[b.kind] || 'shot').setDepth(8000); },
         function (s, b) { s.setPosition(b.x, b.y - 4); if (b.kind === 'bone') s.setFlip(((tick >> 2) & 1) === 1, ((tick >> 3) & 1) === 1); });
@@ -4233,52 +4221,15 @@
       if (sim.state !== 'levelup') { this.level = null; return; }
       if (G.Panels.isOpen()) G.Panels.close();
       this.dropStick();
-      if (sim.useAbil) { this.openAbilityLevel(); this.botWait = this.game_.speed > 4 ? 1 : 30; G.screen = 'levelup'; return; }
-      var n = sim.choices.length, row = V.W >= 300, gap = 6;
-      var cw = row ? Math.min(108, Math.floor((V.W - 24 - gap * (n - 1)) / n)) : Math.min(V.W - 24, 230), ch = row ? 88 : 46;
-      var mw = row ? n * cw + (n - 1) * gap + 16 : cw + 16, mh = row ? 40 + ch + 8 : 40 + n * (ch + gap) + 4;
-      var m = this.level = UI.modal(this, mw, mh, null);
-      UI.centerX(m.text(0, m.y + 7, sim.choiceTome ? 'ABILITY TOME' : 'LEVEL ' + sim.player.level, 'ui_warn', true), V.W / 2);
-      UI.centerX(m.text(0, m.y + 26, 'Choose one passive', 'ui_dim'), V.W / 2);
-      sim.choices.forEach(function (id, i) {
-        var info = G.passiveInfo(id, B, sim.clsId), lvl = sim.player.passives[id] || 0, col = G.PASSIVE_COLOR[info.rarity];
-        var cx = row ? m.x + 8 + i * (cw + gap) : m.x + 8, cy = row ? m.y + 40 : m.y + 40 + i * (ch + gap);
-        var bg = m.panel(cx, cy, cw, ch, 'btn', 1);
-        if (row) {
-          m.image(cx + cw / 2, cy + 14, 'p_' + id);
-          UI.centerX(m.text(0, cy + 25, info.name, col), cx + cw / 2);
-          UI.centerX(m.text(0, cy + 36, G.PASSIVE_RARITY[info.rarity] + '  Lv ' + (lvl + 1) + '/' + info.max, 'ui_dim'), cx + cw / 2);
-          m.text(cx + 6, cy + 50, info.desc, 'ui_text').setMaxWidth(cw - 12);
-          m.text(cx + 5, cy + 5, '' + (i + 1), 'ui_dim');
-        } else {
-          m.image(cx + 13, cy + 14, 'p_' + id);
-          m.text(cx + 26, cy + 5, info.name, col);
-          m.text(cx + 26, cy + 15, G.PASSIVE_RARITY[info.rarity] + '  Lv ' + (lvl + 1) + '/' + info.max, 'ui_dim');
-          m.text(cx + 26, cy + 26, info.desc, 'ui_text').setMaxWidth(cw - 32);
-        }
-        bg.setInteractive({ useHandCursor: true });
-        bg.on('pointerover', function () { bg.setFrame('btn_hot'); });
-        bg.on('pointerout', function () { bg.setFrame('btn'); });
-        bg.on('pointerdown', function () { self.pickLevel(i); });
-        UI.hit('card_' + i, cx, cy, cw, ch);
-      });
-      this.botWait = this.game_.speed > 4 ? 1 : 30;
-      G.screen = 'levelup';
+      this.openAbilityLevel(); this.botWait = this.game_.speed > 4 ? 1 : 30; G.screen = 'levelup';
     },
     pickLevel: function (i) {
       var sim = this.game_.sim;
       if (!this.level || sim.state !== 'levelup') return;
-      if (sim.useAbil) {
-        if (this.pickCard >= 0) { if (i < 3) this.applyAbility(this.pickCard, i); return; }     // slot picker: i is the slot
-        if (!sim.choices[i]) return;
-        if (sim.needsSlot(i)) { this.pickCard = i; this.openLevel(); return; }                 // open the slot picker
-        this.applyAbility(i, 0);
-        return;
-      }
+      if (this.pickCard >= 0) { if (i < 3) this.applyAbility(this.pickCard, i); return; }     // slot picker: i is the slot
       if (!sim.choices[i]) return;
-      this.level.destroy(); this.level = null;
-      G.screen = 'game';
-      sim.choosePassive(i);            // may emit another 'levelup', handled next frame
+      if (sim.needsSlot(i)) { this.pickCard = i; this.openLevel(); return; }                 // open the slot picker
+      this.applyAbility(i, 0);
     },
     applyAbility: function (i, slot) {
       var sim = this.game_.sim;
@@ -4446,7 +4397,6 @@
       if (this.SL) this.SL.destroy();
       this.SL = null;
       var sim = this.game_.sim;
-      if (!sim.useAbil) return;
       var V = G.view, B = sim.B, p = sim.player, SL = this.SL = UI.layer(this, 100), x0 = Math.round((V.W - 57) / 2), y0 = V.H - 24, j, r;
       for (j = 0; j < 3; j++) {
         var id = p.slots[j], x = x0 + j * 20;
@@ -4468,10 +4418,8 @@
         this.hpText.setText(key);
         UI.centerX(this.hpText, X + 15 + 33);
       }
-      if (sim.useAbil) {
-        var sk = p.slots.map(function (id) { return id ? id + p.abil[id] : '-'; }).join(',') + '|' + G.view.W + 'x' + G.view.H;
-        if (L.slots !== sk) { L.slots = sk; this.drawSlots(); }
-      }
+      var sk = p.slots.map(function (id) { return id ? id + p.abil[id] : '-'; }).join(',') + '|' + G.view.W + 'x' + G.view.H;
+      if (L.slots !== sk) { L.slots = sk; this.drawSlots(); }
       if (L.lv !== p.level) { L.lv = p.level; this.lvText.setText('LV ' + p.level); }
       var xp = Math.round(44 * Math.min(1, p.exp / p.expNext));
       if (L.xp !== xp) { L.xp = xp; this.xpFill.setDisplaySize(Math.max(0.01, xp), 3); }
@@ -4531,7 +4479,7 @@
       }
       if (sim.state === 'levelup' && !this.level) this.openLevel();
       if (this.level && gs.bot && !G.manualLevel && --this.botWait <= 0) {
-        if (sim.useAbil) { var pk = gs.bot.pickAbility(); this.applyAbility(pk.i, pk.slot); } else this.pickLevel(gs.bot.pickPassive());
+        var pk = gs.bot.pickAbility(); this.applyAbility(pk.i, pk.slot);
       }
       if (this.endT > 0 && --this.endT === 0) G.Panels.openResult(this, sim.state);
     }
@@ -4564,11 +4512,69 @@
     else if (c === 'settings') P.openSettings(scene, P.back);
     else if (c === 'result') P.openResult(scene, P.resultState);
     else if (c === 'debug') P.openDebug(scene);
+    else if (c === 'abilities') P.openAbilities(scene);
   };
   function sim() { return G.gameScene && G.screen !== 'title' ? G.gameScene.sim : null; }
   function gear() { var s = sim(); return s ? s.gear : G.save.gear; }
   function fmt(v, d) { return d ? v.toFixed(d) : '' + Math.round(v); }
   function statText(k, v) { var lab = G.STAT_LABEL[k]; return '+' + (k === 'regen' ? v.toFixed(1) : v) + lab[1] + ' ' + lab[0]; }
+
+  // ------------------------------------------------------------ abilities
+  // The hero's abilities in this run: the active slots (rank, what it does), the passives, and the family progress.
+  P.openAbilities = function (scene) {
+    if (P.L) P.L.destroy();
+    var s = sim();
+    if (!s) { P.openInventory(scene); return; }
+    var V = G.view, B = s.B, p = s.player, wide = V.W >= 300, C = s.cls, wt = (G.weaponOf(C, s.gear) || {}).id;
+    P.current = 'abilities'; P.scene = scene; G.paused = true; G.screen = 'inventory';
+    var pw = wide ? Math.min(V.W - 8, 340) : Math.min(V.W - 8, 264), ph = Math.min(V.H - 8, wide ? 262 : 400);
+    var L = P.L = UI.modal(scene, pw, ph, 'ABILITIES'), x0 = L.x + 8, y = L.y + 20, inner = pw - 16, i;
+    L.button(L.x + pw - 22, L.y + 3, 18, 16, '', function () { P.close(); }, { icon: 'i_close', name: 'abil_close' });
+    L.button(L.x + pw - 70, L.y + 3, 44, 16, 'BACK', function () { P.openInventory(scene); }, { name: 'abil_back' });
+    var counts = G.familyCounts(p.abil, B);
+
+    L.text(x0, y, 'ACTIVE', 'ui_dim'); y += 10;
+    for (i = 0; i < B.abilityRules.slots; i++) {
+      var id = p.slots[i];
+      if (!id) { L.panel(x0, y, inner, 24, 'inset', 1); L.image(x0 + 12, y + 12, 'slot', 2).setAlpha(0.5); L.text(x0 + 24, y + 8, 'Empty slot', 'ui_dim'); y += 26; continue; }
+      var info = G.abilityInfo(id, B, p.abil[id], s.clsId, wt), F = B.families[info.fam];
+      var dt = L.text(x0 + 24, y + 13, info.desc, 'ui_text').setMaxWidth(inner - 30), rh = Math.max(24, dt.height + 16);
+      L.panel(x0, y, inner, rh, 'inset', 1);
+      L.image(x0 + 12, y + rh / 2, 'fam_' + info.fam, 2);
+      L.text(x0 + 24, y + 3, info.name, G.ABILITY_COLOR[info.rarity]);
+      for (var r = 0; r < info.max; r++) L.bar(x0 + inner - 5 - (info.max - r) * 7, y + 4, 5, 3, r < info.rank ? F.icon : 'ui_line', 3);
+      y += rh + 2;
+    }
+    y += 3;
+    var pas = Object.keys(p.abil).filter(function (k) { return B.abilities[k].type === 'passive'; });
+    L.text(x0, y, 'PASSIVE', 'ui_dim'); y += 10;
+    if (!pas.length) { L.text(x0, y, 'None yet', 'ui_dim'); y += 10; }
+    var cols = wide ? 3 : 1, cw = Math.floor(inner / cols);
+    pas.forEach(function (k, j) {
+      var pi = G.abilityInfo(k, B, p.abil[k], s.clsId, wt), px = x0 + (j % cols) * cw, py = y + Math.floor(j / cols) * 10;
+      L.image(px + 4, py + 4, 'fam_' + pi.fam, 2).setScale(0.5);
+      var nm = L.text(px + 10, py, pi.name + ' ' + pi.rank + '/' + pi.max, G.ABILITY_COLOR[pi.rarity]);
+      if (!wide) { var t = L.text(0, py, pi.desc, 'ui_dim'); t.x = x0 + inner - t.width; if (t.x < px + 14 + nm.width) t.setVisible(false); }
+    });
+    y += Math.ceil(pas.length / cols) * 10 + 3;
+
+    L.text(x0, y, 'FAMILIES', 'ui_dim'); y += 10;
+    var fams = Object.keys(B.families).filter(function (f) { return counts[f]; });
+    if (!fams.length) L.text(x0, y, 'None yet', 'ui_dim');
+    fams.forEach(function (f) {
+      var F = B.families[f], n = counts[f], tier = G.famTier(n, B);
+      L.image(x0 + 6, y + 5, 'fam_' + f, 2);
+      L.text(x0 + 14, y + 1, F.name, F.text);
+      for (var j = 0; j < 4; j++) {
+        var thr = j === 1 || j === 3;
+        L.bar(x0 + 54 + j * 9, y, 7, 7, thr ? 'ui_warn' : 'ui_line', 2);
+        L.bar(x0 + 55 + j * 9, y + 1, 5, 5, j < n ? F.icon : 'ui_bg', 2.2);
+      }
+      var t4 = wide ? F.t4.desc.split(':')[0] : F.t4.desc, bonus = tier >= 2 ? t4 : (tier === 1 ? F.t2.desc : 'next at 2: ' + F.t2.desc);
+      var bt = L.text(x0 + 94, y + 1, bonus, tier ? 'ui_good' : 'ui_dim').setMaxWidth(inner - 96);
+      y += Math.max(13, bt.height + 4);
+    });
+  };
 
   // ------------------------------------------------------------- inventory
   P.openInventory = function (scene, keepSel) {
@@ -4582,8 +4588,9 @@
     var x0 = L.x, y0 = L.y;
     L.button(x0 + pw - 22, y0 + 3, 18, 16, '', function () { P.close(); }, { icon: 'i_close', name: 'inv_close' });
     L.button(x0 + pw - 44, y0 + 3, 18, 16, '', function () { P.openSettings(scene, 'inventory'); }, { icon: 'i_gear', name: 'inv_settings' });
+    if (s) L.button(x0 + pw - 116, y0 + 3, 68, 16, 'ABILITIES', function () { P.openAbilities(scene); }, { name: 'inv_abil' });
 
-    var passives = s ? (s.useAbil ? s.player.abil : s.player.passives) : {}, cls = s ? s.clsId : G.cls;
+    var passives = s ? s.player.abil : {}, cls = s ? s.clsId : G.cls;
     var stats = G.computeStats(B, g, passives, cls), base = G.computeStats(B, { equipped: {} }, passives, cls);
     function select(sel) {
       // tapping the selected thing again acts on it (equip / unequip)

@@ -9,23 +9,22 @@ names a class, so adding one is data plus art, and code only for a new attack or
 | Field | What it holds |
 | --- | --- |
 | `name` | Shown on the title's class picker. |
-| `base` | `r` (body radius), `hp`, `speed`, `dmg`, `atkInterval` (s per attack), `range` (bolt reach or swing reach, px), `crit` (0-1), `critMult`. Gear and passives scale these in `G.computeStats`. |
+| `base` | `r` (body radius), `hp`, `speed`, `dmg`, `atkInterval` (s per attack), `range` (bolt reach or swing reach, px), `crit` (0-1), `critMult`. Gear and abilities scale these in `G.computeStats`. |
 | `attack` | `kind: 'bolt'` (projectile: `speed`, `r`, `sideDmg`, `spread`, `life`, `knock`, `knockElite`, `frame`, `glow`) or `kind: 'arc'` (melee swing: `arc` = full width in radians, `knock`, `knockElite`). `firstCd`: delay of the first attack. |
 | `dodge` | `dist` (px), `time` (s), `iframes` (s), `cd` (s). Crossing cracks depends on `dist`. |
 | `skill` | The active button. `kind: 'pulse'` (`dmg`, `radius`, `cd`, `knock`) is the only kind today. |
 | `sprite` | `frames`: atlas prefix, the game uses `<frames>_0`, `_1`, `_2` (idle, two walk frames). `glow` and `dash`: palette keys for the floor glow and the dodge tint. |
-| `passives` | The level-up pool, ids from `BAL.passives`, in roll order. The order is part of the run: reordering it changes every seed. |
+| `group` | Optional: the ability group whose abilities the class is offered (default: the class id). The pool is `BAL.abilities` of that group in table order, then the `shared` ones; the order is part of the run. `only: 'bolt'` / `'arc'` on an ability hides it from the other attack kind. |
 | `weapons`, `defaultWeapon` | Optional weapon types (melee): per type `dmg`, `atk` (interval multiplier), `reach` (px), `arc`, `knock`, `knockElite`, `name`, `item` (item name). The weapon item's `wtype` picks one; art `w_<type>` (held) and `i_weapon_<type>` (icon). |
-| `passiveNames` | Per-class passive display names. |
 | `skill` kinds | `pulse` (ring around the hero) and `volley` (the archer: `count` arrows in a ring, `pierce`, `range`, `speed`, `dmg`, `cd`, `knock`; they are bolts). |
-| `base.pierce` | Optional: enemies a bolt pierces at base (the archer has 1). Passives add to it. |
+| `base.pierce` | Optional: enemies a bolt pierces at base (the archer has 1). Abilities add to it. |
 | `attack.rotate` | Bolt kinds: turn the projectile sprite to its direction (arrows). |
-| `bot` | QA bot hints: `keep` multiplies its keep-away distances (1 = kite like the mage, lower = stand closer), `pick` is its passive preference. |
+| `bot` | QA bot hints: `keep` multiplies its keep-away distances (1 = kite like the mage, lower = stand closer), the ability builds are in `BAL.builds.<class>` (see `docs/specs/abilities.md`). |
 
 ## How the sim uses it
 
 - `src/sim/core.js`: the player's radius, HP and first attack delay; the dodge (`cls.dodge`);
-  `computeStats(B, gear, passives, clsId)`; the level-up roll uses `cls.passives`.
+  `computeStats(B, gear, abil, clsId)`; the level-up roll is `G.rollAbilities` over the class's ability pool.
 - `src/sim/combat.js`: `autoAttack` picks the nearest monster in range and in sight, then calls
   `shootBolts` (kind `bolt`) or `swing` (kind `arc`). A swing hits every monster whose edge is
   within `range` and whose direction is inside the arc; one crit roll per swing; it emits
@@ -36,8 +35,9 @@ names a class, so adding one is data plus art, and code only for a new attack or
 
 1. Copy the `mage` entry in `BAL.classes`, give it a new id and `name`, change the numbers.
    For melee: `attack: { kind: 'arc', firstCd, arc, knock, knockElite }` and a short `base.range`.
-2. Pick its `passives` pool. `multi`, `pierce` and `range` only make sense for bolts; leave them
-   out of a melee pool. A new passive goes in `BAL.passives` and `G.passiveInfo`.
+2. Write its ability group in `BAL.abilities` (12 actives, 12 passives over 4 families, ids with a
+   prefix), and 3 named builds in `BAL.builds.<class>` for the bot. `multi`, `pierce` and `range`
+   only make sense for bolts; tag bolt-only or arc-only abilities with `only`.
 3. Draw its frames in `tools/pixelart.py` (`<prefix>_0..2`, faces right, palette colours only),
    then `python3 tools/build.py`.
 4. A new skill kind: add a branch to `S.castSkill`, its cast function, and its event in

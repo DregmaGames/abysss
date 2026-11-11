@@ -7,22 +7,16 @@
   var DIRS = [];
   for (var i = 0; i < 16; i++) DIRS.push({ x: G.M.cos(i / 16 * 6.2832), y: G.M.sin(i / 16 * 6.2832) });
 
-  // buildId: one of BAL.builds[cls] (default: the first); only used by classes with the ability system
+  // buildId: one of BAL.builds[cls] (default: the first)
   function Bot(sim, buildId) {
-    // class hints (BAL.classes.<id>.bot): keep-away multiplier and passive preference
-    this.melee = sim.cls.attack.kind === 'arc'; this.keep = sim.cls.bot.keep; this.pick = sim.cls.bot.pick;
+    // class hint (BAL.classes.<id>.bot): keep-away multiplier
+    this.melee = sim.cls.attack.kind === 'arc'; this.keep = sim.cls.bot.keep;
     var builds = sim.B.builds && sim.B.builds[sim.clsId];
     this.buildId = builds ? (builds[buildId] ? buildId : Object.keys(builds)[0]) : null;
     this.order = builds ? builds[this.buildId].order : [];
     this.sim = sim; this.room = null; this.field = null; this.goalTile = -1; this.orbit = 1;
     this.thinkTick = -999; this.mx = 0; this.my = 0; this.wantDodge = false; this.wantPulse = false;
   }
-
-  Bot.prototype.pickPassive = function () {
-    var c = this.sim.choices, best = 0, PICK = this.pick;
-    for (var i = 1; i < c.length; i++) if ((PICK[c[i]] || 0) > (PICK[c[best]] || 0)) best = i;
-    return best;
-  };
 
   // Level-up card for a build (spec section 11). Score of an ability: its place in the build order (L - k), else
   // 0.5 for a passive or an active already owned, 0.6 for a new active with a free slot, -1 for a new active
@@ -222,7 +216,7 @@
     var maxTicks = (opts.maxSeconds || 1200) * 60, softlock = false, worstStuck = 0, roomTicks = [], last = 0, lastRoom = 0, minHp = sim.B.run.roomMult.map(function () { return 1; });
     while (sim.tick < maxTicks && (sim.state === 'play' || sim.state === 'levelup')) {
       if (sim.state === 'levelup') {
-        if (sim.useAbil) { var pk = bot.pickAbility(); sim.chooseAbility(pk.i, pk.slot); } else sim.choosePassive(bot.pickPassive());
+        var pk = bot.pickAbility(); sim.chooseAbility(pk.i, pk.slot);
         continue;
       }
       bot.update();
@@ -234,11 +228,8 @@
       if (st > worstStuck) worstStuck = st;
       if (st > sim.B.softlockSeconds) { softlock = true; break; }
     }
-    var abilInfo = {};
-    if (sim.useAbil) {      // the build and what it came to (only for classes with the ability system)
-      var fc = G.familyCounts(sim.player.abil, sim.B);
-      abilInfo = { build: bot.buildId, slots: sim.player.slots.slice(), abil: Object.assign({}, sim.player.abil), fams: fc };
-    }
+    // the build and what it came to
+    var abilInfo = { build: bot.buildId, slots: sim.player.slots.slice(), abil: Object.assign({}, sim.player.abil), fams: G.familyCounts(sim.player.abil, sim.B) };
     return Object.assign({ seed: seed, cls: sim.clsId, result: softlock ? 'softlock' : (sim.state === 'won' ? 'win' : (sim.state === 'dead' ? 'dead' : 'timeout')),
       room: sim.roomIndex, phase: sim.phase, rooms: sim.roomsCleared, seconds: Math.round(sim.tick / 60), level: sim.player.level,
       kills: sim.kills, hp: Math.round(sim.player.hp), gearScore: G.gearScore(gear), worstStuck: Math.round(worstStuck), minHp: minHp, roomSeconds: roomTicks.map(function (t) { return Math.round(t / 60); }) }, abilInfo);
