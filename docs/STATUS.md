@@ -22,6 +22,15 @@ Design decisions live in the plan doc (the user has it); this file is what an ag
   works; 0 console errors.
 - Not run on this build: `qa/screens.js` (stale), `qa/session.js`.
 
+## Fix after step 2 (crack ends)
+
+- Crack arms now end in a point 6 px before a reserved zone (start, chest and exit, super fissure
+  pit) and 3 px before a wall or pillar, instead of being cut along the zone's straight edge
+  (`genFissure`'s `ok` predicate, `clearOf` in `src/mapgen.js`). Maps changed for every seed.
+- After the fix: 0 crack cells touch a reserved zone in 100 rooms; determinism passes; Node bot
+  seeds 1-10: 5 wins, no softlocks, worst stuck 16 s. Cracks are about 24 % smaller in area, which
+  may have made rooms easier; 10 seeds cannot tell. Check it in step 10.
+
 ## Still rough
 
 - Test room is room index 1 (`run.testRoom`) from level 1. The Node bot dies in it in about 12 s
