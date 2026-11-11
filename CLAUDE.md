@@ -26,6 +26,15 @@ applies: do not look for another way to do the same thing; report it to the user
 
 ## Working rules
 
+- Start of a session: read this file, `docs/STATUS.md` and the brief of your step in
+  `docs/steps/`. Nothing else up front: open source files when the task needs them, and read the
+  part you need (search, line ranges), not whole files. End of a session: update `docs/STATUS.md`.
+- Models: Sonnet 5.5 implements a step whose rules are already written. Opus 5.5 takes the steps
+  that decide rules or numbers or change the sim's structure; where a brief says so, Opus writes
+  a short spec in `docs/specs/` and Sonnet implements it in a new session. Do not spawn subagents.
+- Test budget per step: `node tools/determinism.js`, the Node bot, 3 seeds of `qa/bot.js` once at
+  the end, and 2 screenshots (960x540 and 540x960). Use the debug panel (DBG or F2) to reach a
+  screen. Print summaries, not full logs.
 - One system per session. Commit after each system, message in English, one commit per system.
 - The sim (`src/sim/`, `src/mapgen.js`, `src/rng.js`) has no Phaser and must stay deterministic:
   same seed = same map and same run. Every number that can be tuned lives in `src/balance.js`.
