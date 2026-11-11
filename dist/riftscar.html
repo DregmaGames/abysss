@@ -2848,13 +2848,13 @@
       this.drawGround(tick);
     },
 
-    // a health bar over every monster: 1 px dark frame, 2 px tall fill, as wide as the monster
+    // a health bar over every hurt monster (the boss always): 1 px dark frame, 2 px tall fill, as wide as the monster
     drawHealthBars: function () {
       var g = this.hpG, ms = this.sim.monsters, i;
       g.clear();
       for (i = 0; i < ms.length; i++) {
         var m = ms[i], s = this.maps.monsters.get(m.id);
-        if (m.dead || !s) continue;
+        if (m.dead || !s || (m.hp >= m.maxHp && !m.def.boss)) continue;   // only once hurt (the boss always)
         var w = m.def.boss ? 34 : Math.max(10, Math.round(m.r * 2) + 2);
         var x = Math.round(m.x - w / 2), y = Math.round(m.y + m.r + 1 - (m.def.fly || 0) - s.height) - 5;
         var fill = Math.max(m.hp > 0 ? 1 : 0, Math.round(w * Math.max(0, m.hp) / m.maxHp));
