@@ -144,6 +144,12 @@
             fx.burst(e.x, e.y, pf[1], 16, 150, 0.3);
             fx.shake(this.cls.attack.kind === 'arc' ? 0.5 : 0.3);
             break;
+          case 'volley':
+            var vf = this.cls.sprite.fx;
+            fx.ring(e.x, e.y, 4, e.r * 0.7, 0.3, vf[0]); fx.ring(e.x, e.y, 2, e.r * 0.45, 0.34, vf[1]);
+            for (var va = 0; va < 14; va++) fx.spark(e.x + Math.cos(va / 14 * 6.2832) * 10, e.y - 4 + Math.sin(va / 14 * 6.2832) * 10, vf[2], 0.25);
+            fx.shake(0.25);
+            break;
           case 'swing':
             this.swingT = 9;
             // melee: a crescent of sparks swept along the arc (leading edge bright), a nick of shake on a crit
@@ -250,7 +256,8 @@
         return s;
       }, function (s, b) {
         s.setPosition(b.x, b.y - 6); s.gl.setPosition(b.x, b.y);
-        if (!self.fx.quiet && (tick + b.id) % 2 === 0) self.fx.spark(b.x, b.y - 6, b.crit ? 'ui_warn' : 'orb', 0.18);
+        if (self.cls.attack.rotate) s.setRotation(Math.atan2(b.vy, b.vx));
+        if (!self.fx.quiet && (tick + b.id) % 2 === 0) self.fx.spark(b.x, b.y - 6, b.crit ? 'ui_warn' : self.cls.attack.glow, 0.18);
       });
       this.list('shots', sim.shots, function (b) { return self.add.image(b.x, b.y, 'atlas', SHOT_FRAME[b.kind] || 'shot').setDepth(8000); },
         function (s, b) { s.setPosition(b.x, b.y - 4); if (b.kind === 'bone') s.setFlip(((tick >> 2) & 1) === 1, ((tick >> 3) & 1) === 1); });

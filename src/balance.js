@@ -62,6 +62,20 @@
         passives: ['power', 'haste', 'vital', 'swift', 'wisdom', 'regen', 'crit', 'pulse', 'blink', 'ward', 'leech', 'range'],
         passiveNames: { power: 'Heavy Blows', haste: 'Quick Strikes', blink: 'Charge Mastery', pulse: 'Shockwave Mastery', range: 'Long Reach', ward: 'Plate Armour', crit: 'Killer Instinct', leech: 'Bloodthirst' },
         bot: { keep: 0.8, pick: { power: 10, haste: 10, vital: 9, ward: 8, crit: 7, regen: 7, leech: 7, swift: 6, blink: 6, pulse: 5, range: 5, wisdom: 3 } }
+      },
+      archer: {
+        name: 'Archer',
+        // longer reach than the mage, slower shots, arrows pierce 1 enemy at base (base.pierce)
+        base: { r: 5, hp: 90, speed: 76, dmg: 20, atkInterval: 0.8, range: 150, crit: 0.1, critMult: 2, pierce: 1 },
+        attack: { kind: 'bolt', firstCd: 0.5, speed: 330, r: 2.5, sideDmg: 0.6, spread: 0.18, life: 1.2, knock: 16, knockElite: 6, frame: 'arrow', glow: 'rg2', rotate: true },
+        dodge: { dist: 52, time: 0.16, iframes: 0.32, cd: 1.5 },
+        // Volley: a ring of `count` arrows (each `pierce` enemies, dmg = skill dmg incl. pulse passives) flying `range` px
+        skill: { kind: 'volley', name: 'Volley', dmg: 14, count: 14, pierce: 1, range: 120, speed: 260, cd: 7, knock: 40 },
+        sprite: { frames: 'archer', glow: 'rg1', dash: 'rg3', fx: ['rg4', 'rg3', 'rg2'] },
+        passives: ['power', 'haste', 'crit', 'vital', 'swift', 'range', 'wisdom', 'regen', 'pulse', 'blink', 'ward', 'pierce', 'multi', 'leech'],
+        passiveNames: { power: 'Strong Draw', haste: 'Quick Nock', vital: 'Hardy', swift: 'Fleet Foot', range: 'Eagle Eye', crit: 'Deadeye', pulse: 'Volley Mastery', blink: 'Roll Mastery',
+          ward: 'Leather Guard', pierce: 'Piercing Arrow', multi: 'Twin Arrow', leech: 'Hunter\'s Feast', regen: 'Forest Mending', wisdom: 'Lore of the Wild' },
+        bot: { keep: 1.2, pick: { pierce: 12, multi: 11, power: 10, haste: 10, crit: 8, vital: 7, ward: 6, regen: 6, leech: 6, swift: 5, pulse: 4, range: 4, blink: 3, wisdom: 3 } }
       }
     },
     defaultClass: 'mage',
@@ -138,7 +152,17 @@
       rarity: [62, 26, 9, 2.5, 0.5],
       // rarity "luck" by source: shifts weight toward the right
       luck: { kill: 0, close: 0.2, elite: 0.4, super: 0.6, chest: 0.8, boss: 1.2 },
-      bagSize: 20
+      bagSize: 20,
+      // weapon drops: any monster, chest or crack can drop any type, equal weight (one rng draw). `cls` = the only class that
+      // can equip it (others keep it in the bag as loot). item: base name; itemRare (rarity >= 2): name instead. worn: 'Worn ' prefix when common.
+      weaponTypes: [
+        { id: 'staff',  cls: 'mage',    item: 'Staff', worn: true },
+        { id: 'sword',  cls: 'warrior', item: 'Iron Sword' },
+        { id: 'axe',    cls: 'warrior', item: 'Iron Axe' },
+        { id: 'mace',   cls: 'warrior', item: 'Old Mace' },
+        { id: 'hammer', cls: 'warrior', item: 'Heavy Hammer' },
+        { id: 'bow',    cls: 'archer',  item: 'Short Bow', itemRare: 'Yew Longbow' }
+      ]
     },
 
     items: {

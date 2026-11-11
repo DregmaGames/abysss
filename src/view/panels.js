@@ -52,7 +52,7 @@
     function act() {
       var sl = P.sel;
       if (!sl) return;
-      if (sl.kind === 'bag') { if (s) s.equip(sl.key); else G.equipFromBag(g, sl.key, B); }
+      if (sl.kind === 'bag') { if (s) s.equip(sl.key); else G.equipFromBag(g, sl.key, B, cls); }
       else { if (s) s.unequip(sl.key); else G.unequip(g, sl.key, B); }
       P.sel = null; G.storeSave(G.save); P.openInventory(scene, true);
     }
@@ -101,7 +101,9 @@
     } else {
       var col = UI.RARITY[item.rarity], ty = iy + 5;
       var nm = L.text(ix + 5, ty, item.name, col).setMaxWidth(iw - 10); ty += nm.height + 3;
+      var foreign = G.foreignClass(item, B, cls);
       L.text(ix + 5, ty, UI.RARITY_NAME[item.rarity] + ' ' + (item.wtype ? item.wtype.charAt(0).toUpperCase() + item.wtype.slice(1) : G.SLOT_NAME[item.slot]), col); ty += 10;
+      if (foreign) { L.text(ix + 5, ty, foreign + ' weapon', 'ui_warn'); ty += 10; }
       L.text(ix + 5, ty, 'Item level ' + item.ilvl, 'ui_dim'); ty += 12;
       // each stat, and the change against what is equipped in that slot
       var cur = sl.kind === 'bag' ? g.equipped[item.slot] : null;
@@ -119,7 +121,7 @@
       var bw = Math.floor((iw - 14) / 2), byy = iy + ih - 22;
       if (sl.kind === 'bag') {
         var better = !cur || G.itemValue(item, B) > G.itemValue(cur, B);
-        L.button(ix + 5, byy, bw, 18, 'EQUIP', act, { name: 'equip', color: better ? 'ui_good' : 'ui_text' });
+        L.button(ix + 5, byy, bw, 18, 'EQUIP', act, { name: 'equip', color: better ? 'ui_good' : 'ui_text' }).setEnabled(!foreign);
         L.button(ix + 9 + bw, byy, bw, 18, 'DROP', function () { G.dropFromBag(g, sl.key); P.sel = null; G.storeSave(G.save); P.openInventory(scene, true); }, { name: 'drop' });
       } else {
         L.button(ix + 5, byy, Math.max(bw, 52), 18, 'UNEQUIP', act, { name: 'unequip' }).setEnabled(g.bag.length < B.loot.bagSize);

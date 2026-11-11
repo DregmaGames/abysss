@@ -10,8 +10,25 @@ Design decisions live in the plan doc (the user has it); this file is what an ag
   on branch `step-3-classes`.
 - User feedback on step 2 (2026-11-11): played the test room and approved it; crossing cracks with
   the dodge feels good.
-- Step 4 (warrior, four weapon types) on branch `step-4-warrior`. Next: the archer (separate step). Classes are data: `docs/classes.md`.
+- Step 4 (warrior, four weapon types) on branch `step-4-warrior`. Step 4b (archer) on `step-4b-archer`, built on it. Classes are data: `docs/classes.md`.
 - `main` is the working base. One branch per step: `step-N-<slug>`.
+
+## Last measured (2026-11-11, step 4b: archer)
+
+- Archer: HP 90, dmg 20, speed 76, atk every 0.8 s, reach 150 (mage 112), arrows fly 330 px/s and pierce 1 enemy
+  at base; dodge = roll 52 px; skill = Volley (14 piercing arrows in a ring, 14 dmg, range 120, cd 7). Green hood,
+  quiver, bow in the sprite; arrow projectile (rotates), bow icon `i_weapon_bow`. Own pool order and passive names
+  (`passiveNames`, e.g. Strong Draw, Quick Nock, Deadeye, Piercing Arrow, Volley Mastery). Step 5 designs three class groups.
+- Weapon drops now ignore the played class: every type equal weight (`BAL.loot.weaponTypes`: staff, sword, axe,
+  mace, hammer, bow). Equip only your own class's weapons; others are bag loot (to sell in the city later; default,
+  the user can change it). Inventory: "<Class> weapon", EQUIP disabled. Bot skips and discards them first. Bows are
+  "Short Bow", "Yew Longbow" (rare and up). Warrior's old class-only roll removed.
+- Node bot seeds 1-10 (loot change shifts mage and warrior): mage before 5 wins (1,2,4,7,8), after 3 wins
+  (2,6,7); warrior before 3 (4,7,9), after 3 (7,9,10); archer 3 wins (2,6,7), no softlocks, worst stuck 16 s.
+  Archer dmg tuned 15 -> 20 (0-1 wins before). Determinism passes.
+- Browser bot seeds 3,4,5 `--class archer`: 0 wins (rooms 9, 4, 8), 0 errors, 0 softlocks, all match Node.
+  Test room and `?class=archer` title load with 0 errors; screenshots `/tmp/step4b_landscape.png`, `/tmp/step4b_portrait.png`.
+- Not run: `qa/screens.js`, `qa/session.js`, `qa/test_room.js`, DBG panel clicks with the archer, inventory EQUIP-disabled look.
 
 ## Last measured (2026-11-11, step 4: warrior)
 

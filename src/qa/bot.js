@@ -26,12 +26,16 @@
       changed = false;
       for (i = 0; i < g.bag.length; i++) {
         var it = g.bag[i], cur = g.equipped[G.targetSlot(g, it, B)];
+        if (!G.canEquip(it, B, sim.clsId)) continue;      // another class's weapon: loot, never equipped
         if (!cur || G.itemValue(it, B) > G.itemValue(cur, B) + 0.01) { sim.equip(i); changed = true; break; }
       }
     }
     while (g.bag.length > B.loot.bagSize - 3) {       // keep room for new drops: discard the weakest
       var worst = 0;
-      for (i = 1; i < g.bag.length; i++) if (G.itemValue(g.bag[i], B) < G.itemValue(g.bag[worst], B)) worst = i;
+      for (i = 1; i < g.bag.length; i++) {      // other classes' weapons go first
+        var fi = G.canEquip(g.bag[i], B, sim.clsId) ? 0 : 1, fw = G.canEquip(g.bag[worst], B, sim.clsId) ? 0 : 1;
+        if (fi > fw || (fi === fw && G.itemValue(g.bag[i], B) < G.itemValue(g.bag[worst], B))) worst = i;
+      }
       sim.dropItem(worst);
     }
   };

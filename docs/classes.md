@@ -17,6 +17,9 @@ names a class, so adding one is data plus art, and code only for a new attack or
 | `passives` | The level-up pool, ids from `BAL.passives`, in roll order. The order is part of the run: reordering it changes every seed. |
 | `weapons`, `defaultWeapon` | Optional weapon types (melee): per type `dmg`, `atk` (interval multiplier), `reach` (px), `arc`, `knock`, `knockElite`, `name`, `item` (item name). The weapon item's `wtype` picks one; art `w_<type>` (held) and `i_weapon_<type>` (icon). |
 | `passiveNames` | Per-class passive display names. |
+| `skill` kinds | `pulse` (ring around the hero) and `volley` (the archer: `count` arrows in a ring, `pierce`, `range`, `speed`, `dmg`, `cd`, `knock`; they are bolts). |
+| `base.pierce` | Optional: enemies a bolt pierces at base (the archer has 1). Passives add to it. |
+| `attack.rotate` | Bolt kinds: turn the projectile sprite to its direction (arrows). |
 | `bot` | QA bot hints: `keep` multiplies its keep-away distances (1 = kite like the mage, lower = stand closer), `pick` is its passive preference. |
 
 ## How the sim uses it
@@ -44,3 +47,14 @@ names a class, so adding one is data plus art, and code only for a new attack or
 
 Run start: the title's class arrows set `G.cls`; `?class=<id>` sets it from the URL; the bot
 and `tools/sim_bot.js` take `--class <id>` (`G.botRun(seed, { cls })`).
+
+## Weapons and loot (all classes)
+
+Weapon drops are not tied to the class played. `BAL.loot.weaponTypes` lists every type (staff: mage;
+sword, axe, mace, hammer: warrior; bow: archer), each `{ id, cls, item, itemRare?, worn? }`. A weapon drop picks
+one type with equal weight (one `rng.pick`, so the loot of a seed is the same for every class). A character can
+only equip weapons of its own class (`G.canEquip`); other weapons stay in the bag as loot, to be sold in the
+city in a later step (orchestrator default, the user can change it). The inventory shows "<Class> weapon" and
+disables EQUIP for them; the bot never equips them and discards them first. Non-weapon gear is usable by every
+class. A weapon of another class that is already equipped (class switched on the title) adds no stats
+(`G.gearStats(gear, B, cls)`). Art: `i_weapon_<type>` icons for all six types; held sprite `w_<type>` for warrior types only.

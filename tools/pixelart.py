@@ -249,6 +249,52 @@ Ggcgabbbbbbbaa..
             im = bob(im, 2) if i == 1 else im
         add('warrior_%d' % i, outline(im))
 
+    # --- the archer: green hood and cloak, brown leather, quiver on the back, a bow held in front (faces right)
+    L = 'a=rg0 b=rg1 c=rg2 d=rg3 s=skin S=skin_d E=outline w=wood W=wood_d n=ch1 m=ch2 N=ch0 k=boot t=tooth'
+    abody = [
+        "......aaaa..",
+        ".....abbbba.",
+        "....abbccbba",
+        "..d.abbccbba",
+        ".dNdabbssbba",
+        ".NNNabbsEsba",
+        ".NmNabbSssba",
+        ".NNN.abSSba.",
+        ".NmNaabbbbaa",
+        "..NabbbbbbbS",
+        "..abbbnnnbbS",
+        "..abbbmmmbba",
+        "..abbbbbbbba",
+        "..abnnnnnnba",
+        "..abbbbbbbba",
+        "..aabbbbbbaa",
+        "...abbbbbba.",
+        "....abbbba..",
+        "....aabbaa..",
+        ".....aaaa...",
+    ]
+    # bow overlay (x, y, key): the string is the pale column, the hand grips the wood
+    bow = [(13, 7, 'w'), (12, 8, 't'), (13, 8, 'w'), (12, 9, 't'), (14, 9, 'w'), (12, 10, 't'), (14, 10, 'w'), (12, 11, 't'), (13, 11, 'S'), (14, 11, 'w'),
+           (12, 12, 't'), (13, 12, 'S'), (14, 12, 'W'), (12, 13, 't'), (14, 13, 'W'), (12, 14, 't'), (14, 14, 'w'), (12, 15, 't'), (14, 15, 'w'), (12, 16, 't'), (13, 16, 'w'), (13, 17, 'w')]
+    afeet = ['''
+..kk....kk......
+..kk....kk......
+''', '''
+..kk.....kk.....
+.kk.......k.....
+''', '''
+...kk..kk.......
+...k....kk......
+''']
+    for i, f in enumerate(afeet):
+        grid = [list(r + '....') for r in abody]
+        for (x, y, key) in bow:
+            grid[y][x] = key
+        im = parse('\n'.join(''.join(r) for r in grid) + '\n' + f.strip('\n'), L)
+        if i:
+            im = bob(im, 2) if i == 1 else im
+        add('archer_%d' % i, outline(im))
+
     # --- imp: small red demon, the fast melee swarm
     L = 'a=ir0 b=ir1 c=ir2 d=ir3 h=horn H=horn_d Y=eye_y K=outline T=tooth'
     imp = parse('''
@@ -555,6 +601,14 @@ bccb
 bccb
 .bb.
 ''', L), 'mb1'))
+    L = 'a=ch1 b=ch2 c=sk3 d=rg3'
+    add('arrow', outline(parse('''
+d.......
+dab.....
+.bbbbbbc
+dab.....
+d.......
+''', L), 'ch0'))
     L = 'a=shot0 b=shot1 c=shot2'
     add('shot', outline(parse('''
 .bb.
@@ -807,6 +861,17 @@ cccccbb
                 if 0 <= x - y - 4 <= 6:
                     px(x, y, 'iron3' if y == 0 else ('iron2' if y < 3 else 'iron1'))
     icon('sword', sword); icon('axe', axe); icon('mace', mace); icon('hammer', hammer)
+    def bowi(px):
+        for x, y in [(4, 0), (5, 1), (6, 2), (7, 3), (8, 4), (8, 5), (8, 6), (7, 7), (6, 8), (5, 9), (4, 10)]:
+            px(x, y, 'wood')
+        for y in range(1, 10):
+            px(3, y, 'sk3')
+        px(4, 0, 'gold_d'); px(4, 10, 'gold_d'); px(8, 5, 'gold')
+        for x in range(2, 10):
+            px(x, 5, 'ch2')
+        px(10, 5, 'iron3'); px(2, 4, 'rg3'); px(2, 6, 'rg3'); px(1, 5, 'rg3')
+    icon('bow', bowi)
+    SPRITES['i_weapon_staff'] = SPRITES['i_weapon']
 
     L = 'r=hp R=hp_d w=white'
     add('heart', outline(parse('''

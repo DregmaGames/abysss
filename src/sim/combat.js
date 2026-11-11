@@ -70,6 +70,19 @@
   // the active skill button; skill kinds: 'pulse' (a new kind adds a branch and a cast function)
   S.castSkill = function () {
     if (this.cls.skill.kind === 'pulse') this.castPulse();
+    else if (this.cls.skill.kind === 'volley') this.castVolley();
+  };
+
+  // the archer's Volley: a ring of arrows (bolts, so walls, pierce and knock work as for normal shots)
+  S.castVolley = function () {
+    var p = this.player, s = this.stats, K = this.cls.skill, A = this.cls.attack, i;
+    p.pulseCd = s.pulseCd;
+    this.emit({ t: 'volley', x: p.x, y: p.y, r: K.range });
+    for (i = 0; i < K.count; i++) {
+      var ang = i / K.count * 6.2832;
+      this.bolts.push({ id: this.nextId++, x: p.x, y: p.y - 2, vx: G.M.cos(ang) * K.speed, vy: G.M.sin(ang) * K.speed,
+        r: A.r, dmg: s.pulseDmg, crit: false, life: K.range / K.speed, pierce: K.pierce, knock: K.knock, knockElite: K.knock * 0.4, hit: {} });
+    }
   };
 
   S.castPulse = function () {

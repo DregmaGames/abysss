@@ -20,8 +20,8 @@
 
   G.rollItem = function (rng, ilvl, luck, B, gear, cls) {
     var I = B.items, slot = rng.pick(ITEM_SLOTS), rarity = G.rollRarity(rng, luck, B);
-    // a class with weapon types rolls one for its weapon drops (one extra draw; classes without them draw nothing)
-    var wtype = slot === 'weapon' && cls && cls.weapons ? rng.pick(Object.keys(cls.weapons)) : null;
+    // weapon drops pick their type from all types, equal weight, whatever class is played (one extra draw)
+    var WT = B.loot.weaponTypes, wd = slot === 'weapon' ? rng.pick(WT) : null, wtype = wd ? wd.id : null;
     var pool = Object.keys(I.stat), imp = I.implicit[slot], stats = {}, keys = [imp];
     pool = pool.filter(function (k) { return k !== imp; });
     rng.shuffle(pool);
@@ -30,13 +30,30 @@
       var v = I.stat[k] * (1 + I.ilvlGrow * (ilvl - 1)) * I.rarityMult[rarity] * rng.range(0.85, 1.15);
       stats[k] = k === 'regen' ? Math.max(0.1, Math.round(v * 10) / 10) : Math.max(1, Math.round(v));
     });
-    var name = (rarity === 0 && !wtype ? 'Worn ' : (rarity === 0 ? '' : PREFIX[keys[1]] + ' ')) + (wtype ? cls.weapons[wtype].item : BASE_NAME[slot]);
+    var base = wd ? (rarity >= 2 && wd.itemRare ? wd.itemRare : wd.item) : BASE_NAME[slot];
+    var name = (rarity === 0 ? (!wd || wd.worn ? 'Worn ' : '') : PREFIX[keys[1]] + ' ') + base;
     var it = { id: gear.nextId++, slot: slot, rarity: rarity, ilvl: ilvl, name: name, stats: stats, power: ilvl * (2 + rarity) };
     if (wtype) it.wtype = wtype;
     return it;
   };
 
   // atlas frame of an item's icon: a typed weapon has its own
+  // the class that can equip a weapon type (null: any; non-weapons are usable by every class)
+  G.weaponClass = function (B, wtype) {
+    var WT = B.loot.weaponTypes;
+    for (var i = 0; i < WT.length; i++) if (WT[i].id === wtype) return WT[i].cls;
+    return null;
+  };
+  G.canEquip = function (item, B, clsId) {
+    var c = item && item.slot === 'weapon' && item.wtype ? G.weaponClass(B, item.wtype) : null;
+    return !c || c === G.classDef(B, clsId).id;
+  };
+  // "Warrior weapon" for a weapon only another class can use, else null
+  G.foreignClass = function (item, B, clsId) {
+    if (G.canEquip(item, B, clsId)) return null;
+    return B.classes[G.weaponClass(B, item.wtype)].name;
+  };
+
   G.itemIcon = function (item) { return 'i_' + (item.wtype ? 'weapon_' + item.wtype : item.slot); };
 
   // usefulness of an item (bot equip decisions, "better/worse" hint in the UI)
@@ -52,11 +69,11 @@
     return s;
   };
 
-  G.gearStats = function (gear) {
+  G.gearStats = function (gear, B, clsId) {
     var out = {};
     for (var k in gear.equipped) {
       var it = gear.equipped[k];
-      if (!it) continue;
+      if (!it || (B && !G.canEquip(it, B, clsId))) continue;      // a weapon of another class (class switched on the title) adds nothing
       for (var s in it.stats) out[s] = (out[s] || 0) + it.stats[s];
     }
     return out;
@@ -65,9 +82,9 @@
   // which equipment slot a bag item goes into: one slot per item type
   G.targetSlot = function (gear, item) { return item.slot; };
 
-  G.equipFromBag = function (gear, idx, B) {
+  G.equipFromBag = function (gear, idx, B, clsId) {
     var item = gear.bag[idx];
-    if (!item) return null;
+    if (!item || !G.canEquip(item, B, clsId)) return null;
     var key = G.targetSlot(gear, item, B), old = gear.equipped[key];
     gear.equipped[key] = item;
     if (old) gear.bag[idx] = old; else gear.bag.splice(idx, 1);

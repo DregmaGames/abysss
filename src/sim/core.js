@@ -57,7 +57,7 @@
 
   // derived stats = class base + gear + passives (pure; also used by the inventory screen outside a run)
   G.computeStats = function (B, gear, passives, cls) {
-    var C = G.classDef(B, cls), P = C.base, cap = B.items.cap, g = G.gearStats(gear), p = G.passiveSums(passives || {}, B), s = {};
+    var C = G.classDef(B, cls), P = C.base, cap = B.items.cap, g = G.gearStats(gear, B, cls), p = G.passiveSums(passives || {}, B), s = {};
     function v(k) { return (g[k] || 0) + (p[k] || 0); }
     s.maxHp = Math.round(P.hp + v('hp'));
     s.dmg = P.dmg * (1 + v('dmgPct') / 100);
@@ -73,7 +73,7 @@
     s.dodgeCd = C.dodge.cd * (1 - Math.min(cap.cdrPct, v('cdrPct') + (p.dodgeCdPct || 0)) / 100);
     s.regen = v('regen');
     s.expMult = 1 + v('expPct') / 100;
-    s.pierce = p.pierce || 0; s.multi = p.multi || 0; s.leech = p.leech || 0;
+    s.pierce = (P.pierce || 0) + (p.pierce || 0); s.multi = p.multi || 0; s.leech = p.leech || 0;
     return s;
   };
   // called whenever gear or passives change: stats apply immediately
@@ -275,7 +275,7 @@
 
   // ---------------------------------------------------------------- inventory
   S.equip = function (bagIdx) {
-    var key = G.equipFromBag(this.gear, bagIdx, this.B);
+    var key = G.equipFromBag(this.gear, bagIdx, this.B, this.clsId);
     if (key) { this.recalc(); this.emit({ t: 'equip', slot: key }); }
     return key;
   };
