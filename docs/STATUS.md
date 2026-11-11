@@ -18,6 +18,8 @@ Design decisions live in the plan doc (the user has it); this file is what an ag
   equipment panel. The old passives (table, files, flags) are gone.
 - Step 6 (doors and extraction) on branch `step-6-doors-extraction`: the after-room choice, door modifiers, the sealed bag, in-run equipping from the sealed bag, gear per class.
   Rules in `src/balance.js` (`doors`, `run.deathKeepsEquipped`, `loot.bagSize` = sealed bag of a run, `loot.stashSize` = kept bag).
+- Step 7 (economy) on branch `step-7-economy`: spec written (`docs/specs/economy.md`, data in `src/balance.js` `economy` and `bot.shop`,
+  not read by the sim yet); implementation pending (Sonnet, new session).
 - `main` is the working base. One branch per step: `step-N-<slug>`.
 
 ## Last measured (2026-11-11, step 6 finished: gear per class, in-run equip, identification)

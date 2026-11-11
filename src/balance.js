@@ -195,6 +195,62 @@
       cap: { movePct: 30, cdrPct: 45, crit: 60 }
     },
 
+    // ---------------------------------------------------------------- economy (step 7)
+    // Spec: docs/specs/economy.md. Written by the design session; the sim does not read this table yet (nothing here changes a run
+    // until the implementation session wires it in). Gold, sell prices, the town shop, item upgrades, permanent ranks, the merchant.
+    // Everything is per class (like gear, the kept bag and scrolls): save.gears[cls].gold, .ranks, .shop.
+    economy: {
+      // Gold is credited the moment it is earned (no pickup, no rng): amount = base x room[roomIndex] x tier[tier] x (1 + door x lootBonus).
+      // Fractions accumulate (sim.goldFrac), whole coins go to the sealed run gold (sim.gold). Sealed like the bag: banked on leave / win,
+      // lost on death (deathKeeps = share kept on death; 0 like items). None in the test room.
+      gold: {
+        kill: 0.3,                    // per point of the killed monster's threat (imp 1, skeleton 2, hound 3, warden 8, tyrant 40)
+        close: 1.5,                   // a normal fissure closed
+        superClose: 6,                // the super fissure closed
+        chest: 8,                     // the room's chest opened
+        boss: 50,                     // extra when the boss dies (on top of its kill gold)
+        room: [1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 2.0],   // x per room
+        tier: [1.0, 1.3, 1.6],        // x per difficulty tier
+        door: 1,                      // share of the door's loot bonus that also applies to gold (1: a +25 % door pays +25 % gold)
+        deathKeeps: 0,
+        cap: 999999                   // kept gold per class
+      },
+      // sell price = round(base[rarity] x (1 + ilvl x (item level - 1)) x (unid if unidentified)), at least min. Scrolls sell for `scroll`.
+      sell: { base: [3, 8, 20, 50, 120], ilvl: 0.25, unid: 0.4, min: 1, scroll: 5 },
+      // The town shop (on the title screen until step 8 builds the town). Stock: one item per entry of `rarities`, rolled when the stock
+      // is (re)made, after every run of the class. Item level = 1 + shop tier x run.ilvlTier + ilvlAdd (shop tier = highest tier the
+      // class's gear score unlocks). Price = the identified sell price x buyMult. HARD RULE: no item above maxRarity is ever sold
+      // (rare, epic and legendary only drop). Scrolls of Identification: unlimited, `scroll` gold each.
+      shop: { rarities: [0, 0, 0, 0, 1, 1], maxRarity: 1, ilvlAdd: 1, buyMult: 5, scroll: 25 },
+      // Upgrade a found, identified item by +1 item level (stats rescale from the values at the drop; power and gear score follow).
+      // cost = round(cost[rarity] x (1 + ilvl x (item level - 1)) x (1 + grow x upgrades done)). max: upgrades per item, by rarity.
+      // Shop items cannot be upgraded.
+      upgrade: { cost: [20, 40, 80, 160, 320], ilvl: 0.25, grow: 0.5, max: [1, 2, 3, 3, 3] },
+      // Permanent ranks bought with gold, per class. Each adds `per` x rank to `stat` (the item / ability stat keys), added to gear and
+      // ability stats in G.computeStats. cost[r] = gold for rank r + 1 (length = max rank). They do not count for families or gear score.
+      rankCost: [60, 140, 260, 420, 620],
+      ranks: {
+        vitality: { name: 'Vitality', stat: 'hp',     per: 6, text: '+6 max HP' },
+        might:    { name: 'Might',    stat: 'dmgPct', per: 3, text: '+3 % damage' },
+        haste:    { name: 'Haste',    stat: 'atkPct', per: 2, text: '+2 % attack speed' },
+        guard:    { name: 'Guard',    stat: 'armor',  per: 3, text: '+3 armor' },
+        insight:  { name: 'Insight',  stat: 'expPct', per: 4, text: '+4 % EXP gain' }
+      },
+      // The merchant: a rare room feature. Present in room index i (lo <= i <= hi) when hash32(seed, 6060 + i * 37) / 2^32 < chance,
+      // at most maxPerRun per run (G.merchantRooms). Stands on the first open floor tile of `spots` (tile offsets from the start tile).
+      // Opened with a tap within talkR px: the run pauses (state 'merchant'). Paid from the run's sealed gold only.
+      // What is bought is sealed like what is found (scrolls banked on leave / win, lost on death); a potion heals at once.
+      merchant: {
+        chance: 0.15, lo: 1, hi: 8, maxPerRun: 2, talkR: 22,
+        spots: [[2, 0], [-2, 0], [2, -1], [-2, -1], [0, -2], [0, 2]],
+        scroll: { price: 40, stock: 3 },
+        potion: { price: 30, stock: 2, heal: 0.4 }
+      },
+      // New Scroll of Identification drop chances (about 4 per full run instead of 13-16). The implementation copies these into
+      // BAL.loot (killScroll, eliteScroll, bossScroll, chestScroll, superScroll) and deletes this entry.
+      scrollDrops: { killScroll: 0.002, eliteScroll: 0.05, bossScroll: 1, chestScroll: 0.06, superScroll: 0.06 }
+    },
+
 
     // ---------------------------------------------------------------- abilities (step 5)
     // The ability system: docs/specs/abilities.md. Every class uses it (level-ups roll from `abilities`).
@@ -469,7 +525,10 @@
     // roughly a human reaction time. 1 would be a frame-perfect player.
     // career policy (tools/sim_bot.js --career): leave after a room when HP is under lowHp of max, or when the room reached is at or
     // beyond a target that starts at startRoom and rises by step after every run that ends in an extraction (leave or win), up to cap.
-    bot: { reactionTicks: 12, career: { startRoom: 3, step: 1, cap: 10, lowHp: 0.4 } },
+    // shop policy (step 7, docs/specs/economy.md "Bot policy"): rankOrder = tie-break order of ranks; potionHp: buy a merchant potion
+    // when HP is under this share of max; baseItemMax: buy at most this many shop items per visit.
+    bot: { reactionTicks: 12, career: { startRoom: 3, step: 1, cap: 10, lowHp: 0.4 },
+           shop: { rankOrder: ['vitality', 'might', 'haste', 'guard', 'insight'], potionHp: 0.5, baseItemMax: 2 } },
 
     fx: { shakeCap: 5, shakeDecay: 9 },   // max shake offset in art px at 100 %
     softlockSeconds: 400
