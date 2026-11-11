@@ -29,6 +29,7 @@
       this.maps = { monsters: new Map(), bolts: new Map(), shots: new Map(), orbs: new Map(), drops: new Map() };
       this.acc = 0; this.frame = 0; this.ended = false; this.worstStuck = 0;
       this.groundG = this.add.graphics().setDepth(-700);     // cooldown rings, telegraphs
+      this.hpG = this.add.graphics().setDepth(7000);         // monster health bars, above every sprite
       this.arcG = this.add.graphics().setDepth(7990);         // the hop arc of a dodge across a crack
       this.hop = null; this.arc = []; this.bumpT = 0; this.bumpX = 0; this.bumpY = 0; this.blockN = 0;
       this.player = this.add.image(0, 0, 'atlas', 'mage_0').setOrigin(0.42, 1);
@@ -216,6 +217,7 @@
         else if (m.enraged) s.setTint(0xffb080);
         else s.clearTint();
       });
+      this.drawHealthBars();
       this.list('bolts', sim.bolts, function (b) {
         var s = self.add.image(b.x, b.y, 'atlas', 'bolt').setDepth(8000);
         s.gl = self.add.image(b.x, b.y, 'atlas', 'glow_s').setDepth(-640).setBlendMode(ADD).setTint(UI.hex('orb')).setAlpha(0.5);
@@ -246,6 +248,22 @@
       this.door.setFrame(sim.exit.open ? 'door_open' : 'door_closed');
       this.doorGlow.setAlpha(sim.exit.open ? 0.35 + ((tick >> 3) % 3) * 0.04 : 0);
       this.drawGround(tick);
+    },
+
+    // a health bar over every monster: 1 px dark frame, 2 px tall fill, as wide as the monster
+    drawHealthBars: function () {
+      var g = this.hpG, ms = this.sim.monsters, i;
+      g.clear();
+      for (i = 0; i < ms.length; i++) {
+        var m = ms[i], s = this.maps.monsters.get(m.id);
+        if (m.dead || !s) continue;
+        var w = m.def.boss ? 34 : Math.max(10, Math.round(m.r * 2) + 2);
+        var x = Math.round(m.x - w / 2), y = Math.round(m.y + m.r + 1 - (m.def.fly || 0) - s.height) - 5;
+        var fill = Math.max(m.hp > 0 ? 1 : 0, Math.round(w * Math.max(0, m.hp) / m.maxHp));
+        g.fillStyle(UI.hex('outline'), 1); g.fillRect(x - 1, y - 1, w + 2, 4);
+        g.fillStyle(UI.hex('hp_d'), 1); g.fillRect(x, y, w, 2);
+        g.fillStyle(UI.hex(m.def.elite || m.def.boss ? 'ui_warn' : 'hp'), 1); g.fillRect(x, y, fill, 2);
+      }
     },
 
     // the arc of a dodge across a crack, drawn whole when the dodge starts: from the mage's feet to
