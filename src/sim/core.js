@@ -7,7 +7,6 @@
     var B = this.B = opts.bal || G.BAL, C = this.cls = G.classDef(B, opts.cls);
     this.clsId = C.id;
     this.seed = opts.seed >>> 0;
-    this.tier = opts.tier || 0;
     this.gear = opts.gear;
     this.keepEvents = !!opts.events;
     this.events = [];
@@ -114,8 +113,8 @@
     this.mod = mod && B.doors.mods[mod] ? mod : null;
     this.modDef = dm; this.lootBonus = dm.loot || 0;
     this.rngRoom = new G.RNG(G.hash32(room.seed, 77));
-    this.threat = B.run.tierMult[this.tier] * B.run.roomMult[index] * (dm.threat || 1) * (1 + B.run.gearK * G.gearScore(this.gear));
-    this.ilvl = 1 + this.tier * B.run.ilvlTier + Math.floor(index / B.run.ilvlRooms);
+    this.threat = B.run.roomMult[index] * (dm.threat || 1) * (1 + B.run.gearK * G.gearScore(this.gear));
+    this.ilvl = 1 + Math.floor(index / B.run.ilvlRooms);
     this.player.x = room.start.x; this.player.y = room.start.y;
     this.player.dashT = 0;
     this.monsters = []; this.shots = []; this.bolts = []; this.orbs = []; this.drops = []; this.teles = [];
@@ -424,10 +423,10 @@
   S.dropSealed = function (idx) { return this.bag.splice(idx, 1)[0] || null; };
 
   // ------------------------------------------------------------------ gold and the merchant (step 7)
-  // Gold of the run: base x room x tier x (1 + door x lootBonus). No rng; fractions accumulate. None in the test room.
+  // Gold of the run: base x room x (1 + door x lootBonus). No rng; fractions accumulate. None in the test room.
   S.addGold = function (base, src, x, y) {
     if (this.testRoom >= 0) return;
-    var Gd = this.B.economy.gold, v = base * Gd.room[this.roomIndex] * Gd.tier[this.tier] * (1 + Gd.door * this.lootBonus);
+    var Gd = this.B.economy.gold, v = base * Gd.room[this.roomIndex] * (1 + Gd.door * this.lootBonus);
     this.goldFrac += v;
     var whole = Math.floor(this.goldFrac);
     if (whole < 1) return;

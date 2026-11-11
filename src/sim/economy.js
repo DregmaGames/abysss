@@ -52,22 +52,17 @@
   };
 
   // ------------------------------------------------------------------ the shop
-  G.shopTier = function (gear, B) {
-    var gs = G.gearScore(gear), t = 0;
-    B.run.tierGear.forEach(function (need, i) { if (gs >= need) t = i; });
-    return t;
-  };
   // 7 entries: the base items of `rarities` (commons, magic) and one rare. Rolled from the save's own counter, so a save restocks the same way.
   G.restockShop = function (gear, B, clsId) {
-    var H = E(B).shop, id = G.classDef(B, clsId).id, ci = Math.max(0, G.classIds(B).indexOf(id)), tier = G.shopTier(gear, B);
+    var H = E(B).shop, id = G.classDef(B, clsId).id, ci = Math.max(0, G.classIds(B).indexOf(id));
     var rolls = gear.shop && gear.shop.rolls > 0 ? gear.shop.rolls : 0;
-    var rng = new G.RNG(G.hash32(rolls, 7070 + ci)), ilvl = 1 + tier * B.run.ilvlTier + H.ilvlAdd, rares = 0;
+    var rng = new G.RNG(G.hash32(rolls, 7070 + ci)), ilvl = 1 + H.ilvlAdd, rares = 0;
     var stock = H.rarities.map(function (r) {
       if (r >= 2 && rares >= H.maxRare) return null;
       if (r >= 2) rares++;
       return G.rollShopItem(rng, ilvl, r, B, gear, id);
     });
-    gear.shop = { rolls: rolls + 1, tier: tier, stock: stock };
+    gear.shop = { rolls: rolls + 1, stock: stock };
     return gear.shop;
   };
   G.shopStockOk = function (shop, B) {

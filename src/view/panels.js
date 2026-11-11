@@ -460,8 +460,6 @@
         : [R.kept + (R.kept === 1 ? ' item' : ' items') + ' kept in your bag' + (R.lost ? ', ' + R.lost + ' lost (bag full)' : ''), 'ui_good'],
       s.testRoom >= 0 ? ['Gear score ' + gs, 'ui_dim'] : (state === 'dead' ? [R.goldLost ? 'Gold: ' + R.goldLost + ' lost' : 'Gold: none earned', 'ui_bad'] : ['Gold: +' + R.goldKept + ' kept', 'gold']),
       ['Gear score ' + gs, 'ui_dim']];
-    var next = B.run.tierGear[s.tier + 1];
-    if (next != null) lines.push(gs >= next ? ['Tier ' + (s.tier + 2) + ' unlocked: harder rifts, better loot', 'ui_warn'] : ['Tier ' + (s.tier + 2) + ' needs gear score ' + next, 'ui_dim']);
     lines.forEach(function (l, i) { UI.centerX(L.text(0, y0 + 34 + i * 12, l[0], l[1]).setMaxWidth(pw - 12), cx); });
     var bw = Math.floor((pw - 28) / 3);
     L.button(x0 + 8, y0 + ph - 28, bw, 20, 'AGAIN', function () { P.counted = false; P.close(true); G.restartRun(); }, { name: 'res_again', color: 'ui_good' });

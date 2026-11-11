@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // Bulk bot runs of the sim under Node (same sim + bot code the browser runs, no rendering).
-//   node tools/sim_bot.js [--seeds 1-200] [--tier 0] [--class mage] [--build id] [--leave N] [--career N] [--json] [--set path=value ...]
+//   node tools/sim_bot.js [--seeds 1-200] [--class mage] [--build id] [--leave N] [--career N] [--json] [--set path=value ...]
 // Reports win rate, deaths per room, softlocks, and the seeds used.
-// --career N: play N consecutive runs keeping gear (always the highest unlocked tier). Between runs the bot equips the best and discards
+// --career N: play N consecutive runs keeping gear. Between runs the bot equips the best and discards
 //   the rest; it leaves when hurt or at a target room that rises after each extraction (BAL.bot.career). --leave N overrides the target.
 // --leave N: the bot leaves with the sealed bag after clearing room N (default: it goes on to the boss; doors: the milder one, the smaller loot bonus).
 // --class id: play this class (BAL.classes; default BAL.defaultClass).
@@ -23,11 +23,10 @@ function load() {
 }
 
 function parseArgs(argv) {
-  const a = { seeds: '1-100', tier: 0, cls: null, build: null, career: 0, leave: 0, json: false, set: [] };
+  const a = { seeds: '1-100', cls: null, build: null, career: 0, leave: 0, json: false, set: [] };
   for (let i = 2; i < argv.length; i++) {
     const k = argv[i];
     if (k === '--seeds') a.seeds = argv[++i];
-    else if (k === '--tier') a.tier = +argv[++i];
     else if (k === '--class') a.cls = argv[++i];
     else if (k === '--build') a.build = argv[++i];
     else if (k === '--leave') a.leave = +argv[++i];
@@ -62,12 +61,11 @@ function main() {
     gear = G.newGear();
     const cp = G.BAL.bot.career, cls = G.classDef(G.BAL, args.cls).id;
     let target = cp.startRoom;
-    const tierOf = gs => { let t = 0; G.BAL.run.tierGear.forEach((need, k) => { if (gs >= need) t = k; }); return t; };
     let visit = G.Bot.shopVisit(gear, G.BAL, cls);      // between runs, as a player on the title screen: identify, equip, sell, buy
     for (let i = 0; i < args.career; i++) {
-      const gs = G.gearScore(gear), tier = tierOf(gs);
-      const r = G.botRun(seeds[i % seeds.length], { tier, gear, cls: args.cls, build: args.build, leave: args.leave || target, lowHp: cp.lowHp, pushHp: args.leave ? 0 : cp.pushHp, pushGear: cp.pushGear });
-      r.tier = tier; r.gearBefore = gs; r.target = args.leave || target;
+      const gs = G.gearScore(gear);
+      const r = G.botRun(seeds[i % seeds.length], { gear, cls: args.cls, build: args.build, leave: args.leave || target, lowHp: cp.lowHp, pushHp: args.leave ? 0 : cp.pushHp, pushGear: cp.pushGear });
+      r.gearBefore = gs; r.target = args.leave || target;
       G.restockShop(gear, G.BAL, cls);      // after every run, any result
       const next = G.Bot.shopVisit(gear, G.BAL, cls);      // the title visit after this run (the last one counts too)
       r.eco = { earned: r.bag.goldEarned, kept: r.bag.goldKept, lost: r.bag.goldLost, merchant: r.bag.goldSpent, visit: next, gearAfter: G.gearScore(gear),
@@ -76,7 +74,7 @@ function main() {
       res.push(r);
     }
   } else {
-    for (const s of seeds) res.push(G.botRun(s, { tier: args.tier, cls: args.cls, build: args.build, leave: args.leave }));
+    for (const s of seeds) res.push(G.botRun(s, { cls: args.cls, build: args.build, leave: args.leave }));
   }
   const wins = res.filter(r => r.result === 'win').length, lefts = res.filter(r => r.result === 'left');
   const soft = res.filter(r => r.result === 'softlock'), tout = res.filter(r => r.result === 'timeout');
@@ -84,7 +82,7 @@ function main() {
   const avg = k => (res.reduce((s, r) => s + r[k], 0) / res.length);
   const avg2 = a => (a.reduce((t, v) => t + v, 0) / a.length).toFixed(1);
   const summary = {
-    runs: res.length, cls: res.length ? res[0].cls : null, tier: args.tier, seeds: args.seeds, wins, left: lefts.length, winRate: +(100 * wins / res.length).toFixed(1),
+    runs: res.length, cls: res.length ? res[0].cls : null, seeds: args.seeds, wins, left: lefts.length, winRate: +(100 * wins / res.length).toFixed(1),
     softlocks: soft.map(r => r.seed), timeouts: tout.map(r => r.seed), deathsByRoom: deaths,
     avgRoomsCleared: +avg('rooms').toFixed(2), avgSeconds: Math.round(avg('seconds')), avgLevel: +avg('level').toFixed(1),
     worstStuck: Math.max(...res.map(r => r.worstStuck)), winSeeds: res.filter(r => r.result === 'win').map(r => r.seed),
@@ -105,7 +103,7 @@ function main() {
     if (args.career) {
       res.forEach((r, i) => {
         const e = r.eco, v = e.visit;
-        console.log(`run ${i + 1}: seed ${r.seed} tier ${r.tier + 1} target ${r.target} gear ${r.gearBefore}->${e.gearAfter} ${r.result} room ${r.room + 1} lvl ${r.level} scrolls found ${e.scrollsFound} | gold +${e.earned} (kept ${e.kept}, lost ${e.lost}, merchant ${e.merchant}) sold ${v.sold} (+${v.goldSold}) | bought: scrolls ${v.scrollsBought}, items [${v.itemsBought.join(', ')}], upgrades [${v.upgrades.join(', ')}], ranks [${v.ranks.join(', ')}] | gold left ${e.gold} | merchants met ${r.merchants.met} used ${r.merchants.used}`);
+        console.log(`run ${i + 1}: seed ${r.seed} target ${r.target} gear ${r.gearBefore}->${e.gearAfter} ${r.result} room ${r.room + 1} lvl ${r.level} scrolls found ${e.scrollsFound} | gold +${e.earned} (kept ${e.kept}, lost ${e.lost}, merchant ${e.merchant}) sold ${v.sold} (+${v.goldSold}) | bought: scrolls ${v.scrollsBought}, items [${v.itemsBought.join(', ')}], upgrades [${v.upgrades.join(', ')}], ranks [${v.ranks.join(', ')}] | gold left ${e.gold} | merchants met ${r.merchants.met} used ${r.merchants.used}`);
       });
       const tot = { scrolls: 0, items: 0, upgrades: 0, ranks: 0 }, ed = res.map(r => r.eco.earned + r.eco.visit.goldSold);
       res.forEach(r => { for (const k in tot) tot[k] += r.eco.visit.spent[k]; });

@@ -7,11 +7,9 @@
 
     run: {
       rooms: 10,                      // the last room is the boss room
-      tierMult: [1.0, 1.5, 2.1],      // monster hp/dmg multiplier per difficulty tier
-      tierGear: [0, 70, 170],         // gear score needed to unlock each tier
       roomMult: [1.05, 1.3, 1.55, 1.8, 2.1, 2.4, 2.75, 3.1, 3.5, 3.0],   // monster hp/dmg multiplier per room
       gearK: 0.005,                   // +0.5 % monster hp/dmg per point of gear score ("gear level scales the room")
-      ilvlTier: 3, ilvlRooms: 3,      // item level = 1 + tier * ilvlTier + floor(room / ilvlRooms)
+      ilvlRooms: 3,                   // item level of drops = 1 + floor(room / ilvlRooms)
       testRoom: 1,                    // ?room=test / TEST ROOM button: this room, restarted on every clear
       // Dying empties the sealed bag. Whether the equipped gear survives is a design assumption the user has not confirmed:
       // true = it is kept; false = dying also strips every equipped item. This is the only place the rule lives.
@@ -200,7 +198,7 @@
     // until the implementation session wires it in). Gold, sell prices, the town shop, item upgrades, permanent ranks, the merchant.
     // Everything is per class (like gear, the kept bag and scrolls): save.gears[cls].gold, .ranks, .shop.
     economy: {
-      // Gold is credited the moment it is earned (no pickup, no rng): amount = base x room[roomIndex] x tier[tier] x (1 + door x lootBonus).
+      // Gold is credited the moment it is earned (no pickup, no rng): amount = base x room[roomIndex] x (1 + door x lootBonus).
       // Fractions accumulate (sim.goldFrac), whole coins go to the sealed run gold (sim.gold). Sealed like the bag: banked on leave / win,
       // lost on death (deathKeeps = share kept on death; 0 like items). None in the test room.
       gold: {
@@ -210,7 +208,6 @@
         chest: 8,                     // the room's chest opened
         boss: 50,                     // extra when the boss dies (on top of its kill gold)
         room: [1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 2.0],   // x per room
-        tier: [1.0, 1.3, 1.6],        // x per difficulty tier
         door: 1,                      // share of the door's loot bonus that also applies to gold (1: a +25 % door pays +25 % gold)
         deathKeeps: 0,
         cap: 999999                   // kept gold per class
@@ -218,11 +215,9 @@
       // sell price = round(base[rarity] x (1 + ilvl x (item level - 1)) x (unid if unidentified)), at least min. Scrolls sell for `scroll`.
       sell: { base: [3, 8, 20, 50, 120], ilvl: 0.25, unid: 0.4, min: 1, scroll: 5 },
       // The town shop (on the title screen until step 8 builds the town). Stock: one item per entry of `rarities`, rolled when the stock
-      // is (re)made, after every run of the class. Item level = 1 + shop tier x run.ilvlTier + ilvlAdd (shop tier = highest tier the
-      // class's gear score unlocks). Price = the identified sell price x buyMult. HARD RULE: no item above maxRarity is ever sold
+      // is (re)made, after every run of the class. Item level = 1 + ilvlAdd (= 2). Price = the identified sell price x buyMult. HARD RULE: no item above maxRarity is ever sold
       // (rare, epic and legendary only drop). Scrolls of Identification: unlimited, `scroll` gold each.
-      // User decision 2026-11-11: one RARE entry (the 7th) at rareBuyMult x the identified sell price = 250 / 400 / 550 at shop tier 1 / 2 / 3
-      // (5x the magic item of the same tier, 10x what it sells for). maxRarity 2: epic and legendary are refused in the code; maxRare: rares in stock.
+      // User decision 2026-11-11: one RARE entry (the 7th) at rareBuyMult x the identified sell price = 250 (5x the magic item of the shop, 10x what it sells for). maxRarity 2: epic and legendary are refused in the code; maxRare: rares in stock.
       shop: { rarities: [0, 0, 0, 0, 1, 1, 2], maxRarity: 2, maxRare: 1, ilvlAdd: 1, buyMult: 5, rareBuyMult: 10, scroll: 15 },
       // Upgrade a found, identified item by +1 item level (stats rescale from the values at the drop; power and gear score follow).
       // cost = round(cost[rarity] x (1 + ilvl x (item level - 1)) x (1 + grow x upgrades done)). max: upgrades per item, by rarity.
@@ -524,8 +519,8 @@
     // roughly a human reaction time. 1 would be a frame-perfect player.
     // career policy (tools/sim_bot.js --career): leave after a room when HP is under lowHp of max, or when the room reached is at or
     // beyond a target that starts at startRoom and rises by step after every run that ends in an extraction (leave or win), up to cap.
-    // Balance pass 2026-11-11: at the target it pushes on instead when HP >= pushHp of max and the gear score above the tier's unlock
-    // score (run.tierGear) is >= pushGear x the next room's number (1-based), checked again after every room (like a player who feels strong).
+    // Balance pass 2026-11-11: at the target it pushes on instead when HP >= pushHp of max and the gear score
+    // is >= pushGear x the next room's number (1-based), checked again after every room (like a player who feels strong).
     // shop policy (step 7, docs/specs/economy.md "Bot policy"): rankOrder = tie-break order of ranks; potionHp: buy a merchant potion
     // when HP is under this share of max; baseItemMax: buy at most this many shop items per visit.
     bot: { reactionTicks: 12, career: { startRoom: 3, step: 1, cap: 10, lowHp: 0.4, pushHp: 0.7, pushGear: 6 },

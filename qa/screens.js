@@ -44,9 +44,6 @@ async function tour(browser, size, seed) {
   await Q.click(page, 'title_gear'); await page.waitForTimeout(200);
   await snap(page, 'title_equipment_empty');
   await Q.click(page, 'inv_close');
-  await Q.click(page, 'tier_r'); await page.waitForTimeout(150);
-  await snap(page, 'title_tier_locked');
-  await Q.click(page, 'tier_l');
   await Q.click(page, 'start');
   await page.waitForFunction(() => G.screen === 'game' && G.gameScene && G.gameScene.sim);
   await page.waitForTimeout(700);

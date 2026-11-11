@@ -1,7 +1,6 @@
-// Title screen: logo, class, difficulty tier (gated by gear score), run seed, start.
+// Title screen: logo, class, gear score and monster scale, run seed, start.
 (function (G) {
   var UI = G.UI;
-  var ROMAN = ['I', 'II', 'III'];
   G.TitleScene = new Phaser.Class({
     Extends: Phaser.Scene,
     initialize: function TitleScene() { Phaser.Scene.call(this, { key: 'title' }); },
@@ -10,7 +9,6 @@
       G.screen = 'title';
       G.hud = null; G.gameScene = null; G.paused = false;
       if (G.runSeed == null) G.runSeed = G.params.has('seed') ? (parseInt(G.params.get('seed'), 10) >>> 0) : ((Date.now() ^ (Math.random() * 1e9)) >>> 0) % 1000000;
-      if (G.tier == null) G.tier = 0;
       if (G.cls == null) G.cls = G.classDef(G.BAL, G.params.get('class') || (G.save && G.save.settings.cls)).id;
       this.scene.launch('backdrop');
       this.scene.bringToTop();
@@ -47,11 +45,7 @@
       L.button(cx + 42, y, 22, 20, '', function () { self.setClass(1); }, { icon: 'arrow_r', name: 'cls_r' });
       this.clsText = L.text(0, y + 6, '');
       y += tall ? 26 : 22;
-      L.button(cx - 64, y, 22, 20, '', function () { self.setTier(G.tier - 1); }, { icon: 'arrow_l', name: 'tier_l' });
-      L.button(cx + 42, y, 22, 20, '', function () { self.setTier(G.tier + 1); }, { icon: 'arrow_r', name: 'tier_r' });
-      this.tierText = L.text(0, y + 6, '');
-      y += 25;
-      this.tierInfo = L.text(0, y, '', 'ui_dim');
+      this.gearInfo = L.text(0, y, '', 'ui_dim');
       y += tall ? 22 : 15;
       this.seedText = L.text(0, y + 5, '', 'ui_dim');
       this.btnSeed = L.button(cx + 10, y, 54, 18, 'REROLL', function () { G.runSeed = Math.floor(Math.random() * 1000000); self.refresh(); }, { name: 'reroll' });
@@ -68,10 +62,6 @@
       this.refresh();
     },
     gearScore: function () { return G.gearScore(G.gearOf(G.save, G.cls)); },
-    setTier: function (t) {
-      G.tier = Math.max(0, Math.min(G.BAL.run.tierGear.length - 1, t));
-      this.refresh();
-    },
     setClass: function (d) {
       var ids = G.classIds(G.BAL), i = ids.indexOf(G.cls);
       G.cls = ids[(i + d + ids.length) % ids.length];
@@ -81,17 +71,13 @@
     refresh: function () {
       this.clsText.setText(G.classDef(G.BAL, G.cls).name.toUpperCase()).setTint(UI.hex('ui_text'));
       UI.centerX(this.clsText, Math.round(G.view.W / 2));
-      var need = G.BAL.run.tierGear[G.tier], gs = this.gearScore(), locked = gs < need, cx = Math.round(G.view.W / 2);
-      this.tierText.setText('TIER ' + ROMAN[G.tier]).setTint(UI.hex(locked ? 'ui_bad' : 'ui_warn'));
-      UI.centerX(this.tierText, cx);
-      this.tierInfo.setText(locked ? 'Locked: needs gear score ' + need + ' (you: ' + gs + ')' : 'Gear score ' + gs + '   Monsters x' + (G.BAL.run.tierMult[G.tier] * (1 + G.BAL.run.gearK * gs)).toFixed(2));
-      UI.centerX(this.tierInfo, cx);
+      var gs = this.gearScore(), cx = Math.round(G.view.W / 2);
+      this.gearInfo.setText('Gear score ' + gs + '   Monsters x' + (1 + G.BAL.run.gearK * gs).toFixed(2));
+      UI.centerX(this.gearInfo, cx);
       this.seedText.setText('Seed ' + G.runSeed);
       this.seedText.x = cx - 64;
-      this.btnStart.setEnabled(!locked);
     },
     start: function (test) {
-      if (!test && this.gearScore() < G.BAL.run.tierGear[G.tier]) return;
       if (G.Panels.isOpen()) return;
       G.testRoom = !!test;
       this.scene.stop('backdrop'); this.scene.start('game');

@@ -15,14 +15,13 @@
       var P = G.params, self = this;
       G.screen = 'game';
       if (G.runSeed == null) G.runSeed = P.has('seed') ? parseInt(P.get('seed'), 10) >>> 0 : 1;
-      if (G.tier == null) G.tier = P.has('tier') ? parseInt(P.get('tier'), 10) || 0 : 0;
       if (G.cls == null) G.cls = G.classDef(G.BAL, P.get('class') || (G.save && G.save.settings.cls)).id;   // ?class=<id>, or the title's class picker
       // debug panel toggles (src/view/panels.js): kept for the whole browser session, across runs
       G.cheats = G.cheats || { god: false, noCd: false, speed: 1 };
       G.debug = P.get('debug') !== '0' && P.get('bot') !== '1';    // ?debug=0 hides the debug button
       this.speed = P.has('speed') ? parseFloat(P.get('speed')) : G.cheats.speed;
       G.manualLevel = P.get('manual') === '1';      // QA: level-up cards are clicked by the test, not auto-picked
-      this.sim = new G.Sim({ seed: G.runSeed, tier: G.tier, gear: G.gearOf(G.save, G.cls), events: true, cheats: G.cheats, testRoom: !!G.testRoom, cls: G.cls });
+      this.sim = new G.Sim({ seed: G.runSeed, gear: G.gearOf(G.save, G.cls), events: true, cheats: G.cheats, testRoom: !!G.testRoom, cls: G.cls });
       var C = this.cls = this.sim.cls;
       this.controls = new G.Controls(this);
       this.fx = new G.FX(this);

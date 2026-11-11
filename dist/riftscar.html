@@ -17,11 +17,9 @@
 
     run: {
       rooms: 10,                      // the last room is the boss room
-      tierMult: [1.0, 1.5, 2.1],      // monster hp/dmg multiplier per difficulty tier
-      tierGear: [0, 70, 170],         // gear score needed to unlock each tier
       roomMult: [1.05, 1.3, 1.55, 1.8, 2.1, 2.4, 2.75, 3.1, 3.5, 3.0],   // monster hp/dmg multiplier per room
       gearK: 0.005,                   // +0.5 % monster hp/dmg per point of gear score ("gear level scales the room")
-      ilvlTier: 3, ilvlRooms: 3,      // item level = 1 + tier * ilvlTier + floor(room / ilvlRooms)
+      ilvlRooms: 3,                   // item level of drops = 1 + floor(room / ilvlRooms)
       testRoom: 1,                    // ?room=test / TEST ROOM button: this room, restarted on every clear
       // Dying empties the sealed bag. Whether the equipped gear survives is a design assumption the user has not confirmed:
       // true = it is kept; false = dying also strips every equipped item. This is the only place the rule lives.
@@ -210,7 +208,7 @@
     // until the implementation session wires it in). Gold, sell prices, the town shop, item upgrades, permanent ranks, the merchant.
     // Everything is per class (like gear, the kept bag and scrolls): save.gears[cls].gold, .ranks, .shop.
     economy: {
-      // Gold is credited the moment it is earned (no pickup, no rng): amount = base x room[roomIndex] x tier[tier] x (1 + door x lootBonus).
+      // Gold is credited the moment it is earned (no pickup, no rng): amount = base x room[roomIndex] x (1 + door x lootBonus).
       // Fractions accumulate (sim.goldFrac), whole coins go to the sealed run gold (sim.gold). Sealed like the bag: banked on leave / win,
       // lost on death (deathKeeps = share kept on death; 0 like items). None in the test room.
       gold: {
@@ -220,7 +218,6 @@
         chest: 8,                     // the room's chest opened
         boss: 50,                     // extra when the boss dies (on top of its kill gold)
         room: [1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 2.0],   // x per room
-        tier: [1.0, 1.3, 1.6],        // x per difficulty tier
         door: 1,                      // share of the door's loot bonus that also applies to gold (1: a +25 % door pays +25 % gold)
         deathKeeps: 0,
         cap: 999999                   // kept gold per class
@@ -228,11 +225,9 @@
       // sell price = round(base[rarity] x (1 + ilvl x (item level - 1)) x (unid if unidentified)), at least min. Scrolls sell for `scroll`.
       sell: { base: [3, 8, 20, 50, 120], ilvl: 0.25, unid: 0.4, min: 1, scroll: 5 },
       // The town shop (on the title screen until step 8 builds the town). Stock: one item per entry of `rarities`, rolled when the stock
-      // is (re)made, after every run of the class. Item level = 1 + shop tier x run.ilvlTier + ilvlAdd (shop tier = highest tier the
-      // class's gear score unlocks). Price = the identified sell price x buyMult. HARD RULE: no item above maxRarity is ever sold
+      // is (re)made, after every run of the class. Item level = 1 + ilvlAdd (= 2). Price = the identified sell price x buyMult. HARD RULE: no item above maxRarity is ever sold
       // (rare, epic and legendary only drop). Scrolls of Identification: unlimited, `scroll` gold each.
-      // User decision 2026-11-11: one RARE entry (the 7th) at rareBuyMult x the identified sell price = 250 / 400 / 550 at shop tier 1 / 2 / 3
-      // (5x the magic item of the same tier, 10x what it sells for). maxRarity 2: epic and legendary are refused in the code; maxRare: rares in stock.
+      // User decision 2026-11-11: one RARE entry (the 7th) at rareBuyMult x the identified sell price = 250 (5x the magic item of the shop, 10x what it sells for). maxRarity 2: epic and legendary are refused in the code; maxRare: rares in stock.
       shop: { rarities: [0, 0, 0, 0, 1, 1, 2], maxRarity: 2, maxRare: 1, ilvlAdd: 1, buyMult: 5, rareBuyMult: 10, scroll: 15 },
       // Upgrade a found, identified item by +1 item level (stats rescale from the values at the drop; power and gear score follow).
       // cost = round(cost[rarity] x (1 + ilvl x (item level - 1)) x (1 + grow x upgrades done)). max: upgrades per item, by rarity.
@@ -534,8 +529,8 @@
     // roughly a human reaction time. 1 would be a frame-perfect player.
     // career policy (tools/sim_bot.js --career): leave after a room when HP is under lowHp of max, or when the room reached is at or
     // beyond a target that starts at startRoom and rises by step after every run that ends in an extraction (leave or win), up to cap.
-    // Balance pass 2026-11-11: at the target it pushes on instead when HP >= pushHp of max and the gear score above the tier's unlock
-    // score (run.tierGear) is >= pushGear x the next room's number (1-based), checked again after every room (like a player who feels strong).
+    // Balance pass 2026-11-11: at the target it pushes on instead when HP >= pushHp of max and the gear score
+    // is >= pushGear x the next room's number (1-based), checked again after every room (like a player who feels strong).
     // shop policy (step 7, docs/specs/economy.md "Bot policy"): rankOrder = tie-break order of ranks; potionHp: buy a merchant potion
     // when HP is under this share of max; baseItemMax: buy at most this many shop items per visit.
     bot: { reactionTicks: 12, career: { startRoom: 3, step: 1, cap: 10, lowHp: 0.4, pushHp: 0.7, pushGear: 6 },
@@ -1179,22 +1174,17 @@
   };
 
   // ------------------------------------------------------------------ the shop
-  G.shopTier = function (gear, B) {
-    var gs = G.gearScore(gear), t = 0;
-    B.run.tierGear.forEach(function (need, i) { if (gs >= need) t = i; });
-    return t;
-  };
   // 7 entries: the base items of `rarities` (commons, magic) and one rare. Rolled from the save's own counter, so a save restocks the same way.
   G.restockShop = function (gear, B, clsId) {
-    var H = E(B).shop, id = G.classDef(B, clsId).id, ci = Math.max(0, G.classIds(B).indexOf(id)), tier = G.shopTier(gear, B);
+    var H = E(B).shop, id = G.classDef(B, clsId).id, ci = Math.max(0, G.classIds(B).indexOf(id));
     var rolls = gear.shop && gear.shop.rolls > 0 ? gear.shop.rolls : 0;
-    var rng = new G.RNG(G.hash32(rolls, 7070 + ci)), ilvl = 1 + tier * B.run.ilvlTier + H.ilvlAdd, rares = 0;
+    var rng = new G.RNG(G.hash32(rolls, 7070 + ci)), ilvl = 1 + H.ilvlAdd, rares = 0;
     var stock = H.rarities.map(function (r) {
       if (r >= 2 && rares >= H.maxRare) return null;
       if (r >= 2) rares++;
       return G.rollShopItem(rng, ilvl, r, B, gear, id);
     });
-    gear.shop = { rolls: rolls + 1, tier: tier, stock: stock };
+    gear.shop = { rolls: rolls + 1, stock: stock };
     return gear.shop;
   };
   G.shopStockOk = function (shop, B) {
@@ -1397,7 +1387,6 @@
     var B = this.B = opts.bal || G.BAL, C = this.cls = G.classDef(B, opts.cls);
     this.clsId = C.id;
     this.seed = opts.seed >>> 0;
-    this.tier = opts.tier || 0;
     this.gear = opts.gear;
     this.keepEvents = !!opts.events;
     this.events = [];
@@ -1504,8 +1493,8 @@
     this.mod = mod && B.doors.mods[mod] ? mod : null;
     this.modDef = dm; this.lootBonus = dm.loot || 0;
     this.rngRoom = new G.RNG(G.hash32(room.seed, 77));
-    this.threat = B.run.tierMult[this.tier] * B.run.roomMult[index] * (dm.threat || 1) * (1 + B.run.gearK * G.gearScore(this.gear));
-    this.ilvl = 1 + this.tier * B.run.ilvlTier + Math.floor(index / B.run.ilvlRooms);
+    this.threat = B.run.roomMult[index] * (dm.threat || 1) * (1 + B.run.gearK * G.gearScore(this.gear));
+    this.ilvl = 1 + Math.floor(index / B.run.ilvlRooms);
     this.player.x = room.start.x; this.player.y = room.start.y;
     this.player.dashT = 0;
     this.monsters = []; this.shots = []; this.bolts = []; this.orbs = []; this.drops = []; this.teles = [];
@@ -1814,10 +1803,10 @@
   S.dropSealed = function (idx) { return this.bag.splice(idx, 1)[0] || null; };
 
   // ------------------------------------------------------------------ gold and the merchant (step 7)
-  // Gold of the run: base x room x tier x (1 + door x lootBonus). No rng; fractions accumulate. None in the test room.
+  // Gold of the run: base x room x (1 + door x lootBonus). No rng; fractions accumulate. None in the test room.
   S.addGold = function (base, src, x, y) {
     if (this.testRoom >= 0) return;
-    var Gd = this.B.economy.gold, v = base * Gd.room[this.roomIndex] * Gd.tier[this.tier] * (1 + Gd.door * this.lootBonus);
+    var Gd = this.B.economy.gold, v = base * Gd.room[this.roomIndex] * (1 + Gd.door * this.lootBonus);
     this.goldFrac += v;
     var whole = Math.floor(this.goldFrac);
     if (whole < 1) return;
@@ -3150,7 +3139,7 @@
   Bot.prototype.afterRoom = function () {
     var sim = this.sim, B = sim.B;
     if (this.lowHp && sim.player.hp < sim.player.maxHp * this.lowHp) return -1;      // career: hurt, take the bag and go
-    // at the target room: leave, unless (career) HP is at least pushHp of max and the gear score above the tier's unlock score is at
+    // at the target room: leave, unless (career) HP is at least pushHp of max and the gear score is at
     // least pushGear per room of the next room (1-based): then push on like a confident player
     if (this.leaveAt && sim.roomIndex + 1 >= this.leaveAt && !this.canPush()) return -1;
     var best = 0, i;
@@ -3161,7 +3150,7 @@
   Bot.prototype.canPush = function () {
     var sim = this.sim, B = sim.B;
     if (!this.pushHp || sim.player.hp < sim.player.maxHp * this.pushHp) return false;
-    return G.gearScore(sim.gear) - B.run.tierGear[sim.tier] >= this.pushGear * (sim.roomIndex + 2);
+    return G.gearScore(sim.gear) >= this.pushGear * (sim.roomIndex + 2);
   };
 
   Bot.prototype.pathDir = function (gx, gy) {
@@ -3448,7 +3437,7 @@
   G.botRun = function (seed, opts) {
     opts = opts || {};
     var gear = opts.gear || G.newGear();
-    var sim = new G.Sim({ seed: seed, tier: opts.tier || 0, gear: gear, bal: opts.bal, cls: opts.cls }), bot = new Bot(sim, opts.build, { leave: opts.leave, lowHp: opts.lowHp, pushHp: opts.pushHp, pushGear: opts.pushGear });
+    var sim = new G.Sim({ seed: seed, gear: gear, bal: opts.bal, cls: opts.cls }), bot = new Bot(sim, opts.build, { leave: opts.leave, lowHp: opts.lowHp, pushHp: opts.pushHp, pushGear: opts.pushGear });
     var maxTicks = (opts.maxSeconds || 1200) * 60, softlock = false, worstStuck = 0, roomTicks = [], last = 0, lastRoom = 0, minHp = sim.B.run.roomMult.map(function () { return 1; });
     while (sim.tick < maxTicks && (sim.state === 'play' || sim.state === 'levelup' || sim.state === 'choice' || sim.state === 'merchant')) {
       if (sim.state === 'merchant') { sim.closeMerchant(); continue; }
@@ -3517,7 +3506,7 @@
             });
             var sh = g.shop;
             n.shop = sh && sh.rolls >= 0 && Array.isArray(sh.stock) && sh.stock.length === E.shop.rarities.length &&
-              sh.stock.every(function (it) { return it === null || ok(it); }) ? { rolls: Math.floor(sh.rolls), tier: sh.tier | 0, stock: sh.stock } : null;
+              sh.stock.every(function (it) { return it === null || ok(it); }) ? { rolls: Math.floor(sh.rolls), stock: sh.stock } : null;
             s.gears[id] = n;
           });
           s.v = 6;
@@ -4130,10 +4119,9 @@
 })(globalThis.G = globalThis.G || {});
 
 // ---- src/view/title.js
-// Title screen: logo, class, difficulty tier (gated by gear score), run seed, start.
+// Title screen: logo, class, gear score and monster scale, run seed, start.
 (function (G) {
   var UI = G.UI;
-  var ROMAN = ['I', 'II', 'III'];
   G.TitleScene = new Phaser.Class({
     Extends: Phaser.Scene,
     initialize: function TitleScene() { Phaser.Scene.call(this, { key: 'title' }); },
@@ -4142,7 +4130,6 @@
       G.screen = 'title';
       G.hud = null; G.gameScene = null; G.paused = false;
       if (G.runSeed == null) G.runSeed = G.params.has('seed') ? (parseInt(G.params.get('seed'), 10) >>> 0) : ((Date.now() ^ (Math.random() * 1e9)) >>> 0) % 1000000;
-      if (G.tier == null) G.tier = 0;
       if (G.cls == null) G.cls = G.classDef(G.BAL, G.params.get('class') || (G.save && G.save.settings.cls)).id;
       this.scene.launch('backdrop');
       this.scene.bringToTop();
@@ -4179,11 +4166,7 @@
       L.button(cx + 42, y, 22, 20, '', function () { self.setClass(1); }, { icon: 'arrow_r', name: 'cls_r' });
       this.clsText = L.text(0, y + 6, '');
       y += tall ? 26 : 22;
-      L.button(cx - 64, y, 22, 20, '', function () { self.setTier(G.tier - 1); }, { icon: 'arrow_l', name: 'tier_l' });
-      L.button(cx + 42, y, 22, 20, '', function () { self.setTier(G.tier + 1); }, { icon: 'arrow_r', name: 'tier_r' });
-      this.tierText = L.text(0, y + 6, '');
-      y += 25;
-      this.tierInfo = L.text(0, y, '', 'ui_dim');
+      this.gearInfo = L.text(0, y, '', 'ui_dim');
       y += tall ? 22 : 15;
       this.seedText = L.text(0, y + 5, '', 'ui_dim');
       this.btnSeed = L.button(cx + 10, y, 54, 18, 'REROLL', function () { G.runSeed = Math.floor(Math.random() * 1000000); self.refresh(); }, { name: 'reroll' });
@@ -4200,10 +4183,6 @@
       this.refresh();
     },
     gearScore: function () { return G.gearScore(G.gearOf(G.save, G.cls)); },
-    setTier: function (t) {
-      G.tier = Math.max(0, Math.min(G.BAL.run.tierGear.length - 1, t));
-      this.refresh();
-    },
     setClass: function (d) {
       var ids = G.classIds(G.BAL), i = ids.indexOf(G.cls);
       G.cls = ids[(i + d + ids.length) % ids.length];
@@ -4213,17 +4192,13 @@
     refresh: function () {
       this.clsText.setText(G.classDef(G.BAL, G.cls).name.toUpperCase()).setTint(UI.hex('ui_text'));
       UI.centerX(this.clsText, Math.round(G.view.W / 2));
-      var need = G.BAL.run.tierGear[G.tier], gs = this.gearScore(), locked = gs < need, cx = Math.round(G.view.W / 2);
-      this.tierText.setText('TIER ' + ROMAN[G.tier]).setTint(UI.hex(locked ? 'ui_bad' : 'ui_warn'));
-      UI.centerX(this.tierText, cx);
-      this.tierInfo.setText(locked ? 'Locked: needs gear score ' + need + ' (you: ' + gs + ')' : 'Gear score ' + gs + '   Monsters x' + (G.BAL.run.tierMult[G.tier] * (1 + G.BAL.run.gearK * gs)).toFixed(2));
-      UI.centerX(this.tierInfo, cx);
+      var gs = this.gearScore(), cx = Math.round(G.view.W / 2);
+      this.gearInfo.setText('Gear score ' + gs + '   Monsters x' + (1 + G.BAL.run.gearK * gs).toFixed(2));
+      UI.centerX(this.gearInfo, cx);
       this.seedText.setText('Seed ' + G.runSeed);
       this.seedText.x = cx - 64;
-      this.btnStart.setEnabled(!locked);
     },
     start: function (test) {
-      if (!test && this.gearScore() < G.BAL.run.tierGear[G.tier]) return;
       if (G.Panels.isOpen()) return;
       G.testRoom = !!test;
       this.scene.stop('backdrop'); this.scene.start('game');
@@ -4274,14 +4249,13 @@
       var P = G.params, self = this;
       G.screen = 'game';
       if (G.runSeed == null) G.runSeed = P.has('seed') ? parseInt(P.get('seed'), 10) >>> 0 : 1;
-      if (G.tier == null) G.tier = P.has('tier') ? parseInt(P.get('tier'), 10) || 0 : 0;
       if (G.cls == null) G.cls = G.classDef(G.BAL, P.get('class') || (G.save && G.save.settings.cls)).id;   // ?class=<id>, or the title's class picker
       // debug panel toggles (src/view/panels.js): kept for the whole browser session, across runs
       G.cheats = G.cheats || { god: false, noCd: false, speed: 1 };
       G.debug = P.get('debug') !== '0' && P.get('bot') !== '1';    // ?debug=0 hides the debug button
       this.speed = P.has('speed') ? parseFloat(P.get('speed')) : G.cheats.speed;
       G.manualLevel = P.get('manual') === '1';      // QA: level-up cards are clicked by the test, not auto-picked
-      this.sim = new G.Sim({ seed: G.runSeed, tier: G.tier, gear: G.gearOf(G.save, G.cls), events: true, cheats: G.cheats, testRoom: !!G.testRoom, cls: G.cls });
+      this.sim = new G.Sim({ seed: G.runSeed, gear: G.gearOf(G.save, G.cls), events: true, cheats: G.cheats, testRoom: !!G.testRoom, cls: G.cls });
       var C = this.cls = this.sim.cls;
       this.controls = new G.Controls(this);
       this.fx = new G.FX(this);
@@ -5743,8 +5717,6 @@
         : [R.kept + (R.kept === 1 ? ' item' : ' items') + ' kept in your bag' + (R.lost ? ', ' + R.lost + ' lost (bag full)' : ''), 'ui_good'],
       s.testRoom >= 0 ? ['Gear score ' + gs, 'ui_dim'] : (state === 'dead' ? [R.goldLost ? 'Gold: ' + R.goldLost + ' lost' : 'Gold: none earned', 'ui_bad'] : ['Gold: +' + R.goldKept + ' kept', 'gold']),
       ['Gear score ' + gs, 'ui_dim']];
-    var next = B.run.tierGear[s.tier + 1];
-    if (next != null) lines.push(gs >= next ? ['Tier ' + (s.tier + 2) + ' unlocked: harder rifts, better loot', 'ui_warn'] : ['Tier ' + (s.tier + 2) + ' needs gear score ' + next, 'ui_dim']);
     lines.forEach(function (l, i) { UI.centerX(L.text(0, y0 + 34 + i * 12, l[0], l[1]).setMaxWidth(pw - 12), cx); });
     var bw = Math.floor((pw - 28) / 3);
     L.button(x0 + 8, y0 + ph - 28, bw, 20, 'AGAIN', function () { P.counted = false; P.close(true); G.restartRun(); }, { name: 'res_again', color: 'ui_good' });

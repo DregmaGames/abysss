@@ -243,14 +243,14 @@ const ids = o => Object.keys(o).map(k => o[k] && o[k].id).join(',');
   check('sell: from the bag pays and removes; 2 scrolls pay 5 each', G.sellFromBag(g, 0, B) === 14 && g.gold === 14 && g.bag.length === 0 && G.sellScrolls(g, 2, B) === 10 && g.gold === 24 && g.scrolls === 1);
   check('sell: nothing at a missing index', G.sellFromBag(g, 5, B) === 0);
 
-  // the shop: rarities, ilvl per tier, own-class weapons, 200 restocks per class, never above rare, at most 1 rare, rare price
+  // the shop: rarities, ilvl, own-class weapons, 200 restocks per class, never above rare, at most 1 rare, rare price
   const ids = G.classIds(B);
   let stockOk = true, rareN = 0, restocks = 0, wOk = true, maxR = 0, priceOk = true, unidShop = false;
   ids.forEach(c => {
     const gear = G.newGear();
     for (let n = 0; n < 200; n++) {
-      gear.equipped.helmet = n % 3 === 0 ? null : it(1, 1, { power: [0, 80, 200][n % 3] });      // gear score 0 / 80 / 200: shop tier 1 / 2 / 3
-      const sh = G.restockShop(gear, B, c), tier = G.shopTier(gear, B), ilvl = 1 + tier * B.run.ilvlTier + E.shop.ilvlAdd, rares = sh.stock.filter(x => x && x.rarity >= 2).length;
+      gear.equipped.helmet = n % 3 === 0 ? null : it(1, 1, { power: [0, 80, 200][n % 3] });      // gear score 0 / 80 / 200: the stock does not change with it
+      const sh = G.restockShop(gear, B, c), ilvl = 1 + E.shop.ilvlAdd, rares = sh.stock.filter(x => x && x.rarity >= 2).length;
       restocks++; if (sh.stock.length !== 7 || rares > 1) stockOk = false;
       rareN += rares;
       sh.stock.forEach((x, i) => {
@@ -264,11 +264,11 @@ const ids = o => Object.keys(o).map(k => o[k] && o[k].id).join(',');
       });
     }
   });
-  check('shop: ' + restocks + ' restocks (3 classes): 7 entries, rarities and item levels per tier, identified, src shop, one rare each', stockOk && rareN === restocks);
+  check('shop: ' + restocks + ' restocks (3 classes): 7 entries, rarities and item levels (gear score does not matter), identified, src shop, one rare each', stockOk && rareN === restocks);
   check('shop: never above rare (max rarity ' + maxR + '), weapons only of the class', maxR === 2 && wOk);
   check('shop: epic and legendary are refused by the code', [3, 4].every(r => { try { G.rollShopItem(new G.RNG(1), 3, r, B, G.newGear(), 'mage'); return false; } catch (e) { return true; } }));
   const g2 = G.newGear(); G.restockShop(g2, B, 'mage'); const rare = g2.shop.stock[6], magic = g2.shop.stock[5];
-  check('shop: rare price 250 at tier 1 (ilvl 2), 5 x the magic item ' + G.buyPrice(magic, B) + '; common 19', G.buyPrice(rare, B) === 250 && G.buyPrice(rare, B) === 5 * G.buyPrice(magic, B) && G.buyPrice(g2.shop.stock[0], B) === 19 && priceOk);
+  check('shop: rare price 250 (ilvl 2), 5 x the magic item ' + G.buyPrice(magic, B) + '; common 19', G.buyPrice(rare, B) === 250 && G.buyPrice(rare, B) === 5 * G.buyPrice(magic, B) && G.buyPrice(g2.shop.stock[0], B) === 19 && priceOk);
   check('shop: the rare costs more than 10x its sell price and than the first upgrade of a found rare of that level', G.buyPrice(rare, B) >= 10 * G.sellPrice(rare, B) && G.buyPrice(rare, B) > G.upgradeCost(it(2, rare.ilvl), B));
   // same save = same stock
   const a = G.newGear(), b = G.newGear(); G.restockShop(a, B, 'warrior'); G.restockShop(b, B, 'warrior');
@@ -322,9 +322,9 @@ const ids = o => Object.keys(o).map(k => o[k] && o[k].id).join(',');
   // earning: kill, close, chest, boss, door bonus, no rng
   const q = new G.Sim({ seed: 5, gear: G.newGear() }); q.loadRoom(2);
   q.addGold(10, 'kill', 0, 0); const g10 = q.gold + q.goldFrac;
-  check('gold: base x room (1.2) x tier (1.0) = 12', near(g10, 12));
-  const q2 = new G.Sim({ seed: 5, gear: G.newGear(), tier: 1 }); q2.loadRoom(2, 'hardened'); q2.addGold(10, 'kill', 0, 0);
-  check('gold: tier 2 (x1.3) and a +25 % door: 10 x 1.2 x 1.3 x 1.25 = 19.5', near(q2.gold + q2.goldFrac, 19.5));
+  check('gold: base x room (1.2) = 12', near(g10, 12));
+  const q2 = new G.Sim({ seed: 5, gear: G.newGear() }); q2.loadRoom(2, 'hardened'); q2.addGold(10, 'kill', 0, 0);
+  check('gold: a +25 % door: 10 x 1.2 x 1.25 = 15', near(q2.gold + q2.goldFrac, 15));
   const q3 = new G.Sim({ seed: 5, gear: G.newGear(), events: true }); q3.loadRoom(0);
   q3.spawnMonster && q3.spawnMonster('imp', q3.player.x + 20, q3.player.y, 0);
   const before = q3.goldEarned + q3.goldFrac; const m0 = q3.monsters[0]; if (m0) q3.kill(m0);

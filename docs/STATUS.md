@@ -22,7 +22,17 @@ Design decisions live in the plan doc (the user has it); this file is what an ag
   `src/balance.js` `economy`; code in `src/sim/economy.js`, `core.js`, `combat.js`, `fissures.js`, `src/save.js` v6, `src/qa/bot.js` `shopVisit`, shop panel in
   `src/view/panels.js`, merchant in `hud.js` / `game.js`). Gold is sealed per run (banked on leave / win, lost on death), per class; shop (BUY / SELL / UPGRADE / RANKS)
   on the title screen until step 8; the shop sells commons, magic and ONE rare (250 / 400 / 550 gold), never epic or better; the merchant in rooms sells scrolls and potions.
+- Difficulty tiers removed (2026-11-11, user decision): no `tierMult`, `tierGear`, `ilvlTier`, `gold.tier`, `sim.tier`, `shopTier`, `?tier=`, title tier picker or save `shop.tier`.
+  Monsters, item level, gold and shop numbers equal what tier 1 gave (drop ilvl = 1 + floor(room / 3), shop ilvl 2, gold x room only). Difficulty = room number + doors.
+  `run.gearK` kept: it is now the only rule where gear score raises monster strength (+0.5 % per point; gear 100 = x1.5), and the title shows it ("Monsters x1.xx").
+  Decide in step 10 whether it stays. Old saves load as they are (the stored shop tier is ignored; save stays v6).
 - `main` is the working base. One branch per step: `step-N-<slug>`.
+
+## Last measured (2026-11-11, tiers removed)
+
+- Fresh gear seeds 1-10, mage / warrior / archer: 0 / 1 / 2 wins, every run identical to before (fresh gear was tier 1). Careers of 10 (seeds 1-10): mage 3 wins, first at run 8 (same as before);
+  warrior 5 wins (was 1), first at run 5 (same); archer 2 wins (was 1), first at run 9 (same). Before, careers moved to tier 2 after gear 70 and stalled there. 0 softlocks, 0 timeouts.
+- `determinism.js`, `check_bag.js` pass; browser: title and a game at 960x540, 0 console errors. `qa/screens.js` no longer clicks the tier buttons (not run).
 
 ## Last measured (2026-11-11, step 7 balance pass)
 

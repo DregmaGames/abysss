@@ -40,7 +40,7 @@
             });
             var sh = g.shop;
             n.shop = sh && sh.rolls >= 0 && Array.isArray(sh.stock) && sh.stock.length === E.shop.rarities.length &&
-              sh.stock.every(function (it) { return it === null || ok(it); }) ? { rolls: Math.floor(sh.rolls), tier: sh.tier | 0, stock: sh.stock } : null;
+              sh.stock.every(function (it) { return it === null || ok(it); }) ? { rolls: Math.floor(sh.rolls), stock: sh.stock } : null;
             s.gears[id] = n;
           });
           s.v = 6;

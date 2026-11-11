@@ -14,7 +14,7 @@ file: `dist/riftscar.html`. No bundler, no package installs.
 5. Kills give EXP (pick 1 of 3 abilities per level: actives that change the attack, passives, family bonuses), closures and monsters drop gear and ability
    tomes. Gear found in a run goes into the sealed bag (the HUD shows only its count and best rarity): leaving or winning
    keeps it, dying loses it (worn gear is kept). Equip and discard between runs on the title screen; the gear you start with stays on all run.
-   Gear score unlocks harder tiers and also scales the monsters.
+   Difficulty comes from the room number and the doors; the gear score also scales the monsters a little (`run.gearK`).
 
 Controls: WASD / arrows move, SPACE dodge, Q or E pulse, I inventory, ESC settings.
 Touch: drag on the left to move, two buttons on the right (they appear after the first touch).
@@ -27,7 +27,7 @@ python3 tools/build.py        # src/ + vendor/phaser.min.js + assets/ -> dist/ri
 ```
 
 Open `dist/riftscar.html` in a browser. URL options: `?seed=123` fixes the run seed,
-`&scene=game` skips the title, `&tier=1`, `&fresh=1` ignores the saved gear, `&touch=1` shows the
+`&scene=game` skips the title, `&fresh=1` ignores the saved gear, `&touch=1` shows the
 touch controls with a mouse, `&bot=1&speed=8` lets the QA bot play fast-forward.
 
 ## Layout
@@ -55,7 +55,7 @@ layouts are computed from the art-pixel viewport and rebuilt on resize or rotati
 node tools/contrast.js                      # text contrast, fails under 4.5:1
 node tools/sim_bot.js --seeds 1-10 [--leave N]  # bot win rate in the Node sim (at most 10 seeds); --leave N: leaves after room N
 node tools/check_bag.js                     # die / leave / win bag outcomes, doors and modifiers, save migration
-node tools/sim_bot.js --career 14           # consecutive runs keeping gear, tiers unlocking
+node tools/sim_bot.js --career 14           # consecutive runs keeping gear
 node qa/bot.js --seeds 1-12                 # bot plays the real game in headless Chromium:
                                             #   no console errors, no softlock, must match Node
 node qa/screens.js both                     # screenshots of every screen at 960x540 and 540x960

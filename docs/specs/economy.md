@@ -20,8 +20,8 @@ EQUIPMENT (as equipping does today). Step 8 moves the same panel behind an NPC; 
 - CHANGE: the town shop may also sell RARE items at a very high price, at most 1 rare in stock at a time, never epic or better
   (`G.rollShopItem` throws above `shop.maxRarity` 2). Rare shop items are identified. This replaces "commons and magic only"
   (section 4, `shop.maxRarity` 1) and answers open question 4 as "up to rare at a high price". Price: `shop.rareBuyMult` 10
-  (the identified sell price x 10) = 250 / 400 / 550 gold at shop tier 1 / 2 / 3, which is 5 times the magic item of the same tier
-  (50 / 80 / 110, `buyMult` 5), 10 times what the rare sells for, and above the first upgrade of a found rare (100 to 200).
+  (the identified sell price x 10) = 250 gold, which is 5 times the magic item of the shop
+  (50, `buyMult` 5), 10 times what the rare sells for, and above the first upgrade of a found rare (100 to 200).
   The stock is the 6 entries above plus a 7th entry, the rare (`shop.rarities` = [0, 0, 0, 0, 1, 1, 2], `shop.maxRare` 1).
 
 ## Design assumptions (defaults; the user may change them, see "Open questions" at the end)
@@ -51,7 +51,7 @@ EQUIPMENT (as equipping does today). Step 8 moves the same panel behind an NPC; 
 
 ### Sources and amounts
 
-All gold of a run goes through one function: `amount = base x gold.room[roomIndex] x gold.tier[tier] x (1 + gold.door x sim.lootBonus)`.
+All gold of a run goes through one function: `amount = base x gold.room[roomIndex] x (1 + gold.door x sim.lootBonus)`.
 
 | Source | base | When |
 |---|---|---|
@@ -61,14 +61,14 @@ All gold of a run goes through one function: `amount = base x gold.room[roomInde
 | Chest opened | `gold.chest` 8 | in `S.updateRoomGoals` when the chest opens |
 | Boss killed | `gold.boss` 50 (plus its kill gold) | in `S.kill`, `def.boss` |
 
-- `gold.room` = 1.0, 1.1, ..., 1.8, 2.0 (rooms 1 to 10). `gold.tier` = 1.0, 1.3, 1.6.
+- `gold.room` = 1.0, 1.1, ..., 1.8, 2.0 (rooms 1 to 10).
 - **Door bonus**: the door's loot share (`doors.mods.*.loot`, 0.20 to 0.30) adds the same share of gold in that room
   (`gold.door` = 1). A "Hardened foes" room (+25 %) pays 25 % more gold.
 - No rng: fractions accumulate in `sim.goldFrac`; the whole part moves to `sim.gold`. Gold never draws from any rng,
   so it cannot shift a run.
 - None in the test room.
 
-Expected gold per run at tier 1 (first estimate; the career check measures it, see section 12):
+Expected gold per run (first estimate; the career check measures it, see section 12):
 3 rooms then leave ~100 + ~30 from selling; 5 rooms ~200 + ~60; a full win ~550-650 + ~110; death 0.
 
 ### Kept and lost
@@ -105,11 +105,10 @@ Nothing is sold in a run, and the merchant does not buy.
 ### Base items
 
 - Stock: one item per entry of `shop.rarities` = [0, 0, 0, 0, 1, 1] (4 commons, 2 magic), all identified, marked `src: 'shop'`.
-- Item level = `1 + shopTier x run.ilvlTier + shop.ilvlAdd` = 2 / 5 / 8, where `shopTier` = the highest tier the class's
-  gear score unlocks (`run.tierGear`). Drops reach ilvl 4 / 7 / 10, so a shop item is always behind the best drops of its tier.
+- Item level = `1 + shop.ilvlAdd` = 2 (difficulty tiers were removed on 2026-11-11; this is what tier 1 gave). Drops reach ilvl 4, so a shop item is always behind the best drops.
 - Slots: any of the 7; a weapon is one of the **class's own** weapon types (equal weight among them), never another class's.
 - Price = `round(sell.base[rarity] x (1 + sell.ilvl x (ilvl - 1)) x shop.buyMult)`, `buyMult` 5:
-  common 19 / 30 / 41, magic 50 / 80 / 110 (shop tier 1 / 2 / 3).
+  common 19, magic 50.
 - A bought item goes into the kept bag (refused when the bag is full: "Bag is full"). A sold-out entry stays empty.
 - Restock: after every run of the class ends (any result) and when the stock is missing (first open, old save).
   Rolled with `new G.RNG(G.hash32(gear.shop.rolls, 7070 + classIndex))` (`classIndex` = index in `G.classIds(B)`), then
@@ -130,7 +129,7 @@ Unlimited, `shop.scroll` 25 gold each, added to `gear.scrolls` (cap `loot.scroll
   `(item.up | 0) < upgrade.max[rarity]` (1, 2, 3, 3, 3). An unidentified item must be identified first.
 - Effect: `ilvl + 1`; on the first upgrade store `ilvl0 = ilvl` and `stats0 = copy of stats`. Each stat becomes
   `stats0[k] x (1 + items.ilvlGrow x (ilvl - 1)) / (1 + items.ilvlGrow x (ilvl0 - 1))`, rounded like `G.rollItem`
-  (regen 1 decimal min 0.1, others whole min 1). `power = ilvl x (2 + rarity)` is recomputed, so gear score, tier unlocks and
+  (regen 1 decimal min 0.1, others whole min 1). `power = ilvl x (2 + rarity)` is recomputed, so gear score and
   room threat (`run.gearK`) follow. `up++`. No rng. A worn item changes at once (stats recomputed in the next run; on the title the
   EQUIPMENT view reads it).
 - Cost = `round(upgrade.cost[rarity] x (1 + upgrade.ilvl x (ilvl - 1)) x (1 + upgrade.grow x up))`, cost = 20, 40, 80, 160, 320.
@@ -170,7 +169,7 @@ Unlimited, `shop.scroll` 25 gold each, added to `gear.scrolls` (cap `loot.scroll
   inventory key / `E`, opens his panel: `sim.openMerchant()`, state `'merchant'`, the run pauses (the scene steps only in `'play'`,
   as for the level-up). Out of range or in another state, nothing happens.
 - **Stock** (per merchant, fixed, no rng): Scroll of Identification `scroll.price` 40 (town 25), stock 3; Healing potion
-  `potion.price` 30, stock 2, heals 40 % of max HP at once (no potion item, no inventory slot). Prices do not scale with tier.
+  `potion.price` 30, stock 2, heals 40 % of max HP at once (no potion item, no inventory slot). Prices do not scale with anything.
 - **Payment**: the run's sealed gold only. A bought scroll goes to `sim.scrolls` (sealed: banked on leave / win, lost on death)
   and counts in `sim.scrollsBought` (not in `scrollsFound`).
 - Panel: run gold, two rows (icon, name, price, "x left", BUY), CLOSE. QA names `merch_scroll`, `merch_potion`, `merch_close`.
@@ -210,7 +209,7 @@ fewer items get identified and worn.
 
 ```
 economy: {
-  gold:    { kill, close, superClose, chest, boss, room[10], tier[3], door, deathKeeps, cap },
+  gold:    { kill, close, superClose, chest, boss, room[10], door, deathKeeps, cap },
   sell:    { base[5], ilvl, unid, min, scroll },
   shop:    { rarities[6], maxRarity, ilvlAdd, buyMult, scroll },
   upgrade: { cost[5], ilvl, grow, max[5] },
@@ -240,8 +239,7 @@ file lists of `tools/build.py`, `tools/sim_bot.js`, `tools/determinism.js` and `
   `G.canUpgrade(item, B)`, `G.rankCost(gear, id, B)` (null at max).
 - `G.sellFromBag(gear, idx, B)` -> gold gained (0 if no item); `G.sellScrolls(gear, n, B)`.
 - `G.bankGold(gear, n, B)` -> amount kept (cap).
-- `G.shopTier(gear, B)`: highest t with `gearScore >= run.tierGear[t]`.
-- `G.restockShop(gear, B, clsId)`: `gear.shop = { rolls, tier, stock: [item|null x6] }` as in section 4.
+- `G.restockShop(gear, B, clsId)`: `gear.shop = { rolls, stock: [item|null x6] }` as in section 4.
   `G.ensureShop(gear, B, clsId)`: restock if `gear.shop` is missing or its stock is malformed.
 - `G.shopBuy(gear, idx, B)` -> item or null (gold, room in the kept bag); `G.shopBuyScroll(gear, B)` -> bool.
 - `G.upgradeItem(item, B)` -> bool (section 4); `G.upgradeAt(gear, where, B)` with `where` = `{ bag: idx }` or `{ slot: key }`
@@ -337,7 +335,7 @@ At the end print:
 - `bestFromDrops: PASS|FAIL`. PASS when the 3 highest-value worn items are all drops, and no worn shop item is worth more than the
   best worn drop. Also print the count of worn shop items (expected 0-2 by run 10) and assert no item of rarity >= 2 has `src: 'shop'`.
 
-Tuning targets (tier 1; tune `economy.gold.*`, prices, then rank costs; within +-50 % of the numbers here, else note it):
+Tuning targets (tune `economy.gold.*`, prices, then rank costs; within +-50 % of the numbers here, else note it):
 - gold earned per run (in run + selling): ~130 for a 3-room run, 500-750 for a win;
 - scrolls found per full run 3-5; scrolls bought 1-5 per run;
 - ranks bought by run 10: 5-12 of 25;
@@ -356,7 +354,7 @@ Test budget (`CLAUDE.md` and the step brief): the determinism check, at most 10 
 - [ ] `python3 tools/build.py` succeeds; `node tools/determinism.js` passes; extend it: seed 3 with a merchant room played twice
       (identical, including gold and purchases).
 - [ ] `node tools/check_bag.js` passes, with new checks: sell prices of the table in section 3; unid price; scroll sell; shop stock
-      rarities and ilvl per tier, own-class weapons only; 200 restocks per class never above `maxRarity`; buy with no gold / full bag
+      rarities and ilvl, own-class weapons only; 200 restocks per class never above `maxRarity`; buy with no gold / full bag
       refused; upgrade (stats, power, cost, max, shop item refused, unidentified refused); ranks (cost curve, cap, stats in
       `computeStats`, not in gear score, not in families); gold banked on leave / win, lost on death, none in the test room;
       door bonus applied to gold; merchant rooms deterministic, never room 0 / boss / test, at most 2; merchant buy (gold,
@@ -400,14 +398,14 @@ Test budget (`CLAUDE.md` and the step brief): the determinism check, at most 10 
 Problem: after steps 6 and 7 careers of 10 runs won 1 / 0 / 0 (mage / warrior / archer), fresh gear 0 / 0 / 1. Causes: too few scrolls
 (few items identified and worn) and a career leave target (start 3, +1 per extraction) that reaches the boss only at run 8, when the gear
 score has already unlocked tier 2. Targets: career first win at run 4-7 and 2-5 wins; fresh gear 0-2 wins; no softlocks; best worn items from drops.
-Not touched (step 10): abilities, monsters, classes, door modifiers, room difficulty, tiers.
+Not touched (step 10): abilities, monsters, classes, door modifiers, room difficulty.
 
 Changes (all numbers in `src/balance.js`):
 - `loot` scroll drops: killScroll 0.002 -> 0.0035, eliteScroll 0.05 -> 0.1, chestScroll 0.06 -> 0.22, superScroll 0.06 -> 0.2 (boss 1 unchanged).
 - `economy.shop.scroll` 25 -> 15; `economy.merchant.scroll.price` 40 -> 25 (sell price 5 unchanged).
 - `economy.rankCost` [60, 140, 260, 420, 620] -> [40, 90, 160, 250, 360] (1500 -> 900 per stat).
 - Bot career policy, `bot.career` new `pushHp` 0.7 and `pushGear` 6 (`src/qa/bot.js` `Bot.canPush`, passed by `tools/sim_bot.js --career`):
-  at the target room the bot goes on when HP >= 70 % and gear score - `run.tierGear[tier]` >= 6 x the next room's number; still leaves
+  at the target room the bot goes on when HP >= 70 % and gear score >= 6 x the next room's number; still leaves
   under `lowHp`. `--leave N` turns pushing off. Fresh-gear runs are unchanged (no target).
 - `tools/check_bag.js` reads the scroll, merchant and rank prices from the balance (scroll drop rates are listed with the new numbers).
 
@@ -428,7 +426,7 @@ run 8; warrior and archer 1 win (runs 5 and 9). 0 softlocks, 0 timeouts in all r
 Scrolls found per career run 6.0 / 5.3 / 3.2, fresh 2.7 / 4.6 / 4.1; gold per career run (earned + sold) 584 / 524 / 343; ranks by run 10 20 / 16 / 15 of 25
 (above the spec's 5-12: intended, ranks add power without raising room threat).
 
-What still limits careers (seen in the logs): the career takes the highest unlocked tier, so after the first win the gear score passes 70 and
+What still limited careers before the tiers were removed (2026-11-11, historical): the career takes the highest unlocked tier, so after the first win the gear score passes 70 and
 the bot plays tier 2, where it leaves hurt at rooms 7-9 or dies (warrior 4 deaths at tier 2); the archer dies in rooms 2-3 in its first 3 runs
 and starts late. Next levers, not tried: a career tier policy (stay on a tier until it is won), `bot.career.startRoom` 2, more scrolls only from
 chests / supers (careers are scroll-limited: round 5 vs 6), or the tier-2 difficulty in step 10.
