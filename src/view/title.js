@@ -11,7 +11,7 @@
       G.hud = null; G.gameScene = null; G.paused = false;
       if (G.runSeed == null) G.runSeed = G.params.has('seed') ? (parseInt(G.params.get('seed'), 10) >>> 0) : ((Date.now() ^ (Math.random() * 1e9)) >>> 0) % 1000000;
       if (G.tier == null) G.tier = 0;
-      if (G.cls == null) G.cls = G.classDef(G.BAL, G.params.get('class')).id;
+      if (G.cls == null) G.cls = G.classDef(G.BAL, G.params.get('class') || (G.save && G.save.settings.cls)).id;
       this.scene.launch('backdrop');
       this.scene.bringToTop();
       this.L = null;
@@ -62,7 +62,7 @@
       // practice: one room with the crack network, restarted on every clear (also ?scene=game&room=test)
       L.button(cx - 76, y, 152, 20, 'TEST ROOM (PRACTICE)', function () { if (self.input.activePointer.wasTouch) G.touch = true; self.start(true); }, { name: 'title_test', color: 'ui_good' });
       y += tall ? 28 : 25;
-      var help = G.touch ? ['Drag to move.  Buttons: dodge, pulse.'] : (V.W >= 300 ? ['WASD move    SPACE dodge    Q pulse    I inventory'] : ['WASD move   SPACE dodge', 'Q pulse   I inventory']);
+      var sk = G.classDef(G.BAL, G.cls).skill.name.toLowerCase(), help = G.touch ? ['Drag to move.  Buttons: dodge, ' + sk + '.'] : (V.W >= 300 ? ['WASD move    SPACE dodge    Q ' + sk + '    I inventory'] : ['WASD move   SPACE dodge', 'Q ' + sk + '   I inventory']);
       help.forEach(function (line, i) { if (y + i * 10 < V.H - 12) UI.centerX(L.text(0, y + i * 10, line, 'ui_dim'), cx); });
       this.refresh();
     },
@@ -74,6 +74,7 @@
     setClass: function (d) {
       var ids = G.classIds(G.BAL), i = ids.indexOf(G.cls);
       G.cls = ids[(i + d + ids.length) % ids.length];
+      if (G.save) { G.save.settings.cls = G.cls; G.storeSave(G.save); }   // the choice survives the session
       this.refresh();
     },
     refresh: function () {

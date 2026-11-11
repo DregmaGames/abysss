@@ -38,17 +38,32 @@
   S.swing = function (best) {
     var p = this.player, s = this.stats, C = this.cls, A = C.attack, i;
     var dx = best.x - p.x, dy = best.y - p.y, l = Math.sqrt(dx * dx + dy * dy) || 1, ux = dx / l, uy = dy / l;
-    var cosHalf = G.M.cos(A.arc / 2), crit = this.rngCombat.chance(s.crit), dmg = s.dmg * (crit ? C.base.critMult : 1);
-    this.emit({ t: 'swing', x: p.x, y: p.y, a: G.M.atan2(uy, ux), arc: A.arc, r: s.range, crit: crit });
+    var W = G.weaponOf(C, this.gear), arc = W ? W.arc : A.arc, kn = W ? W.knock : A.knock, kne = W ? W.knockElite : A.knockElite;
+    var cosHalf = G.M.cos(arc / 2), crit = this.rngCombat.chance(s.crit), dmg = s.dmg * (crit ? C.base.critMult : 1);
+    this.emit({ t: 'swing', x: p.x, y: p.y, a: G.M.atan2(uy, ux), arc: arc, r: s.range, crit: crit, w: W ? W.id : null });
     for (i = this.monsters.length - 1; i >= 0; i--) {
       var m = this.monsters[i];
       if (m.dead) continue;
       var mx = m.x - p.x, my = m.y - p.y, d = Math.sqrt(mx * mx + my * my) || 0.01;
       if (d - m.r > s.range) continue;
       if (m !== best && (mx * ux + my * uy) / d < cosHalf) continue;
-      var k = m.def.boss ? 0 : (m.def.elite ? A.knockElite : A.knock);
+      var k = m.def.boss ? 0 : (m.def.elite ? kne : kn);
       m.kx += mx / d * k; m.ky += my / d * k;
       this.damageMonster(m, dmg, crit);
+    }
+  };
+
+  // the warrior's charge: every monster the dash touches is shoved along the dash once and takes a hit
+  S.chargeHit = function (D) {
+    var p = this.player, i, m;
+    for (i = this.monsters.length - 1; i >= 0; i--) {
+      m = this.monsters[i];
+      if (m.dead || p.dashHit[m.id] || dist(m, p) > p.r + m.r + 3) continue;
+      p.dashHit[m.id] = true;
+      var k = m.def.boss ? 0 : (m.def.elite ? 0.4 : 1);
+      m.kx += p.dashX * D.knock * k; m.ky += p.dashY * D.knock * k;
+      this.emit({ t: 'bump', x: m.x, y: m.y });
+      if (D.hit) this.damageMonster(m, this.stats.dmg * D.hit, false);
     }
   };
 
@@ -125,7 +140,7 @@
     this.emit({ t: 'drop', x: nx, y: ny, kind: kind, rarity: item ? item.rarity : 2 });
   };
   S.spawnItem = function (x, y, luck) {
-    this.spawnDrop('item', x, y, G.rollItem(this.rngRoom, this.ilvl, luck, this.B, this.gear));
+    this.spawnDrop('item', x, y, G.rollItem(this.rngRoom, this.ilvl, luck, this.B, this.gear, this.cls));
   };
 
   // direction a monster walks to reach the player: straight when it can see them, else along the

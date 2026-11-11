@@ -58,7 +58,7 @@
     }
     function cell(x, y, item, slotKey, sel, name) {
       var bg = L.image(x + 10, y + 10, item ? 'rar_' + item.rarity : 'slot', 1);
-      var ic = L.image(x + 10, y + 10, 'i_' + (item ? item.slot : slotKey || 'bag'), 2);
+      var ic = L.image(x + 10, y + 10, (item ? G.itemIcon(item) : 'i_' + (slotKey || 'bag')), 2);
       if (!item) { ic.setAlpha(slotKey ? 0.22 : 0); }
       if (P.sel && P.sel.kind === sel.kind && P.sel.key === sel.key) L.image(x + 10, y + 10, 'select', 3);
       if (item || slotKey) {
@@ -75,7 +75,7 @@
     var gsc = G.gearScore(g), rows = [['Gear', '' + gsc, gsc > 0], ['HP', fmt(stats.maxHp), stats.maxHp > base.maxHp], ['Armor', fmt(stats.armor), stats.armor > base.armor],
       ['Damage', fmt(stats.dmg, 1), stats.dmg > base.dmg], ['Atk/s', fmt(1 / stats.atkInterval, 2), stats.atkInterval < base.atkInterval],
       ['Crit', fmt(stats.crit * 100) + '%', stats.crit > base.crit], ['Move', fmt(stats.speed), stats.speed > base.speed],
-      ['Range', fmt(stats.range), stats.range > base.range], ['Pulse', fmt(stats.pulseDmg), stats.pulseDmg > base.pulseDmg],
+      ['Range', fmt(stats.range), stats.range > base.range], [G.classDef(B, cls).skill.name, fmt(stats.pulseDmg), stats.pulseDmg > base.pulseDmg],
       ['Regen', fmt(stats.regen, 1) + '/s', stats.regen > base.regen]];
     var sx = wide ? x0 + 8 : x0 + 8 + 72, sy = wide ? dy + 70 : dy, sw = wide ? 66 : pw - 88, maxRows = wide ? Math.floor((ph - 96) / 10) : 7;
     if (!wide) sy -= 2;
@@ -101,7 +101,7 @@
     } else {
       var col = UI.RARITY[item.rarity], ty = iy + 5;
       var nm = L.text(ix + 5, ty, item.name, col).setMaxWidth(iw - 10); ty += nm.height + 3;
-      L.text(ix + 5, ty, UI.RARITY_NAME[item.rarity] + ' ' + G.SLOT_NAME[item.slot], col); ty += 10;
+      L.text(ix + 5, ty, UI.RARITY_NAME[item.rarity] + ' ' + (item.wtype ? item.wtype.charAt(0).toUpperCase() + item.wtype.slice(1) : G.SLOT_NAME[item.slot]), col); ty += 10;
       L.text(ix + 5, ty, 'Item level ' + item.ilvl, 'ui_dim'); ty += 12;
       // each stat, and the change against what is equipped in that slot
       var cur = sl.kind === 'bag' ? g.equipped[item.slot] : null;

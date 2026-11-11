@@ -10,8 +10,25 @@ Design decisions live in the plan doc (the user has it); this file is what an ag
   on branch `step-3-classes`.
 - User feedback on step 2 (2026-11-11): played the test room and approved it; crossing cracks with
   the dodge feels good.
-- Next: step 4 (the warrior, a melee class). Classes are data: `docs/classes.md`.
+- Step 4 (warrior, four weapon types) on branch `step-4-warrior`. Next: the archer (separate step). Classes are data: `docs/classes.md`.
 - `main` is the working base. One branch per step: `step-N-<slug>`.
+
+## Last measured (2026-11-11, step 4: warrior)
+
+- Warrior: HP 250, dmg 32, speed 74, swing reach 30 px (+ weapon), arc melee on a cooldown; dodge = charge
+  (58 px, crosses cracks, shoves and hits what it touches: `dodge.knock`, `dodge.hit`); skill = Shockwave
+  (pulse kind, radius 46). Iron-grey knight with red plume and gold shield; the weapon is its own sprite.
+- Weapon types (`BAL.classes.warrior.weapons`): sword (fast), axe (more dmg), mace (knockback), hammer
+  (slowest, most dmg, wide arc). The weapon item's `wtype` picks it; none equipped = sword. Warrior weapon
+  drops roll a type (one extra rng draw, only for classes with `weapons`). `G.weaponOf`, `G.itemIcon`.
+  `weaponForce` in the class entry forces a type for QA: `--set 'classes.warrior.weaponForce="axe"'`.
+- Mage `sim_bot --seeds 1-10 --json` identical before/after (5 wins: 1, 2, 4, 7, 8). Determinism passes.
+- Warrior bot seeds 1-10: 3 wins (4, 7, 9), no softlocks, worst stuck 16 s. Forced type: sword 3, axe 3,
+  mace 2, hammer 3 wins. Browser bot seeds 3,4,5 (`qa/bot.js --class warrior`): 1 win (4), 0 errors,
+  0 softlocks, all match Node.
+- Bot melee: closes to 0.6 x reach, charges at ranged and elite monsters, keep-away 0.8. Passive names and
+  skill name are per class (`passiveNames`, `skill.name`); the class choice is saved in `settings.cls`.
+- Not run: `qa/screens.js`, `qa/session.js`, `qa/test_room.js` (test room with the warrior not checked).
 
 ## Last measured (2026-11-11, step 3)
 
@@ -45,10 +62,10 @@ Design decisions live in the plan doc (the user has it); this file is what an ag
 
 ## Still rough
 
-- Step 3: the melee attack (`attack.kind: 'arc'`) has only a placeholder view (sparks along the
-  arc) and no tuning; the bot treats melee like the mage (orbits at 0.72 x reach, `bot.keep` scales
-  its keep-away). Passive names are mage-flavoured (Arcane Power, Split Bolt). HUD skill button and
-  input are still called `pulse`. The class picker is not saved between sessions (`G.cls`).
+- Step 4: warrior swing art is sparks plus a rotating held weapon (no slash sprite); weapon types are
+  balanced by 10-seed bot runs only (noise). HUD skill button and input are still called `pulse`. Item
+  names shown for a warrior weapon do not say the type in the stat line beyond the name. The bot does
+  not choose weapons by type.
 - Test room is room index 1 (`run.testRoom`) from level 1. The Node bot dies in it in about 12 s
   on 2 of 10 seeds; the rest clear it in 38-57 s. Clearing keeps level, passives and loot.
 - Headless Chromium runs the game at about 4 fps, so feel (hop timing, arc fade) is unverified.

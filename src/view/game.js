@@ -16,7 +16,7 @@
       G.screen = 'game';
       if (G.runSeed == null) G.runSeed = P.has('seed') ? parseInt(P.get('seed'), 10) >>> 0 : 1;
       if (G.tier == null) G.tier = P.has('tier') ? parseInt(P.get('tier'), 10) || 0 : 0;
-      if (G.cls == null) G.cls = G.classDef(G.BAL, P.get('class')).id;   // ?class=<id>, or the title's class picker
+      if (G.cls == null) G.cls = G.classDef(G.BAL, P.get('class') || (G.save && G.save.settings.cls)).id;   // ?class=<id>, or the title's class picker
       // debug panel toggles (src/view/panels.js): kept for the whole browser session, across runs
       G.cheats = G.cheats || { god: false, noCd: false, speed: 1 };
       G.debug = P.get('debug') !== '0' && P.get('bot') !== '1';    // ?debug=0 hides the debug button
@@ -36,6 +36,9 @@
       this.hop = null; this.arc = []; this.bumpT = 0; this.bumpX = 0; this.bumpY = 0; this.blockN = 0;
       this.player = this.add.image(0, 0, 'atlas', C.sprite.frames + '_0').setOrigin(0.42, 1);
       this.playerShadow = this.add.image(0, 0, 'atlas', 'shadow_s').setDepth(-100);
+      // a class with weapon types holds its weapon as its own sprite (frame w_<type>), swung on the 'swing' event
+      this.weaponImg = C.weapons ? this.add.image(0, 0, 'atlas', 'w_' + G.weaponOf(C, this.sim.gear).id).setOrigin(0.5, 0.9) : null;
+      this.swingT = 0;
       this.playerGlow = this.add.image(0, 0, 'atlas', 'glow').setDepth(-640).setBlendMode(ADD).setTint(UI.hex(C.sprite.glow)).setAlpha(0.14);
       this.chest = this.add.image(0, 0, 'atlas', 'chest_closed').setOrigin(0.5, 1);
       this.chestGlow = this.add.image(0, 0, 'atlas', 'glow_s').setDepth(-640).setBlendMode(ADD).setTint(UI.hex('gold')).setAlpha(0);
@@ -136,24 +139,31 @@
             break;
           case 'spawn': fx.burst(e.x, e.y, 'rg3', 6, 50, 0.3); fx.ring(e.x, e.y, 2, 9, 0.25, 'rg2', 0.6); break;
           case 'pulse':
-            fx.ring(e.x, e.y, 6, e.r, 0.28, 'orb_c'); fx.ring(e.x, e.y, 2, e.r - 8, 0.34, 'orb'); fx.ring(e.x, e.y, 2, e.r - 18, 0.4, 'mb2');
-            fx.burst(e.x, e.y, 'orb', 16, 150, 0.3);
-            fx.shake(0.3);
+            var pf = this.cls.sprite.fx || ['orb_c', 'orb', 'mb2'];
+            fx.ring(e.x, e.y, 6, e.r, 0.28, pf[0]); fx.ring(e.x, e.y, 2, e.r - 8, 0.34, pf[1]); fx.ring(e.x, e.y, 2, e.r - 18, 0.4, pf[2]);
+            fx.burst(e.x, e.y, pf[1], 16, 150, 0.3);
+            fx.shake(this.cls.attack.kind === 'arc' ? 0.5 : 0.3);
             break;
           case 'swing':
-            // melee class: sparks along the swept arc (placeholder until the class has its own art)
-            for (var sa = -3; sa <= 3; sa++) {
-              var ang = e.a + sa / 6 * e.arc;
-              fx.spark(e.x + Math.cos(ang) * e.r * 0.8, e.y - 4 + Math.sin(ang) * e.r * 0.8, e.crit ? 'ui_warn' : 'ui_text', 0.16);
+            this.swingT = 9;
+            // melee: a crescent of sparks swept along the arc (leading edge bright), a nick of shake on a crit
+            var sc = this.cls.sprite.slash || 'ui_text';
+            for (var sr = 0; sr < 2; sr++) for (var sa = -5; sa <= 5; sa++) {
+              var ang = e.a + sa / 10 * e.arc, rr = e.r * (sr ? 0.62 : 0.95) + 5;
+              fx.spark(e.x + Math.cos(ang) * rr, e.y - 4 + Math.sin(ang) * rr, e.crit ? 'ui_warn' : (Math.abs(sa) > 3 && !sr ? 'white' : sc), 0.14 + Math.abs(sa) * 0.012);
             }
+            if (e.crit) fx.shake(0.25);
+            break;
+          case 'bump':
+            fx.burst(e.x, e.y, 'ui_dim', 4, 50, 0.2);
             break;
           case 'dodge':
-            fx.burst(e.x, e.y, 'mb3', 8, 50, 0.3); this.dashTrail = 10;
+            fx.burst(e.x, e.y, this.cls.sprite.dash, 8, 50, 0.3); this.dashTrail = 10;
             // across an open crack: the mage hops in an arc and leaves a dotted trail of it
             if (e.cross) { this.hop = { dur: e.dur }; this.planArc(e); }
             break;
           case 'land':
-            if (e.cross) { fx.burst(e.x, e.y + 5, 'ui_dim', 6, 40, 0.3); fx.ring(e.x, e.y + 5, 2, 10, 0.25, 'mb3', 0.5); }
+            if (e.cross) { fx.burst(e.x, e.y + 5, 'ui_dim', 6, 40, 0.3); fx.ring(e.x, e.y + 5, 2, 10, 0.25, this.cls.sprite.dash, 0.5); }
             break;
           case 'blocked':
             // pushing into an open crack: sparks where the mage touches it, the lip flares, the mage recoils
@@ -176,7 +186,7 @@
           case 'drop': fx.burst(e.x, e.y, UI.RARITY[e.rarity], 8, 50, 0.5); break;
           case 'pickup': fx.burst(this.sim.player.x, this.sim.player.y, e.item ? UI.RARITY[e.item.rarity] : 'tome2', 10, 60, 0.4); break;
           case 'room': this.buildRoom(); this.cameras.main.fadeIn(300, 7, 6, 11); break;
-          case 'dead': fx.shake(1); fx.burst(this.sim.player.x, this.sim.player.y, 'mb2', 36, 120, 0.9); break;
+          case 'dead': fx.shake(1); fx.burst(this.sim.player.x, this.sim.player.y, this.cls.sprite.glow, 36, 120, 0.9); break;
         }
         if (G.hud) G.hud.onEvent(e);
       }
@@ -199,6 +209,13 @@
       if (this.bumpT > 0) { this.bumpT--; bx = Math.round(this.bumpX); by = Math.round(this.bumpY); }
       this.player.setPosition(p.x + bx, p.y + p.r + 1 - lift + by).setDepth(p.y + p.r + (lift ? 400 : 0));
       this.playerShadow.setPosition(p.x, p.y + p.r).setScale(1 - lift / (HOP_H * 2.5));
+      if (this.weaponImg) {
+        var wi = this.weaponImg, wd = G.weaponOf(this.cls, sim.gear).id;
+        if (this.swingT > 0) this.swingT--;
+        var wa = this.swingT > 0 ? -1.0 + 2.7 * (1 - this.swingT / 9) : 0.3;
+        wi.setFrame('w_' + wd).setFlipX(p.face < 0).setRotation(p.face * wa).setAlpha(this.player.alpha)
+          .setPosition(p.x + bx + p.face * 5, p.y + p.r + 1 - lift + by - 11).setDepth(p.y + p.r + (lift ? 400 : 0) + 0.5).setVisible(sim.state !== 'dead');
+      }
       this.drawArc();
       this.playerGlow.setPosition(p.x, p.y);
       this.player.setVisible(sim.state !== 'dead');
@@ -206,7 +223,7 @@
       else if (p.dashT > 0) this.player.setTintFill(UI.hex(this.cls.sprite.dash));
       else this.player.clearTint();
       this.player.setAlpha(p.iframes > 0 && p.dashT <= 0 && (tick >> 2) % 2 ? 0.45 : 1);
-      if (this.dashTrail > 0) { this.dashTrail--; if (tick % 2 === 0) this.fx.burst(p.x, p.y, 'mb2', 2, 10, 0.25); }
+      if (this.dashTrail > 0) { this.dashTrail--; if (tick % 2 === 0) this.fx.burst(p.x, p.y, this.cls.sprite.glow, 2, 10, 0.25); }
 
       this.list('monsters', sim.monsters, function (m) {
         var s = self.add.image(m.x, m.y, 'atlas', m.type + '_0').setOrigin(0.5, 1);
@@ -240,7 +257,7 @@
       this.list('orbs', sim.orbs, function (o) { return self.add.image(o.x, o.y, 'atlas', o.kind === 'exp' ? 'orb_exp' : 'orb_heal').setDepth(-50); },
         function (s, o) { s.setPosition(o.x, o.y + (((tick >> 3) + o.id) % 4 === 0 ? -1 : 0)); });
       this.list('drops', sim.drops, function (d) {
-        var s = self.add.image(d.x, d.y, 'atlas', d.kind === 'tome' ? 'i_tome' : 'i_' + d.item.slot).setDepth(d.y);
+        var s = self.add.image(d.x, d.y, 'atlas', d.kind === 'tome' ? 'i_tome' : G.itemIcon(d.item)).setDepth(d.y);
         s.sh = self.add.image(d.x, d.y + 8, 'atlas', 'shadow_s').setDepth(-100);
         s.rar = d.item ? d.item.rarity : 3;
         s.gl = self.add.image(d.x, d.y, 'atlas', 'glow_s').setDepth(-640).setBlendMode(ADD).setTint(UI.hex(d.item ? UI.RARITY[s.rar] : 'tome1')).setAlpha(0.6);
@@ -292,7 +309,7 @@
       if (!this.hop && this.arcLife > 0) this.arcLife--;
       g.clear();
       if (!a.length || (!this.hop && this.arcLife <= 0)) { a.length = 0; return; }
-      var alpha = this.hop ? 0.9 : 0.9 * this.arcLife / ARC_LIFE, c = UI.hex('mb3'), c2 = UI.hex('mb2');
+      var alpha = this.hop ? 0.9 : 0.9 * this.arcLife / ARC_LIFE, c = UI.hex(this.cls.sprite.dash), c2 = UI.hex(this.cls.sprite.glow);
       for (i = 0; i < a.length; i++) {
         g.fillStyle((i >> 1) % 2 ? c2 : c, alpha);
         g.fillRect(a[i].x, a[i].y, 1, 1);

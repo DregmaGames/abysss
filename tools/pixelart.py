@@ -209,6 +209,46 @@ abbbbbbbbbba
 ...SSSSS....
 ''', L)))
 
+    # --- the warrior: iron armour, red plume, gold-rimmed shield (faces right; the weapon is its own sprite, w_<type>)
+    L = 'a=iron0 b=iron1 c=iron2 d=iron3 r=blood R=ir3 g=gold G=gold_d s=skin S=skin_d E=outline w=wood W=wood_d k=boot'
+    wbody = '''
+.....rr.........
+....rRRr........
+....abbba.......
+...abccccba....
+...abccccba....
+...aEEEEEEa....
+...abSssSba....
+....abbbba.....
+.aabccccccbaa...
+GgggabbbbbbaS...
+GgccabbbbbbbsS..
+GgccabgggggbaS..
+Ggcgabbbbbbbaa..
+.Gggabbbbbbba...
+..GGabbbbbbba...
+...aabbbbbbaa...
+....abbbbbba....
+....abbaabba....
+....aabbbbaa....
+.....aaaaaa.....
+'''
+    wfeet = ['''
+..kk....kk......
+..kk....kk......
+''', '''
+..kk.....kk.....
+.kk.......k.....
+''', '''
+...kk..kk.......
+...k....kk......
+''']
+    for i, f in enumerate(wfeet):
+        im = parse(wbody.strip('\n') + '\n' + f.strip('\n'), L)
+        if i:
+            im = bob(im, 2) if i == 1 else im
+        add('warrior_%d' % i, outline(im))
+
     # --- imp: small red demon, the fast melee swarm
     L = 'a=ir0 b=ir1 c=ir2 d=ir3 h=horn H=horn_d Y=eye_y K=outline T=tooth'
     imp = parse('''
@@ -678,6 +718,95 @@ abcBBggBBcba
     }
     for k, a in art.items():
         add('i_' + k, outline(parse(a, L)))
+
+    # --- warrior weapons: held sprites (w_<type>, blade up, grip at the bottom) and inventory icons
+    L = 'b=iron1 c=iron2 d=iron3 g=gold G=gold_d w=wood W=wood_d r=blood'
+    W = {
+        'sword': '''
+..d..
+..d..
+..d..
+..d..
+..d..
+..c..
+..c..
+.ggg.
+..w..
+..w..
+..G..
+''',
+        'axe': '''
+..wddd
+..wcdd
+..wcdc
+..wcc.
+..w...
+..w...
+..w...
+..w...
+..W...
+..G...
+''',
+        'mace': '''
+..c..
+.cdc.
+cdddc
+.cdc.
+..w..
+..w..
+..w..
+..w..
+..W..
+..G..
+''',
+        'hammer': '''
+ccddddc
+cddddcb
+cccccbb
+...w...
+...w...
+...w...
+...w...
+...W...
+...G...
+''',
+    }
+    for k, a in W.items():
+        add('w_' + k, outline(parse(a, L)))
+
+    def icon(name, draw):
+        im = blank(12, 12)
+        def px(x, y, key):
+            if 0 <= x < 12 and 0 <= y < 12:
+                im.putpixel((x, y), rgb(key))
+        draw(px)
+        add('i_weapon_' + name, outline(im))
+    def shaft(px, x0, y0, x1, y1, key='wood'):
+        n = max(abs(x1 - x0), abs(y1 - y0))
+        for i in range(n + 1):
+            px(x0 + (x1 - x0) * i // n, y0 + (y1 - y0) * i // n, key)
+    def sword(px):
+        for t in range(4, 11):
+            px(t, 11 - t, 'iron3'); px(t - 1, 11 - t, 'iron2')
+        px(10, 0, 'iron3'); px(2, 7, 'gold'); px(3, 8, 'gold'); px(4, 9, 'gold')
+        px(2, 9, 'wood'); px(1, 10, 'wood'); px(0, 11, 'gold_d')
+    def axe(px):
+        shaft(px, 1, 10, 8, 3); px(0, 11, 'gold_d')
+        for x, y, k in [(7, 1, 'iron3'), (8, 1, 'iron3'), (9, 2, 'iron3'), (10, 3, 'iron3'), (6, 2, 'iron2'), (7, 2, 'iron3'), (8, 2, 'iron3'),
+                        (9, 3, 'iron2'), (7, 3, 'iron2'), (8, 4, 'iron2'), (9, 4, 'iron2'), (10, 4, 'iron1'), (9, 5, 'iron1')]:
+            px(x, y, k)
+    def mace(px):
+        shaft(px, 1, 10, 7, 4); px(0, 11, 'gold_d')
+        for x, y, k in [(8, 1, 'iron2'), (7, 2, 'iron2'), (8, 2, 'iron3'), (9, 2, 'iron2'), (10, 3, 'iron1'), (6, 3, 'iron1'),
+                        (7, 3, 'iron3'), (8, 3, 'iron2'), (9, 3, 'iron2'), (7, 4, 'iron2'), (8, 4, 'iron2'), (9, 4, 'iron1'), (8, 5, 'iron1'), (8, 0, 'iron1'), (10, 1, 'iron1')]:
+            px(x, y, k)
+    def hammer(px):
+        shaft(px, 1, 10, 7, 4); px(0, 11, 'gold_d')
+        for y in range(0, 4):
+            for x in range(5, 12):
+                if 0 <= x - y - 4 <= 6:
+                    px(x, y, 'iron3' if y == 0 else ('iron2' if y < 3 else 'iron1'))
+    icon('sword', sword); icon('axe', axe); icon('mace', mace); icon('hammer', hammer)
 
     L = 'r=hp R=hp_d w=white'
     add('heart', outline(parse('''

@@ -15,6 +15,8 @@ names a class, so adding one is data plus art, and code only for a new attack or
 | `skill` | The active button. `kind: 'pulse'` (`dmg`, `radius`, `cd`, `knock`) is the only kind today. |
 | `sprite` | `frames`: atlas prefix, the game uses `<frames>_0`, `_1`, `_2` (idle, two walk frames). `glow` and `dash`: palette keys for the floor glow and the dodge tint. |
 | `passives` | The level-up pool, ids from `BAL.passives`, in roll order. The order is part of the run: reordering it changes every seed. |
+| `weapons`, `defaultWeapon` | Optional weapon types (melee): per type `dmg`, `atk` (interval multiplier), `reach` (px), `arc`, `knock`, `knockElite`, `name`, `item` (item name). The weapon item's `wtype` picks one; art `w_<type>` (held) and `i_weapon_<type>` (icon). |
+| `passiveNames` | Per-class passive display names. |
 | `bot` | QA bot hints: `keep` multiplies its keep-away distances (1 = kite like the mage, lower = stand closer), `pick` is its passive preference. |
 
 ## How the sim uses it

@@ -44,6 +44,15 @@
     if (!C.id) C.id = id;
     return C;
   };
+  // the weapon type table entry (with its id) a class swings with: from the equipped weapon item's
+  // `wtype`, else the class's default. null for a class without weapon types.
+  G.weaponOf = function (C, gear) {
+    if (!C.weapons) return null;
+    var it = gear && gear.equipped && gear.equipped.weapon, id = C.weaponForce || (it && it.wtype);
+    if (!C.weapons[id]) id = C.defaultWeapon;
+    var W = C.weapons[id]; if (!W.id) W.id = id;
+    return W;
+  };
   G.classIds = function (B) { return Object.keys(B.classes); };
 
   // derived stats = class base + gear + passives (pure; also used by the inventory screen outside a run)
@@ -55,6 +64,8 @@
     s.atkInterval = P.atkInterval / (1 + v('atkPct') / 100);
     s.speed = P.speed * (1 + Math.min(cap.movePct, v('movePct')) / 100);
     s.range = P.range * (1 + v('rangePct') / 100);
+    var W = G.weaponOf(C, gear);      // melee weapon type: damage, speed and reach
+    if (W) { s.dmg *= W.dmg; s.atkInterval *= W.atk; s.range += W.reach; }
     s.crit = Math.min(cap.crit, P.crit * 100 + v('crit')) / 100;
     s.armor = v('armor');
     s.pulseDmg = C.skill.dmg * (1 + v('pulsePct') / 100);
@@ -186,7 +197,7 @@
       p.dashT = D.time; p.dashX = p.fx; p.dashY = p.fy;
       p.iframes = Math.max(p.iframes, D.iframes);
       p.dodgeCd = s.dodgeCd;
-      p.dashOver = false;
+      p.dashOver = false; p.dashHit = {};
       // cross: the dash line runs over an open crack (the view draws the hop arc)
       var cross = this.crackLit > 0 && this.crackOnLine(p.x, p.y, p.x + p.dashX * D.dist, p.y + p.dashY * D.dist, p.r);
       this.emit({ t: 'dodge', x: p.x, y: p.y, dx: p.dashX, dy: p.dashY, cross: cross, dur: D.time });
@@ -196,6 +207,7 @@
       var sp = D.dist / D.time * dt;
       this.move(p, p.dashX * sp, p.dashY * sp);
       if (!p.dashOver && this.crackHits(p.x, p.y, p.r)) p.dashOver = true;
+      if (D.knock) this.chargeHit(D);
       p.dashT -= dt;
       if (p.dashT <= 0) this.emit({ t: 'land', x: p.x, y: p.y, cross: p.dashOver });
     } else if (p.moving) {

@@ -18,8 +18,10 @@
     return rng.weighted(w);
   };
 
-  G.rollItem = function (rng, ilvl, luck, B, gear) {
+  G.rollItem = function (rng, ilvl, luck, B, gear, cls) {
     var I = B.items, slot = rng.pick(ITEM_SLOTS), rarity = G.rollRarity(rng, luck, B);
+    // a class with weapon types rolls one for its weapon drops (one extra draw; classes without them draw nothing)
+    var wtype = slot === 'weapon' && cls && cls.weapons ? rng.pick(Object.keys(cls.weapons)) : null;
     var pool = Object.keys(I.stat), imp = I.implicit[slot], stats = {}, keys = [imp];
     pool = pool.filter(function (k) { return k !== imp; });
     rng.shuffle(pool);
@@ -28,9 +30,14 @@
       var v = I.stat[k] * (1 + I.ilvlGrow * (ilvl - 1)) * I.rarityMult[rarity] * rng.range(0.85, 1.15);
       stats[k] = k === 'regen' ? Math.max(0.1, Math.round(v * 10) / 10) : Math.max(1, Math.round(v));
     });
-    var name = (rarity === 0 ? 'Worn ' : PREFIX[keys[1]] + ' ') + BASE_NAME[slot];
-    return { id: gear.nextId++, slot: slot, rarity: rarity, ilvl: ilvl, name: name, stats: stats, power: ilvl * (2 + rarity) };
+    var name = (rarity === 0 && !wtype ? 'Worn ' : (rarity === 0 ? '' : PREFIX[keys[1]] + ' ')) + (wtype ? cls.weapons[wtype].item : BASE_NAME[slot]);
+    var it = { id: gear.nextId++, slot: slot, rarity: rarity, ilvl: ilvl, name: name, stats: stats, power: ilvl * (2 + rarity) };
+    if (wtype) it.wtype = wtype;
+    return it;
   };
+
+  // atlas frame of an item's icon: a typed weapon has its own
+  G.itemIcon = function (item) { return 'i_' + (item.wtype ? 'weapon_' + item.wtype : item.slot); };
 
   // usefulness of an item (bot equip decisions, "better/worse" hint in the UI)
   G.itemValue = function (item, B) {

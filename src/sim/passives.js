@@ -5,8 +5,8 @@
     ward: 'Warding', pierce: 'Piercing Bolt', multi: 'Split Bolt', leech: 'Soul Leech' };
   G.PASSIVE_RARITY = ['Common', 'Rare', 'Epic'];
   G.PASSIVE_COLOR = ['r_common', 'r_rare', 'r_epic'];
-  G.passiveInfo = function (id, B) {
-    var d = B.passives[id], desc;
+  G.passiveInfo = function (id, B, clsId) {
+    var d = B.passives[id], desc, C = clsId ? G.classDef(B, clsId) : null;
     switch (id) {
       case 'power': desc = '+' + d.dmgPct + '% damage'; break;
       case 'haste': desc = '+' + d.atkPct + '% attack speed'; break;
@@ -16,14 +16,14 @@
       case 'wisdom': desc = '+' + d.expPct + '% EXP gain'; break;
       case 'regen': desc = '+' + d.regen + ' HP per second'; break;
       case 'crit': desc = '+' + d.crit + '% crit chance'; break;
-      case 'pulse': desc = '+' + d.pulsePct + '% pulse damage, -' + d.pulseCdPct + '% cooldown'; break;
+      case 'pulse': desc = '+' + d.pulsePct + '% ' + (C ? C.skill.name.toLowerCase() : 'pulse') + ' damage, -' + d.pulseCdPct + '% cooldown'; break;
       case 'blink': desc = '-' + d.dodgeCdPct + '% dodge cooldown'; break;
       case 'ward': desc = '+' + d.armor + ' armor'; break;
       case 'pierce': desc = 'Bolts pierce +' + d.pierce + ' enemy'; break;
       case 'multi': desc = '+' + d.multi + ' side bolt'; break;
       case 'leech': desc = 'Heal ' + d.leech + ' HP per kill'; break;
     }
-    return { id: id, name: NAME[id], desc: desc, rarity: d.rarity, max: d.max };
+    return { id: id, name: (C && C.passiveNames && C.passiveNames[id]) || NAME[id], desc: desc, rarity: d.rarity, max: d.max };
   };
 
   // up to 3 distinct passives that are not at max level, from the class pool (default: all, table order)

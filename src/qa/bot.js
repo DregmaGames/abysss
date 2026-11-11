@@ -9,7 +9,7 @@
 
   function Bot(sim) {
     // class hints (BAL.classes.<id>.bot): keep-away multiplier and passive preference
-    this.keep = sim.cls.bot.keep; this.pick = sim.cls.bot.pick;
+    this.melee = sim.cls.attack.kind === 'arc'; this.keep = sim.cls.bot.keep; this.pick = sim.cls.bot.pick;
     this.sim = sim; this.room = null; this.field = null; this.goalTile = -1; this.orbit = 1;
     this.thinkTick = -999; this.mx = 0; this.my = 0; this.wantDodge = false; this.wantPulse = false;
   }
@@ -115,7 +115,12 @@
     // goal
     var g = null, gw = 1;
     if (nearest) {
-      if (nd > s.range * 0.72 || !sim.los(p.x, p.y, nearest.x, nearest.y)) g = this.pathDir(nearest.x, nearest.y);
+      if (this.melee) {   // melee: close to swing reach and stay in the arc; charge at what keeps its distance
+        if (nd > s.range * 0.6 || !sim.los(p.x, p.y, nearest.x, nearest.y)) {
+          g = this.pathDir(nearest.x, nearest.y);
+          if (nd > 40 && (nearest.def.ai === 'ranged' || nearest.def.ai === 'elite') && p.dodgeCd <= 0 && !urgent) dodge = true;
+        } else { var hx = nearest.x - p.x, hy = nearest.y - p.y, hl = Math.sqrt(hx * hx + hy * hy) || 1; g = { x: hx / hl, y: hy / hl }; gw = 0.25; }
+      } else if (nd > s.range * 0.72 || !sim.los(p.x, p.y, nearest.x, nearest.y)) g = this.pathDir(nearest.x, nearest.y);
       else {   // in range: circle the target so shots miss
         var ox = nearest.x - p.x, oy = nearest.y - p.y, ol = Math.sqrt(ox * ox + oy * oy) || 1;
         if (sim.tick % 240 === 0) this.orbit = -this.orbit;

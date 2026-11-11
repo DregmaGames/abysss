@@ -173,7 +173,7 @@
       UI.centerX(m.text(0, m.y + 7, sim.choiceTome ? 'ABILITY TOME' : 'LEVEL ' + sim.player.level, 'ui_warn', true), V.W / 2);
       UI.centerX(m.text(0, m.y + 26, 'Choose one passive', 'ui_dim'), V.W / 2);
       sim.choices.forEach(function (id, i) {
-        var info = G.passiveInfo(id, B), lvl = sim.player.passives[id] || 0, col = G.PASSIVE_COLOR[info.rarity];
+        var info = G.passiveInfo(id, B, sim.clsId), lvl = sim.player.passives[id] || 0, col = G.PASSIVE_COLOR[info.rarity];
         var cx = row ? m.x + 8 + i * (cw + gap) : m.x + 8, cy = row ? m.y + 40 : m.y + 40 + i * (ch + gap);
         var bg = m.panel(cx, cy, cw, ch, 'btn', 1);
         if (row) {

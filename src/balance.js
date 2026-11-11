@@ -26,7 +26,7 @@
     //   attack: kind 'bolt' (projectile: speed, r, sideDmg per extra bolt, spread rad between bolts,
     //           life = range / speed * life, knock / knockElite on hit) or 'arc' (melee swing: arc = full
     //           width in rad, knock / knockElite; extra bolts and pierce do nothing for it).
-    //   dodge:  dist px, time s, iframes s, cd s.   skill: the active button (kind 'pulse' only, for now).
+    //   dodge:  dist px, time s, iframes s, cd s (optional knock px and hit = share of dmg: shoves what the dodge touches).   skill: the active button (kind 'pulse' only, for now).
     //   sprite: atlas frame prefix (<frames>_0..2), glow and dash tints (palette keys), attack frame.
     //   passives: the level-up pool, in roll order (the order is part of the run: changing it changes runs).
     //   bot: QA bot hints. keep: multiplier on its keep-away distances; pick: passive preference.
@@ -36,10 +36,32 @@
         base: { r: 5, hp: 100, speed: 78, dmg: 10, atkInterval: 0.5, range: 112, crit: 0.05, critMult: 1.8 },
         attack: { kind: 'bolt', firstCd: 0.4, speed: 250, r: 3, sideDmg: 0.6, spread: 0.22, life: 1.2, knock: 34, knockElite: 14, frame: 'bolt', glow: 'orb' },
         dodge: { dist: 54, time: 0.16, iframes: 0.34, cd: 1.6 },
-        skill: { kind: 'pulse', dmg: 26, radius: 54, cd: 7, knock: 200 },
+        skill: { kind: 'pulse', name: 'Pulse', dmg: 26, radius: 54, cd: 7, knock: 200 },
         sprite: { frames: 'mage', glow: 'mb2', dash: 'mb3' },
         passives: ['power', 'haste', 'vital', 'swift', 'range', 'wisdom', 'regen', 'crit', 'pulse', 'blink', 'ward', 'pierce', 'multi', 'leech'],
         bot: { keep: 1, pick: { multi: 12, power: 10, haste: 10, pierce: 9, vital: 7, crit: 7, ward: 6, regen: 6, leech: 6, swift: 5, pulse: 4, range: 4, blink: 3, wisdom: 3 } }
+      },
+      warrior: {
+        name: 'Warrior',
+        base: { r: 6, hp: 250, speed: 74, dmg: 32, atkInterval: 0.55, range: 30, crit: 0.05, critMult: 2 },
+        attack: { kind: 'arc', firstCd: 0.3, arc: 2.2, knock: 60, knockElite: 22 },
+        // weapon types: the weapon item's `wtype` picks one (none equipped: defaultWeapon). dmg and atk
+        // (attack interval) multiply the stats, reach adds px to the swing, arc is the full width in rad.
+        // The attack fields above are only the fallback. weaponForce: QA override (every weapon counts as this type).
+        defaultWeapon: 'sword',
+        weapons: {
+          sword:  { name: 'Sword',  item: 'Iron Sword',   dmg: 1.0,  atk: 0.85, reach: 0,  arc: 2.0, knock: 50,  knockElite: 18 },
+          axe:    { name: 'Axe',    item: 'Iron Axe',     dmg: 1.45, atk: 1.25, reach: -2, arc: 2.2, knock: 60,  knockElite: 22 },
+          mace:   { name: 'Mace',   item: 'Old Mace',     dmg: 1.2,  atk: 1.4,  reach: -1, arc: 1.8, knock: 150, knockElite: 60 },
+          hammer: { name: 'Hammer', item: 'Heavy Hammer', dmg: 1.9,  atk: 1.85, reach: 2,  arc: 2.9, knock: 190, knockElite: 80 }
+        },
+        // the charge: crosses cracks like the mage's hop, shoves what it runs into (knock px, hit = share of dmg)
+        dodge: { dist: 58, time: 0.17, iframes: 0.3, cd: 1.9, knock: 150, hit: 0.5 },
+        skill: { kind: 'pulse', name: 'Shockwave', dmg: 30, radius: 46, cd: 8, knock: 230 },
+        sprite: { frames: 'warrior', glow: 'em2', dash: 'iron3', fx: ['em4', 'em3', 'em2'], slash: 'iron3' },
+        passives: ['power', 'haste', 'vital', 'swift', 'wisdom', 'regen', 'crit', 'pulse', 'blink', 'ward', 'leech', 'range'],
+        passiveNames: { power: 'Heavy Blows', haste: 'Quick Strikes', blink: 'Charge Mastery', pulse: 'Shockwave Mastery', range: 'Long Reach', ward: 'Plate Armour', crit: 'Killer Instinct', leech: 'Bloodthirst' },
+        bot: { keep: 0.8, pick: { power: 10, haste: 10, vital: 9, ward: 8, crit: 7, regen: 7, leech: 7, swift: 6, blink: 6, pulse: 5, range: 5, wisdom: 3 } }
       }
     },
     defaultClass: 'mage',
