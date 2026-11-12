@@ -104,6 +104,19 @@ Design decisions live in the plan doc (the user has it); this file is what an ag
 - Rough: 10 careers per class is noisy (career wins moved 13-24 between rounds with small changes; one point of archer damage moved fresh 7 -> 17 -> 11 %), so the numbers sit near the edges of the targets;
   archer career wins take 7.4 min (fresh 8.2); one warrior and one archer career out of 10 never won; in careers deaths gather in rooms 9-10 (the bot only dies when it pushes deep), the fresh spread is fine.
   The daily result has an empty band above COPY; the board's label sits close to THE RIFT in the wide city; the daily board text was not tested in Spanish on screen (keys and font checked).
+- Step 9 art import (branch `step-art-import`, no sim change): the user's four Grok images went through `tools/import_asset.py`, each judged at game size against the code-drawn frame
+  (table in `docs/grok-prompts.md` > Status). **Kept**: Don Montoto in the city (`npc_montoto_0/1`, 18x23) and a new portrait `portrait_montoto` (64x62) left of his story in the talk panel
+  (`Panels.openMontoto`, shown only when the atlas has the frame; the text wraps beside it). **Rejected** (kept in `assets/imported/rejected/`, not packed): tyrant attack poses `tyrant_2/3/4`,
+  skeleton throw `skeleton_2`, the small Montoto for the cage (`pixelart.py` draws `assets/imported/parts/cage_montoto_<f>.png` behind the bars when it exists).
+  Importer: border-colour key with a narrow hue window (hot pink backdrops, purple robes survive), `--split cols`, `--own-box`, `--method mode` (majority vote, for pixel-art sources), `--accent`, `--smooth`, `--names`, layer PNG alpha.
+- `main` is the working base. One branch per step: `step-N-<slug>`.
+
+## Last measured (2026-11-12, step 9 art import)
+
+- `determinism.js` pass, `check_i18n.js` pass, `sim_bot --seeds 1-10 --class warrior` identical before / after (2 wins, seeds 3, 8; only wall time differs). `qa/city.js` 2518 of 2518, 0 errors.
+  `qa/bot.js --seeds 3,4,5`: 0 errors, 0 softlocks, all match Node. Every story line (16 x en / es x both sizes) fits beside the portrait (deepest text 56 of the 78 px inset).
+- Screenshots: `/tmp/art_compare.png` (old vs new frames x5 and in-game crops), `/tmp/art_montoto_panel.png`, `/tmp/art_boss_landscape.png`.
+- Rough: the imported Montoto's robe has a few dark specks; his two frames differ little (the breathing is subtle); the portrait's skin is a flat brown ramp (`skin_d` / `ch`), no candle light from below.
 
 ## Last measured (2026-11-11, step 9b: city portrait, prompt, tyrant claws, burst lanes, cultist, touch)
 
