@@ -21,6 +21,7 @@
     P.L = null; P.current = null;
     if (c === 'inventory') P.openInventory(scene, true);
     else if (c === 'settings') P.openSettings(scene, P.back);
+    else if (c === 'backup') P.openBackup(scene, null);
     else if (c === 'result') P.openResult(scene, P.resultState);
     else if (c === 'debug') P.openDebug(scene);
     else if (c === 'abilities') P.openAbilities(scene);
@@ -425,6 +426,12 @@
     var bw = Math.floor((pw - 22) / 2), H = G.Hints, off = G.save.hints && G.save.hints.off;
     L.button(x0 + 8, y, bw, 16, G.t(off ? 'set.hintsOff' : 'set.hintsOn'), function () { H.setOff(!off); P.openSettings(scene, P.back); }, { name: 'set_hints', color: off ? 'ui_dim' : 'ui_good' });
     L.button(x0 + 14 + bw, y, bw, 16, G.t('set.hintsReset'), function () { H.reset(); P.openSettings(scene, P.back); }, { name: 'set_hints_reset' });
+    // save backup: export is always there; import replaces the save, so not in the middle of a run
+    if (sim()) L.button(x0 + 8, y + 20, pw - 16, 16, G.t('set.export'), function () { P.openBackup(scene, 'export'); }, { name: 'set_export' });
+    else {
+      L.button(x0 + 8, y + 20, bw, 16, G.t('set.export'), function () { P.openBackup(scene, 'export'); }, { name: 'set_export' });
+      L.button(x0 + 14 + bw, y + 20, bw, 16, G.t('set.import'), function () { P.openBackup(scene, 'import'); }, { name: 'set_import' });
+    }
   }
   P.openSettings = function (scene, back) {
     if (P.L) P.L.destroy();

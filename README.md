@@ -54,7 +54,7 @@ layouts are computed from the art-pixel viewport and rebuilt on resize or rotati
 ```
 node tools/contrast.js                      # text contrast, fails under 4.5:1
 node tools/sim_bot.js --seeds 1-10 [--leave N]  # bot win rate in the Node sim (at most 10 seeds); --leave N: leaves after room N
-node tools/check_bag.js                     # die / leave / win bag outcomes, doors and modifiers, save migration
+node tools/check_bag.js                     # die / leave / win bag outcomes, doors and modifiers, save migration, hints state, gentle first run, save backup codes
 node tools/sim_bot.js --career 14           # consecutive runs keeping gear
 node qa/bot.js --seeds 1-12                 # bot plays the real game in headless Chromium:
                                             #   no console errors, no softlock, must match Node

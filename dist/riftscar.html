@@ -1042,6 +1042,20 @@
 // Kept in their own file so the big tables stay easy to merge. Same rules: every key in both languages, same {placeholders}.
 (function (G) {
   Object.assign(G.LANG.en, {
+    'bak.label': 'Save code',
+    'set.export': 'EXPORT SAVE', 'set.import': 'IMPORT SAVE',
+    'bak.exportHint': 'Copy this code and keep it safe. It holds all your characters, gold and items.',
+    'bak.importHint': 'Paste a save code, then press CHECK. Nothing changes until you confirm.',
+    'bak.copy': 'COPY', 'bak.download': 'DOWNLOAD', 'bak.paste': 'PASTE', 'bak.check': 'CHECK', 'bak.back': 'BACK', 'bak.cancel': 'CANCEL', 'bak.replace': 'REPLACE SAVE',
+    'bak.copied': 'Copied to the clipboard.', 'bak.copyBlocked': 'Clipboard blocked: the code is selected, press Ctrl+C.',
+    'bak.downloaded': 'File riftscar-save.txt sent to your downloads.', 'bak.noDownload': 'Download is not available here: copy the text instead.',
+    'bak.pasteBlocked': 'Paste is blocked here: click the box and press Ctrl+V.',
+    'bak.err.empty': 'There is no code to check.', 'bak.err.format': 'This is not a Riftscar save code. Nothing changed.',
+    'bak.err.checksum': 'The code is damaged or cut short: bad checksum. Nothing changed.',
+    'bak.err.data': 'The code could not be read. Nothing changed.', 'bak.err.shape': 'This code does not hold a Riftscar save. Nothing changed.',
+    'bak.err.version': 'This save comes from a newer version of the game. Nothing changed.',
+    'bak.found': 'This code holds:', 'bak.char': '{name}: {items}, {gold} gold', 'bak.none': 'No characters yet.',
+    'bak.total': 'Total: {items}, {gold} gold, {runs} runs.', 'bak.warn': 'Replacing erases the save on this device.',
     'set.hintsOn': 'HINTS: ON', 'set.hintsOff': 'HINTS: OFF', 'set.hintsReset': 'RESET HINTS',
     'hint.move': 'Move with WASD or the arrow keys. Your hero attacks on its own, so just keep moving.',
     'hint.moveT': 'Drag on the left of the screen to move. Your hero attacks on its own, so just keep moving.',
@@ -1070,6 +1084,20 @@
     'hint.portal': 'The rift portal. Walk in to start a run.'
   });
   Object.assign(G.LANG.es, {
+    'bak.label': 'Código de partida',
+    'set.export': 'EXPORTAR', 'set.import': 'IMPORTAR',
+    'bak.exportHint': 'Copia este código y guárdalo bien. Incluye todos tus personajes, oro y objetos.',
+    'bak.importHint': 'Pega un código de partida y pulsa REVISAR. Nada cambia hasta que confirmes.',
+    'bak.copy': 'COPIAR', 'bak.download': 'DESCARGAR', 'bak.paste': 'PEGAR', 'bak.check': 'REVISAR', 'bak.back': 'VOLVER', 'bak.cancel': 'CANCELAR', 'bak.replace': 'REEMPLAZAR',
+    'bak.copied': 'Copiado al portapapeles.', 'bak.copyBlocked': 'Portapapeles bloqueado. Pulsa Ctrl+C con el código seleccionado.',
+    'bak.downloaded': 'Archivo riftscar-save.txt enviado a tus descargas.', 'bak.noDownload': 'Descarga no disponible aquí: copia el texto.',
+    'bak.pasteBlocked': 'Pegar está bloqueado: haz clic en el cuadro y pulsa Ctrl+V.',
+    'bak.err.empty': 'No hay ningún código que revisar.', 'bak.err.format': 'Este no es un código de partida de Riftscar. No cambió nada.',
+    'bak.err.checksum': 'Código dañado o cortado (suma de control mala). No cambió nada.',
+    'bak.err.data': 'No se pudo leer el código. No cambió nada.', 'bak.err.shape': 'Este código no contiene una partida de Riftscar. No cambió nada.',
+    'bak.err.version': 'Esta partida es de una versión más nueva del juego. No cambió nada.',
+    'bak.found': 'Este código contiene:', 'bak.char': '{name}: {items}, {gold} de oro', 'bak.none': 'Aún no hay personajes.',
+    'bak.total': 'Total: {items}, {gold} de oro, {runs} incursiones.', 'bak.warn': 'Reemplazar borra la partida de este dispositivo.',
     'set.hintsOn': 'AYUDAS: SÍ', 'set.hintsOff': 'AYUDAS: NO', 'set.hintsReset': 'REPETIR AYUDAS',
     'hint.move': 'Muévete con WASD o las flechas. Tu héroe ataca solo, así que sigue moviéndote.',
     'hint.moveT': 'Arrastra a la izquierda de la pantalla para moverte. Tu héroe ataca solo, así que sigue moviéndote.',
@@ -4282,6 +4310,108 @@
   };
 })(globalThis.G = globalThis.G || {});
 
+// ---- src/backup.js
+// Save backup (step UX): the whole save as one text code the player can copy, keep and paste back. No server, no Phaser, no clock.
+//   code = "RS1." + base64(LZW(save JSON, ASCII-escaped)) + "." + checksum (8 hex digits, FNV-1a of the body)
+// RS1 is the code format; the save inside carries its own version `v` and goes through G.parseSave (the normal migration) on import.
+(function (G) {
+  var HEAD = 'RS1', B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+
+  // LZW over bytes, 16-bit codes (a full dictionary starts again): about 3-5x smaller than the JSON on a real save, ~30 lines
+  function lzw(bytes) {
+    var dict = new Map(), next = 256, out = [], w = '', i, c, wc;
+    for (i = 0; i < bytes.length; i++) {
+      c = String.fromCharCode(bytes[i]); wc = w + c;
+      if (wc.length === 1 || dict.has(wc)) { w = wc; continue; }
+      out.push(w.length === 1 ? w.charCodeAt(0) : dict.get(w));
+      dict.set(wc, next++); w = c;
+      if (next >= 65535) { dict = new Map(); next = 256; }
+    }
+    if (w) out.push(w.length === 1 ? w.charCodeAt(0) : dict.get(w));
+    return out;
+  }
+  function unlzw(codes) {
+    var dict = [], next = 256, out = [], w = null, i, e, k;
+    for (i = 0; i < codes.length; i++) {
+      k = codes[i];
+      if (k < 256) e = String.fromCharCode(k);
+      else if (dict[k - 256] !== undefined) e = dict[k - 256];
+      else if (k === next && w !== null) e = w + w.charAt(0);
+      else return null;
+      out.push(e);
+      if (w !== null) { dict[next - 256] = w + e.charAt(0); next++; if (next >= 65535) { dict = []; next = 256; w = null; continue; } }
+      w = e;
+    }
+    return out.join('');
+  }
+  function toB64(bytes) {
+    var s = '', i, n;
+    for (i = 0; i < bytes.length; i += 3) {
+      n = (bytes[i] << 16) | ((bytes[i + 1] || 0) << 8) | (bytes[i + 2] || 0);
+      s += B64[(n >> 18) & 63] + B64[(n >> 12) & 63] + (i + 1 < bytes.length ? B64[(n >> 6) & 63] : '=') + (i + 2 < bytes.length ? B64[n & 63] : '=');
+    }
+    return s;
+  }
+  function fromB64(s) {
+    if (s.length % 4 || /[^A-Za-z0-9+\/=]/.test(s) || /=[^=]/.test(s)) return null;
+    var out = [], i, a, b, c, d;
+    for (i = 0; i < s.length; i += 4) {
+      a = B64.indexOf(s[i]); b = B64.indexOf(s[i + 1]); c = s[i + 2] === '=' ? 0 : B64.indexOf(s[i + 2]); d = s[i + 3] === '=' ? 0 : B64.indexOf(s[i + 3]);
+      out.push((a << 2) | (b >> 4));
+      if (s[i + 2] !== '=') out.push(((b & 15) << 4) | (c >> 2));
+      if (s[i + 3] !== '=') out.push(((c & 3) << 6) | d);
+    }
+    return out;
+  }
+  function crc(str) {
+    var h = 0x811c9dc5, i;
+    for (i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+    return ('00000000' + h.toString(16)).slice(-8);
+  }
+  function ascii(json) { return json.replace(/[\u0080-￿]/g, function (ch) { return '\\u' + ('0000' + ch.charCodeAt(0).toString(16)).slice(-4); }); }
+
+  G.encodeSave = function (save) {
+    var json = ascii(JSON.stringify(save)), bytes = [], codes, i;
+    for (i = 0; i < json.length; i++) bytes.push(json.charCodeAt(i));
+    codes = lzw(bytes);
+    var raw = [];
+    codes.forEach(function (k) { raw.push(k >> 8, k & 255); });
+    var body = toB64(raw);
+    return HEAD + '.' + body + '.' + crc(body);
+  };
+
+  // text -> { ok: true, save, info } or { ok: false, err } (err: empty | format | checksum | data | version | shape). Never touches the current save.
+  G.decodeSave = function (text) {
+    var t = String(text == null ? '' : text).replace(/\s+/g, '');
+    if (!t) return { ok: false, err: 'empty' };
+    var parts = t.split('.');
+    if (parts.length !== 3 || parts[0] !== HEAD) return { ok: false, err: 'format' };
+    if (crc(parts[1]) !== parts[2].toLowerCase()) return { ok: false, err: 'checksum' };
+    var raw = fromB64(parts[1]);
+    if (!raw || raw.length % 2) return { ok: false, err: 'data' };
+    var codes = [], i, json, s;
+    for (i = 0; i < raw.length; i += 2) codes.push(raw[i] * 256 + raw[i + 1]);
+    json = unlzw(codes);
+    if (json === null) return { ok: false, err: 'data' };
+    try { s = JSON.parse(json); } catch (e) { return { ok: false, err: 'data' }; }
+    if (!s || typeof s !== 'object' || typeof s.v !== 'number' || !s.gears || typeof s.gears !== 'object') return { ok: false, err: 'shape' };
+    if (s.v > 8 || s.v < 2 || s.v !== Math.floor(s.v)) return { ok: false, err: 'version' };
+    var save = G.parseSave(json);      // the normal migration and sanitizing
+    return { ok: true, save: save, from: s.v, info: G.saveSummary(save) };
+  };
+
+  // what a save holds, for the confirmation: { chars: [{ id, items, gold, scrolls }], gold, items, scrolls, runs }
+  G.saveSummary = function (save) {
+    var out = { chars: [], gold: 0, items: 0, scrolls: 0, runs: save.stats ? save.stats.runs | 0 : 0 };
+    Object.keys(save.gears).forEach(function (id) {
+      var g = save.gears[id], n = g.bag.length + G.SLOTS.filter(function (k) { return g.equipped[k]; }).length;
+      out.chars.push({ id: id, items: n, gold: g.gold | 0, scrolls: g.scrolls | 0 });
+      out.gold += g.gold | 0; out.items += n; out.scrolls += g.scrolls | 0;
+    });
+    return out;
+  };
+})(globalThis.G = globalThis.G || {});
+
 // ---- src/input.js
 // Input abstraction. The game only ever reads Controls.read(): keyboard and the touch
 // controls (virtual stick + two buttons, drawn by the HUD) fill the same four fields.
@@ -6625,6 +6755,7 @@
     P.L = null; P.current = null;
     if (c === 'inventory') P.openInventory(scene, true);
     else if (c === 'settings') P.openSettings(scene, P.back);
+    else if (c === 'backup') P.openBackup(scene, null);
     else if (c === 'result') P.openResult(scene, P.resultState);
     else if (c === 'debug') P.openDebug(scene);
     else if (c === 'abilities') P.openAbilities(scene);
@@ -7029,6 +7160,12 @@
     var bw = Math.floor((pw - 22) / 2), H = G.Hints, off = G.save.hints && G.save.hints.off;
     L.button(x0 + 8, y, bw, 16, G.t(off ? 'set.hintsOff' : 'set.hintsOn'), function () { H.setOff(!off); P.openSettings(scene, P.back); }, { name: 'set_hints', color: off ? 'ui_dim' : 'ui_good' });
     L.button(x0 + 14 + bw, y, bw, 16, G.t('set.hintsReset'), function () { H.reset(); P.openSettings(scene, P.back); }, { name: 'set_hints_reset' });
+    // save backup: export is always there; import replaces the save, so not in the middle of a run
+    if (sim()) L.button(x0 + 8, y + 20, pw - 16, 16, G.t('set.export'), function () { P.openBackup(scene, 'export'); }, { name: 'set_export' });
+    else {
+      L.button(x0 + 8, y + 20, bw, 16, G.t('set.export'), function () { P.openBackup(scene, 'export'); }, { name: 'set_export' });
+      L.button(x0 + 14 + bw, y + 20, bw, 16, G.t('set.import'), function () { P.openBackup(scene, 'import'); }, { name: 'set_import' });
+    }
   }
   P.openSettings = function (scene, back) {
     if (P.L) P.L.destroy();
@@ -7268,6 +7405,132 @@
     L.add(hit);
     UI.hit('hint', x, y, w, ph);
     H.box = { x: x, y: y, w: w, h: ph };
+  };
+})(globalThis.G = globalThis.G || {});
+
+// ---- src/view/backup.js
+// Save backup panel (step UX): EXPORT SAVE and IMPORT SAVE, opened from Settings. The code itself is made and read by src/backup.js.
+// The code is shown in a real DOM text box laid over the canvas (a canvas cannot select or paste text): it is also the manual-copy
+// fallback when the clipboard is blocked (inside an iframe, say). Import: paste, CHECK, a summary of what the code holds, then confirm.
+(function (G) {
+  var UI = G.UI, P = G.Panels;
+  P.bak = { mode: 'export', phase: 'input', text: '', status: '', err: '', res: null };
+
+  var ERR = { empty: 'bak.err.empty', format: 'bak.err.format', checksum: 'bak.err.checksum', data: 'bak.err.data', shape: 'bak.err.shape', version: 'bak.err.version' };
+  var ta = null;      // the DOM text box while the panel is open
+  function dropBox() {
+    if (!ta) return;
+    P.bak.text = ta.value;
+    if (ta.parentNode) ta.parentNode.removeChild(ta);
+    ta = null;
+  }
+  function hexCss(key) { return '#' + ('000000' + UI.hex(key).toString(16)).slice(-6); }
+  function box(scene, x, y, w, h, readonly, value) {
+    var S = G.view.S, r = scene.game.canvas.getBoundingClientRect(), el = document.createElement('textarea');
+    el.value = value; el.readOnly = readonly; el.spellcheck = false; el.setAttribute('autocomplete', 'off'); el.setAttribute('aria-label', G.t('bak.label'));
+    var st = el.style;
+    st.position = 'fixed'; st.left = Math.round(r.left + x * S) + 'px'; st.top = Math.round(r.top + y * S) + 'px';
+    st.width = Math.round(w * S) + 'px'; st.height = Math.round(h * S) + 'px'; st.boxSizing = 'border-box'; st.margin = '0'; st.padding = Math.round(2 * S) + 'px';
+    st.background = hexCss('ui_bg'); st.color = hexCss('ui_text'); st.border = Math.max(1, S) + 'px solid ' + hexCss('ui_line');
+    st.font = Math.max(11, 4 * S) + 'px monospace'; st.resize = 'none'; st.outline = 'none'; st.overflowY = 'auto';
+    st.wordBreak = 'break-all'; st.zIndex = '20'; st.userSelect = 'text'; st.webkitUserSelect = 'text'; st.touchAction = 'auto';
+    st.opacity = '0.99';      // without it Chromium leaves a hole in the page under the box in screenshots (headless compositor quirk)
+    // keys typed or pasted here belong to the box, never to the game (I, WASD, ESC and 1-3 are bound)
+    ['keydown', 'keyup', 'keypress'].forEach(function (k) { el.addEventListener(k, function (e) { e.stopPropagation(); }); });
+    el.addEventListener('focus', function () { if (readonly) el.select(); });
+    document.body.appendChild(el);
+    if (!readonly && !G.touch) el.focus();
+    return el;
+  }
+  P.backupBoxValue = function () { return ta ? ta.value : P.bak.text; };      // QA hook
+
+  function copyText(text, done) {
+    var viaOld = function () {
+      try { if (ta) { ta.focus(); ta.select(); return !!document.execCommand('copy'); } } catch (e) { /* blocked */ }
+      return false;
+    };
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(function () { done(true); }, function () { done(viaOld()); }); return; }
+    } catch (e) { /* fall through */ }
+    done(viaOld());
+  }
+  function download(text) {
+    try {
+      var url = URL.createObjectURL(new Blob([text + '\n'], { type: 'text/plain' })), a = document.createElement('a');
+      a.href = url; a.download = 'riftscar-save.txt'; a.style.display = 'none';
+      document.body.appendChild(a); a.click();
+      setTimeout(function () { document.body.removeChild(a); URL.revokeObjectURL(url); }, 500);
+      return true;
+    } catch (e) { return false; }
+  }
+
+  // mode 'export' | 'import'; phase (import): 'input' | 'confirm'
+  P.openBackup = function (scene, mode, keep) {
+    dropBox();
+    if (P.L) P.L.destroy();
+    var B = P.bak, V = G.view, t = G.t;
+    if (mode) { B.mode = mode; if (!keep) { B.phase = 'input'; B.text = ''; B.status = ''; B.err = ''; B.res = null; } }
+    var exp = B.mode === 'export', confirm = !exp && B.phase === 'confirm';
+    if (exp) B.text = G.encodeSave(G.save);
+    P.current = 'backup'; P.scene = scene; G.paused = true;
+    var pw = Math.min(V.W - 8, 250), ph = 160, L = P.L = UI.modal(scene, pw, ph, t(exp ? 'set.export' : 'set.import')), x0 = L.x, y0 = L.y, inner = pw - 16, bw = Math.floor((inner - 6) / 2);
+    var plainDestroy = L.destroy;
+    L.destroy = function () { dropBox(); plainDestroy(); };
+    function back() { dropBox(); P.openSettings(scene, P.back); }
+    function status(s, color) { return L.text(x0 + 8, y0 + 98, s, color || 'ui_dim').setMaxWidth(inner); }
+    L.button(x0 + pw - 22, y0 + 3, 18, 16, '', back, { icon: 'i_close', name: 'bak_close' });
+
+    if (confirm) {
+      var r = B.res.info, y = y0 + 22;
+      L.text(x0 + 8, y, t('bak.found'), 'ui_warn'); y += 11;
+      r.chars.forEach(function (c) {
+        var tx = L.text(x0 + 8, y, t('bak.char', { name: G.classLabel(c.id), items: G.plural('items', c.items), gold: c.gold }), 'ui_text').setMaxWidth(inner); y += tx.height + 3;
+      });
+      if (!r.chars.length) { L.text(x0 + 8, y, t('bak.none'), 'ui_dim'); y += 10; }
+      var tt = L.text(x0 + 8, y + 2, t('bak.total', { items: G.plural('items', r.items), gold: r.gold, runs: r.runs }), 'gold').setMaxWidth(inner); y += tt.height + 8;
+      L.text(x0 + 8, y, t('bak.warn'), 'ui_bad').setMaxWidth(inner);
+      L.button(x0 + 8, y0 + ph - 26, bw, 18, t('bak.replace'), function () {
+        var keepSet = G.save.settings, s = B.res.save;
+        s.settings = keepSet;      // zoom, shake and language belong to this device, not to the backup
+        G.save = s; G.storeSave(G.save); B.res = null; B.text = '';
+        P.close(true); G.toTitle();
+      }, { name: 'bak_replace', color: 'ui_bad' });
+      L.button(x0 + 14 + bw, y0 + ph - 26, bw, 18, t('bak.cancel'), function () { B.phase = 'input'; B.res = null; P.openBackup(scene, 'import', true); }, { name: 'bak_cancel' });
+      return;
+    }
+
+    var hint = L.text(x0 + 8, y0 + 20, t(exp ? 'bak.exportHint' : 'bak.importHint'), 'ui_dim').setMaxWidth(inner), by = y0 + 22 + hint.height;
+    ta = box(scene, x0 + 8, by, inner, Math.max(28, y0 + 95 - by), exp, B.text);
+    if (B.err) status(t(B.err), 'ui_bad'); else if (B.status) status(t(B.status), B.status === 'bak.copied' || B.status === 'bak.downloaded' ? 'ui_good' : 'ui_warn');
+    if (exp) {
+      L.button(x0 + 8, y0 + 118, bw, 18, t('bak.copy'), function () {
+        var code = ta ? ta.value : B.text;
+        copyText(code, function (okc) {
+          B.err = ''; B.status = okc ? 'bak.copied' : 'bak.copyBlocked';
+          if (P.current === 'backup' && B.mode === 'export') { var keepSel = !okc; dropBox(); P.openBackup(scene, null); if (keepSel && ta) { ta.focus(); ta.select(); } }
+        });
+      }, { name: 'bak_copy', color: 'ui_good' });
+      L.button(x0 + 14 + bw, y0 + 118, bw, 18, t('bak.download'), function () {
+        var code = ta ? ta.value : B.text, okd = download(code);
+        B.err = ''; B.status = okd ? 'bak.downloaded' : 'bak.noDownload';
+        dropBox(); P.openBackup(scene, null);
+      }, { name: 'bak_download' });
+    } else {
+      L.button(x0 + 8, y0 + 118, bw, 18, t('bak.paste'), function () {
+        var fail = function () { B.err = 'bak.pasteBlocked'; B.status = ''; dropBox(); P.openBackup(scene, null); if (ta) ta.focus(); };
+        try {
+          if (!navigator.clipboard || !navigator.clipboard.readText) { fail(); return; }
+          navigator.clipboard.readText().then(function (s) { B.text = s; B.err = ''; B.status = ''; if (P.current === 'backup') { dropBox(); B.text = s; P.openBackup(scene, null, true); } }, fail);
+        } catch (e) { fail(); }
+      }, { name: 'bak_paste' });
+      L.button(x0 + 14 + bw, y0 + 118, bw, 18, t('bak.check'), function () {
+        var code = ta ? ta.value : B.text, res = G.decodeSave(code);
+        dropBox(); B.text = code;
+        if (res.ok) { B.res = res; B.phase = 'confirm'; B.err = ''; } else { B.err = ERR[res.err] || ERR.data; B.status = ''; }
+        P.openBackup(scene, null, true);
+      }, { name: 'bak_check', color: 'ui_good' });
+    }
+    L.button(x0 + 8, y0 + ph - 22, inner, 16, t('bak.back'), back, { name: 'bak_back' });
   };
 })(globalThis.G = globalThis.G || {});
 
