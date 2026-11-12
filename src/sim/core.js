@@ -41,6 +41,10 @@
     this.player.hp = this.stats.maxHp;
     this.testRoom = opts.testRoom ? B.run.testRoom : -1;   // test room: one room, restarted on clear
     this.loops = 0;
+    // gentler first run (step UX): a fresh character's first run has softer monsters in the first rooms; the flag is part of the run's inputs (opts.gentle, else gear.ux.runs === 0)
+    var ux = this.gear && this.gear.ux;
+    this.gentle = this.testRoom < 0 && (opts.gentle !== undefined ? !!opts.gentle : !!(ux && ux.runs === 0));
+    if (ux && this.testRoom < 0) ux.runs++;
     this.merchantAt = this.testRoom >= 0 ? [] : G.merchantRooms(this.seed, B);
     this.cageAt = this.testRoom >= 0 ? -1 : G.cageRoom(this.seed, B, this.gear);   // step 8: Don Montoto's cage: room 5, every run, until this character rescued him
     this.cage = null; this.rescued = false;
@@ -117,7 +121,7 @@
     this.mod = mod && B.doors.mods[mod] ? mod : null;
     this.modDef = dm; this.lootBonus = dm.loot || 0;
     this.rngRoom = new G.RNG(G.hash32(room.seed, 77));
-    var th = B.run.roomMult[index] * (dm.threat || 1) * (1 + B.run.gearK * this.startGear);
+    var th = B.run.roomMult[index] * (dm.threat || 1) * (1 + B.run.gearK * this.startGear) * (this.gentle && index < B.run.gentle.rooms ? B.run.gentle.mult : 1);
     this.threat = th * (B.run.monsterDmg || 1);      // monster damage
     this.hpThreat = th * (B.run.monsterHp || 1);      // monster HP
     this.ilvl = 1 + Math.floor(index / B.run.ilvlRooms);

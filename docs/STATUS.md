@@ -117,6 +117,27 @@ Design decisions live in the plan doc (the user has it); this file is what an ag
   `qa/bot.js --seeds 3,4,5`: 0 errors, 0 softlocks, all match Node. Every story line (16 x en / es x both sizes) fits beside the portrait (deepest text 56 of the 78 px inset).
 - Screenshots: `/tmp/art_compare.png` (old vs new frames x5 and in-game crops), `/tmp/art_montoto_panel.png`, `/tmp/art_boss_landscape.png`.
 - Rough: the imported Montoto's robe has a few dark specks; his two frames differ little (the breathing is subtle); the portrait's skin is a flat brown ramp (`skin_d` / `ch`), no candle light from below.
+- Step UX (first-time guidance and save backup) on branch `step-ux`.
+  **A, hints**: `src/view/hints.js` (`G.HINTS` table: id, trigger, text key, optional touch / alt key, position, seconds; `G.Hints.on(trigger)`, `tick`, `attach`), texts in `src/i18n_ux.js` (`hint.*`, `set.hints*`, added to the tables of `i18n.js`).
+  Run hints (14): move (+ attacks are automatic), crack (seen), blocked, darken, super, chest, exit, levelup, choice, unid, scroll, gold, merchant (near), cage. City (5): city, smith, trainer, montoto (empty / rescued text), portal.
+  Each shows once per save (`save.hints = { off, seen }`, shared by characters), 6.5 s or a tap, one at a time (queue of 4), never pauses; top of the screen under the HUD (bottom for level-up and door choice, and in the portrait city); not in the test room or under the QA bot. Settings: HINTS: ON/OFF and RESET HINTS (a short screen, V.H < 212, drops the two grey hint lines to fit).
+  **Gentler first run**: `BAL.run.gentle = { rooms: 3, mult: 0.8 }` (hp and damage of monsters in rooms 1-3), applies when `gear.ux.runs === 0` (per character; `save.gears[c].ux.runs` counts runs started; an old save with progress counts as 1). The flag is `sim.gentle` (`opts.gentle` overrides it). `G.parseSave(text)` is the old `loadSave` body (also used by the backup import).
+  **B, save backup**: `src/backup.js` (pure): `G.encodeSave(save)` -> `RS1.<base64 of LZW(JSON)>.<FNV-1a checksum, 8 hex>` (one line; roughly half the JSON size on a full save), `G.decodeSave(text)` -> `{ ok, save, from, info }` or `{ ok: false, err }` (err: empty, format, checksum, data, shape, version), `G.saveSummary`. The code format is `RS1`; the save inside keeps its own `v` and goes through `G.parseSave` (the normal migration); versions above 8 are refused.
+  UI `src/view/backup.js` (`Panels.openBackup(scene, 'export' | 'import')`, opened from two Settings buttons; no IMPORT inside a run): the code lives in a real DOM `<textarea>` laid over the canvas (it is also the manual-copy fallback: when the clipboard is blocked the box stays visible with the code selected and the status says to press Ctrl+C). COPY (Clipboard API, then `execCommand`), DOWNLOAD (`riftscar-save.txt`), PASTE (clipboard read), CHECK -> a summary (characters, items, gold, runs) -> REPLACE or CANCEL. Replacing keeps this device's settings (zoom, shake, language), saves, and goes to the title. Errors change nothing. The textarea has `opacity .99`: without it headless Chromium leaves a hole in screenshots under it.
+  Texts: `bak.*`, `set.export`, `set.import` in `src/i18n_ux.js`. Checks: `check_bag.js` group `backup` (round trip, corrupted / cut / foreign / newer-version codes refused, v6 code migrates, checking changes nothing, three full bags).
+- `main` is the working base. One branch per step: `step-N-<slug>`.
+
+## Last measured (2026-11-12, step UX B: save backup)
+
+- `check_bag.js` (group `backup`), `check_i18n.js`, `contrast.js` pass; sim untouched by B (bot results as in A).
+- Browser (Playwright script outside the repo, `qa/lib.js`), 960x540, 540x960 and 960x540 at zoom 3, en and es: Settings -> EXPORT shows the code, clipboard blocked (simulated): the box stays with the code selected and the status says so; DOWNLOAD gives `riftscar-save.txt` with the code; with clipboard permission COPY and PASTE work; IMPORT: garbage and a corrupted code give an error and change nothing, a valid code shows the summary, CANCEL changes nothing, REPLACE replaces and stores the save (settings kept); 0 console errors. Screenshot `/tmp/ux_export.png`.
+- Rough: LZW with 16-bit codes (about 2x on a full save, nothing on a tiny one); the box font is the browser's monospace; touch keyboards were not tried (emulation only, no phone); import is not offered inside a run on purpose.
+
+## Last measured (2026-11-12, step UX A: hints and gentler first run)
+
+- `sim_bot --seeds 1-10` (fresh gear = first run, so every run is gentle now), before -> after: mage 1 (10) -> 2 (2, 10), warrior 2 (3, 8) -> 0, archer 0 -> 1 (6); 0 softlocks, 0 timeouts. Noise: the softer rooms 1-3 change every later roll; a fresh character's first run is the only case that changes (careers: runs 2+ are identical to before).
+- `determinism.js`, `check_bag.js` (new `ux` group), `check_i18n.js`, `contrast.js` (0 failing, lowest 5.65:1) pass; `qa/bot.js --seeds 3,4,5` 0 errors, matches Node.
+- Browser, fresh save, 960x540 and 540x960, en and es: every run hint fires once and does not return, the city hints fire per stall, HINTS toggle and RESET work, 0 console errors.
 
 ## Last measured (2026-11-11, step 9b: city portrait, prompt, tyrant claws, burst lanes, cultist, touch)
 

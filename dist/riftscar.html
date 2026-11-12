@@ -22,6 +22,7 @@
       monsterDmg: 0.75,               // ... with softer hits, so a room is about as deadly as before
       // +0.45 % monster hp/dmg per point of the gear score the hero BRINGS INTO the run (step 10: items equipped during the run no longer count,
       // so a fresh save is not punished for equipping its finds; it only slows the snowball of a geared career; was 0.5 % of the live gear score)
+      gentle: { rooms: 3, mult: 0.8 },   // the first run of a fresh character: monsters in rooms 1-3 have this share of hp and damage (src/sim/core.js loadRoom; gear.ux.runs === 0)
       gearK: 0.0045,
       ilvlRooms: 3,                   // item level of drops = 1 + floor(room / ilvlRooms)
       testRoom: 1,                    // ?room=test / TEST ROOM button: this room, restarted on every clear
@@ -1070,6 +1071,96 @@
   };
 })(globalThis.G = globalThis.G || {});
 
+// ---- src/i18n_ux.js
+// Texts of the first-time hints (src/view/hints.js) and of the save backup (src/view/backup.js), added to the tables of i18n.js.
+// Kept in their own file so the big tables stay easy to merge. Same rules: every key in both languages, same {placeholders}.
+(function (G) {
+  Object.assign(G.LANG.en, {
+    'bak.label': 'Save code',
+    'set.export': 'EXPORT SAVE', 'set.import': 'IMPORT SAVE',
+    'bak.exportHint': 'Copy this code and keep it safe. It holds all your characters, gold and items.',
+    'bak.importHint': 'Paste a save code, then press CHECK. Nothing changes until you confirm.',
+    'bak.copy': 'COPY', 'bak.download': 'DOWNLOAD', 'bak.paste': 'PASTE', 'bak.check': 'CHECK', 'bak.back': 'BACK', 'bak.cancel': 'CANCEL', 'bak.replace': 'REPLACE SAVE',
+    'bak.copied': 'Copied to the clipboard.', 'bak.copyBlocked': 'Clipboard blocked: the code is selected, press Ctrl+C.',
+    'bak.downloaded': 'File riftscar-save.txt sent to your downloads.', 'bak.noDownload': 'Download is not available here: copy the text instead.',
+    'bak.pasteBlocked': 'Paste is blocked here: click the box and press Ctrl+V.',
+    'bak.err.empty': 'There is no code to check.', 'bak.err.format': 'This is not a Riftscar save code. Nothing changed.',
+    'bak.err.checksum': 'The code is damaged or cut short: bad checksum. Nothing changed.',
+    'bak.err.data': 'The code could not be read. Nothing changed.', 'bak.err.shape': 'This code does not hold a Riftscar save. Nothing changed.',
+    'bak.err.version': 'This save comes from a newer version of the game. Nothing changed.',
+    'bak.found': 'This code holds:', 'bak.char': '{name}: {items}, {gold} gold', 'bak.none': 'No characters yet.',
+    'bak.total': 'Total: {items}, {gold} gold, {runs} runs.', 'bak.warn': 'Replacing erases the save on this device.',
+    'set.hintsOn': 'HINTS: ON', 'set.hintsOff': 'HINTS: OFF', 'set.hintsReset': 'RESET HINTS',
+    'hint.move': 'Move with WASD or the arrow keys. Your hero attacks on its own, so just keep moving.',
+    'hint.moveT': 'Drag on the left of the screen to move. Your hero attacks on its own, so just keep moving.',
+    'hint.crack': 'Cracks in the floor spit out monsters. An open crack blocks you: dodge (SPACE) to cross it.',
+    'hint.crackT': 'Cracks in the floor spit out monsters. An open crack blocks you: use the dodge button to cross it.',
+    'hint.blocked': 'An open crack blocks the way. Dodge (SPACE) while facing it to hop across.',
+    'hint.blockedT': 'An open crack blocks the way. Press the dodge button while facing it to hop across.',
+    'hint.darken': 'Kill monsters to darken the cracks. When every crack is dark, the super rift opens.',
+    'hint.super': 'The super rift! Beat the wave that comes out of it to finish the room.',
+    'hint.chest': 'A chest appeared. Walk over it to open it.',
+    'hint.exit': 'The exit gate is open. Walk into it when you are ready.',
+    'hint.levelup': 'Actives take one of your slots and fire by themselves. Passives are always on. Picks of the same family give bonuses at 2 and 4.',
+    'hint.choice': 'LEAVE keeps your bag and gold. A door goes deeper for better loot. If you die, the bag is lost.',
+    'hint.unid': 'Unidentified item: its stats are hidden. Read a Scroll of Identification on it in your bag.',
+    'hint.scroll': 'A Scroll of Identification. Open your bag, pick a hidden item and read it.',
+    'hint.gold': 'Run gold is kept if you leave or win, and lost if you die.',
+    'hint.merchant': 'A merchant! Walk up and press I to spend run gold on scrolls and potions.',
+    'hint.merchantT': 'A merchant! Walk up and tap him to spend run gold on scrolls and potions.',
+    'hint.cage': 'Don Montoto is caged here. Clear the room, then press I next to the cage to free him.',
+    'hint.cageT': 'Don Montoto is caged here. Clear the room, then tap the cage to free him.',
+    'hint.city': 'Welcome to the city. Walk up to a stall to talk. The rift portal starts a run.',
+    'hint.smith': 'The Blacksmith buys and sells gear, upgrades it, and sells scrolls.',
+    'hint.trainer': 'The Trainer sells permanent ranks for your class.',
+    'hint.montoto': 'Don Montoto tells stories and identifies your kept items for free.',
+    'hint.montotoEmpty': 'An empty stall. Free Don Montoto from his cage in room 5 of a run.',
+    'hint.portal': 'The rift portal. Walk in to start a run.'
+  });
+  Object.assign(G.LANG.es, {
+    'bak.label': 'Código de partida',
+    'set.export': 'EXPORTAR', 'set.import': 'IMPORTAR',
+    'bak.exportHint': 'Copia este código y guárdalo bien. Incluye todos tus personajes, oro y objetos.',
+    'bak.importHint': 'Pega un código de partida y pulsa REVISAR. Nada cambia hasta que confirmes.',
+    'bak.copy': 'COPIAR', 'bak.download': 'DESCARGAR', 'bak.paste': 'PEGAR', 'bak.check': 'REVISAR', 'bak.back': 'VOLVER', 'bak.cancel': 'CANCELAR', 'bak.replace': 'REEMPLAZAR',
+    'bak.copied': 'Copiado al portapapeles.', 'bak.copyBlocked': 'Portapapeles bloqueado. Pulsa Ctrl+C con el código seleccionado.',
+    'bak.downloaded': 'Archivo riftscar-save.txt enviado a tus descargas.', 'bak.noDownload': 'Descarga no disponible aquí: copia el texto.',
+    'bak.pasteBlocked': 'Pegar está bloqueado: haz clic en el cuadro y pulsa Ctrl+V.',
+    'bak.err.empty': 'No hay ningún código que revisar.', 'bak.err.format': 'Este no es un código de partida de Riftscar. No cambió nada.',
+    'bak.err.checksum': 'Código dañado o cortado (suma de control mala). No cambió nada.',
+    'bak.err.data': 'No se pudo leer el código. No cambió nada.', 'bak.err.shape': 'Este código no contiene una partida de Riftscar. No cambió nada.',
+    'bak.err.version': 'Esta partida es de una versión más nueva del juego. No cambió nada.',
+    'bak.found': 'Este código contiene:', 'bak.char': '{name}: {items}, {gold} de oro', 'bak.none': 'Aún no hay personajes.',
+    'bak.total': 'Total: {items}, {gold} de oro, {runs} incursiones.', 'bak.warn': 'Reemplazar borra la partida de este dispositivo.',
+    'set.hintsOn': 'AYUDAS: SÍ', 'set.hintsOff': 'AYUDAS: NO', 'set.hintsReset': 'REPETIR AYUDAS',
+    'hint.move': 'Muévete con WASD o las flechas. Tu héroe ataca solo, así que sigue moviéndote.',
+    'hint.moveT': 'Arrastra a la izquierda de la pantalla para moverte. Tu héroe ataca solo, así que sigue moviéndote.',
+    'hint.crack': 'Las grietas del suelo sueltan monstruos. Una grieta abierta te bloquea: esquiva (ESPACIO) para cruzarla.',
+    'hint.crackT': 'Las grietas del suelo sueltan monstruos. Una grieta abierta te bloquea: usa el botón de esquivar para cruzarla.',
+    'hint.blocked': 'Una grieta abierta te cierra el paso. Esquiva (ESPACIO) mirando hacia ella para saltarla.',
+    'hint.blockedT': 'Una grieta abierta te cierra el paso. Pulsa el botón de esquivar mirando hacia ella para saltarla.',
+    'hint.darken': 'Mata monstruos para oscurecer las grietas. Cuando todas estén oscuras, se abre la fisura mayor.',
+    'hint.super': '¡La fisura mayor! Vence a la oleada que sale de ella para terminar la sala.',
+    'hint.chest': 'Apareció un cofre. Pasa por encima para abrirlo.',
+    'hint.exit': 'La puerta de salida está abierta. Entra cuando estés listo.',
+    'hint.levelup': 'Las activas ocupan una ranura y se lanzan solas. Las pasivas siempre están activas. Elegir de la misma familia da bonos a los 2 y 4.',
+    'hint.choice': 'SALIR conserva tu bolsa y tu oro. Una puerta te lleva más hondo con mejor botín. Si mueres, pierdes la bolsa.',
+    'hint.unid': 'Objeto sin identificar: sus estadísticas están ocultas. Usa un Pergamino de Identificación en tu bolsa.',
+    'hint.scroll': 'Un Pergamino de Identificación. Abre tu bolsa, elige un objeto oculto y léelo.',
+    'hint.gold': 'El oro de la incursión se conserva si sales o ganas, y se pierde si mueres.',
+    'hint.merchant': '¡Un mercader! Acércate y pulsa I para gastar oro en pergaminos y pociones.',
+    'hint.merchantT': '¡Un mercader! Acércate y tócalo para gastar oro en pergaminos y pociones.',
+    'hint.cage': 'Don Montoto está enjaulado aquí. Limpia la sala y pulsa I junto a la jaula para liberarlo.',
+    'hint.cageT': 'Don Montoto está enjaulado aquí. Limpia la sala y toca la jaula para liberarlo.',
+    'hint.city': 'Bienvenido a la ciudad. Acércate a un puesto para hablar. La Brecha, el portal del centro, inicia una incursión.',
+    'hint.smith': 'El Herrero compra y vende equipo, lo mejora y vende pergaminos.',
+    'hint.trainer': 'El Entrenador vende rangos permanentes para tu clase.',
+    'hint.montoto': 'Don Montoto cuenta historias e identifica gratis los objetos de tu bolsa guardada.',
+    'hint.montotoEmpty': 'Un puesto vacío. Libera a Don Montoto de su jaula en la sala 5 de una incursión.',
+    'hint.portal': 'La Brecha. Entra para iniciar una incursión.'
+  });
+})(globalThis.G = globalThis.G || {});
+
 // ---- src/rng.js
 // Deterministic RNG. Every random decision in the sim goes through one of these streams.
 (function (G) {
@@ -1991,6 +2082,10 @@
     this.player.hp = this.stats.maxHp;
     this.testRoom = opts.testRoom ? B.run.testRoom : -1;   // test room: one room, restarted on clear
     this.loops = 0;
+    // gentler first run (step UX): a fresh character's first run has softer monsters in the first rooms; the flag is part of the run's inputs (opts.gentle, else gear.ux.runs === 0)
+    var ux = this.gear && this.gear.ux;
+    this.gentle = this.testRoom < 0 && (opts.gentle !== undefined ? !!opts.gentle : !!(ux && ux.runs === 0));
+    if (ux && this.testRoom < 0) ux.runs++;
     this.merchantAt = this.testRoom >= 0 ? [] : G.merchantRooms(this.seed, B);
     this.cageAt = this.testRoom >= 0 ? -1 : G.cageRoom(this.seed, B, this.gear);   // step 8: Don Montoto's cage: room 5, every run, until this character rescued him
     this.cage = null; this.rescued = false;
@@ -2067,7 +2162,7 @@
     this.mod = mod && B.doors.mods[mod] ? mod : null;
     this.modDef = dm; this.lootBonus = dm.loot || 0;
     this.rngRoom = new G.RNG(G.hash32(room.seed, 77));
-    var th = B.run.roomMult[index] * (dm.threat || 1) * (1 + B.run.gearK * this.startGear);
+    var th = B.run.roomMult[index] * (dm.threat || 1) * (1 + B.run.gearK * this.startGear) * (this.gentle && index < B.run.gentle.rooms ? B.run.gentle.mult : 1);
     this.threat = th * (B.run.monsterDmg || 1);      // monster damage
     this.hpThreat = th * (B.run.monsterHp || 1);      // monster HP
     this.ilvl = 1 + Math.floor(index / B.run.ilvlRooms);
@@ -4218,10 +4313,10 @@
   G.newGear = function () {
     var eq = {};
     SLOTS.forEach(function (s) { eq[s] = null; });
-    return { equipped: eq, bag: [], nextId: 1, scrolls: 0, gold: 0, ranks: {}, shop: null, city: { montoto: false, story: 0 } };
+    return { equipped: eq, bag: [], nextId: 1, scrolls: 0, gold: 0, ranks: {}, shop: null, city: { montoto: false, story: 0 }, ux: { runs: 0 } };
   };
   G.newSave = function () {
-    return { v: 8, gears: {}, settings: { zoom: 0, shake: 100, lang: null, music: 50, sfx: 70 }, stats: { runs: 0, wins: 0, best: 0 } };
+    return { v: 8, gears: {}, settings: { zoom: 0, shake: 100, lang: null, music: 50, sfx: 70 }, stats: { runs: 0, wins: 0, best: 0 }, hints: { off: false, seen: {} } };
   };
   // the gear (worn items and kept bag) of a class; the sim takes this object as its `gear` option
   G.gearOf = function (save, clsId) {
@@ -4229,9 +4324,10 @@
     if (!save.gears[id]) save.gears[id] = G.newGear();
     return save.gears[id];
   };
-  G.loadSave = function () {
+  G.loadSave = function () { return G.parseSave(globalThis.localStorage && localStorage.getItem(KEY)); };
+  // text (JSON) -> a current save: validates, sanitizes and migrates older versions; anything unusable gives a fresh save. Also used by the backup import.
+  G.parseSave = function (raw) {
     try {
-      var raw = globalThis.localStorage && localStorage.getItem(KEY);
       if (raw) {
         var s = JSON.parse(raw), d = G.newSave(), B = G.BAL;
         var ok = function (it) { return it && typeof it === 'object' && SLOTS.indexOf(it.slot) >= 0 && it.stats && typeof it.rarity === 'number'; };
@@ -4255,12 +4351,14 @@
             var ct = g.city && typeof g.city === 'object' ? g.city : {};      // v7: city state per character; v8: the Appraiser became Don Montoto (flag `appraiser` -> `montoto`, plus the story index)
             n.city.montoto = ct.montoto === true || ct.appraiser === true;      // older than v7: not rescued yet; nothing else changes
             n.city.story = ct.story >= 0 && isFinite(ct.story) ? Math.floor(ct.story) % G.MONTOTO_STORIES.length : 0;
+            n.ux = G.cleanUx(g, n);      // first-run flag (step UX)
             s.gears[id] = n;
           });
           s.v = 8;
           s.settings = Object.assign(d.settings, s.settings || {});
           if (s.settings.lang !== 'en' && s.settings.lang !== 'es') s.settings.lang = null;      // null: follow the browser language
           s.stats = Object.assign(d.stats, s.stats || {});
+          s.hints = G.cleanHints(s.hints);
           return s;
         }
         // v2 / v3 -> v4 (per-class gear): the one shared gear set (worn items + kept bag) goes whole to the class that was selected
@@ -4288,6 +4386,123 @@
   };
   G.storeSave = function (save) {
     try { if (globalThis.localStorage) localStorage.setItem(KEY, JSON.stringify(save)); } catch (e) { /* storage full or blocked */ }
+  };
+  // ---- first-time guidance state (hints seen / switched off; per-character first-run flag)
+  G.cleanHints = function (h) {
+    var out = { off: false, seen: {} };
+    if (h && typeof h === 'object') {
+      out.off = h.off === true;
+      if (h.seen && typeof h.seen === 'object') Object.keys(h.seen).forEach(function (k) { if (h.seen[k] === true || h.seen[k] === 1) out.seen[k] = true; });
+    }
+    return out;
+  };
+  // runs: how many runs this character has started. A save from before this flag existed with any progress counts as 1 (no softened run for veterans).
+  G.cleanUx = function (g, n) {
+    if (g.ux && typeof g.ux === 'object' && g.ux.runs >= 0 && isFinite(g.ux.runs)) return { runs: Math.min(1000, Math.floor(g.ux.runs)) };
+    var used = n.bag.length || n.gold || n.scrolls || Object.keys(n.ranks).length || n.city.montoto || SLOTS.some(function (k) { return n.equipped[k]; });
+    return { runs: used ? 1 : 0 };
+  };
+})(globalThis.G = globalThis.G || {});
+
+// ---- src/backup.js
+// Save backup (step UX): the whole save as one text code the player can copy, keep and paste back. No server, no Phaser, no clock.
+//   code = "RS1." + base64(LZW(save JSON, ASCII-escaped)) + "." + checksum (8 hex digits, FNV-1a of the body)
+// RS1 is the code format; the save inside carries its own version `v` and goes through G.parseSave (the normal migration) on import.
+(function (G) {
+  var HEAD = 'RS1', B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+
+  // LZW over bytes, 16-bit codes (a full dictionary starts again): about 3-5x smaller than the JSON on a real save, ~30 lines
+  function lzw(bytes) {
+    var dict = new Map(), next = 256, out = [], w = '', i, c, wc;
+    for (i = 0; i < bytes.length; i++) {
+      c = String.fromCharCode(bytes[i]); wc = w + c;
+      if (wc.length === 1 || dict.has(wc)) { w = wc; continue; }
+      out.push(w.length === 1 ? w.charCodeAt(0) : dict.get(w));
+      dict.set(wc, next++); w = c;
+      if (next >= 65535) { dict = new Map(); next = 256; }
+    }
+    if (w) out.push(w.length === 1 ? w.charCodeAt(0) : dict.get(w));
+    return out;
+  }
+  function unlzw(codes) {
+    var dict = [], next = 256, out = [], w = null, i, e, k;
+    for (i = 0; i < codes.length; i++) {
+      k = codes[i];
+      if (k < 256) e = String.fromCharCode(k);
+      else if (dict[k - 256] !== undefined) e = dict[k - 256];
+      else if (k === next && w !== null) e = w + w.charAt(0);
+      else return null;
+      out.push(e);
+      if (w !== null) { dict[next - 256] = w + e.charAt(0); next++; if (next >= 65535) { dict = []; next = 256; w = null; continue; } }
+      w = e;
+    }
+    return out.join('');
+  }
+  function toB64(bytes) {
+    var s = '', i, n;
+    for (i = 0; i < bytes.length; i += 3) {
+      n = (bytes[i] << 16) | ((bytes[i + 1] || 0) << 8) | (bytes[i + 2] || 0);
+      s += B64[(n >> 18) & 63] + B64[(n >> 12) & 63] + (i + 1 < bytes.length ? B64[(n >> 6) & 63] : '=') + (i + 2 < bytes.length ? B64[n & 63] : '=');
+    }
+    return s;
+  }
+  function fromB64(s) {
+    if (s.length % 4 || /[^A-Za-z0-9+\/=]/.test(s) || /=[^=]/.test(s)) return null;
+    var out = [], i, a, b, c, d;
+    for (i = 0; i < s.length; i += 4) {
+      a = B64.indexOf(s[i]); b = B64.indexOf(s[i + 1]); c = s[i + 2] === '=' ? 0 : B64.indexOf(s[i + 2]); d = s[i + 3] === '=' ? 0 : B64.indexOf(s[i + 3]);
+      out.push((a << 2) | (b >> 4));
+      if (s[i + 2] !== '=') out.push(((b & 15) << 4) | (c >> 2));
+      if (s[i + 3] !== '=') out.push(((c & 3) << 6) | d);
+    }
+    return out;
+  }
+  function crc(str) {
+    var h = 0x811c9dc5, i;
+    for (i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+    return ('00000000' + h.toString(16)).slice(-8);
+  }
+  function ascii(json) { return json.replace(/[\u0080-￿]/g, function (ch) { return '\\u' + ('0000' + ch.charCodeAt(0).toString(16)).slice(-4); }); }
+
+  G.encodeSave = function (save) {
+    var json = ascii(JSON.stringify(save)), bytes = [], codes, i;
+    for (i = 0; i < json.length; i++) bytes.push(json.charCodeAt(i));
+    codes = lzw(bytes);
+    var raw = [];
+    codes.forEach(function (k) { raw.push(k >> 8, k & 255); });
+    var body = toB64(raw);
+    return HEAD + '.' + body + '.' + crc(body);
+  };
+
+  // text -> { ok: true, save, info } or { ok: false, err } (err: empty | format | checksum | data | version | shape). Never touches the current save.
+  G.decodeSave = function (text) {
+    var t = String(text == null ? '' : text).replace(/\s+/g, '');
+    if (!t) return { ok: false, err: 'empty' };
+    var parts = t.split('.');
+    if (parts.length !== 3 || parts[0] !== HEAD) return { ok: false, err: 'format' };
+    if (crc(parts[1]) !== parts[2].toLowerCase()) return { ok: false, err: 'checksum' };
+    var raw = fromB64(parts[1]);
+    if (!raw || raw.length % 2) return { ok: false, err: 'data' };
+    var codes = [], i, json, s;
+    for (i = 0; i < raw.length; i += 2) codes.push(raw[i] * 256 + raw[i + 1]);
+    json = unlzw(codes);
+    if (json === null) return { ok: false, err: 'data' };
+    try { s = JSON.parse(json); } catch (e) { return { ok: false, err: 'data' }; }
+    if (!s || typeof s !== 'object' || typeof s.v !== 'number' || !s.gears || typeof s.gears !== 'object') return { ok: false, err: 'shape' };
+    if (s.v > 8 || s.v < 2 || s.v !== Math.floor(s.v)) return { ok: false, err: 'version' };
+    var save = G.parseSave(json);      // the normal migration and sanitizing
+    return { ok: true, save: save, from: s.v, info: G.saveSummary(save) };
+  };
+
+  // what a save holds, for the confirmation: { chars: [{ id, items, gold, scrolls }], gold, items, scrolls, runs }
+  G.saveSummary = function (save) {
+    var out = { chars: [], gold: 0, items: 0, scrolls: 0, runs: save.stats ? save.stats.runs | 0 : 0 };
+    Object.keys(save.gears).forEach(function (id) {
+      var g = save.gears[id], n = g.bag.length + G.SLOTS.filter(function (k) { return g.equipped[k]; }).length;
+      out.chars.push({ id: id, items: n, gold: g.gold | 0, scrolls: g.scrolls | 0 });
+      out.gold += g.gold | 0; out.items += n; out.scrolls += g.scrolls | 0;
+    });
+    return out;
   };
 })(globalThis.G = globalThis.G || {});
 
@@ -5874,6 +6089,8 @@
           if (mx) this.face = mx > 0 ? 1 : -1;
         }
         this.near = this.nearest();
+        if (this.near && this.near.s.id !== 'plot') G.Hints.on('city.near.' + this.near.s.id, !!this.near.empty);
+        if (Math.abs(this.px - this.lay.portal.x) <= 36 && Math.abs(this.py - this.lay.portal.y) <= 40) G.Hints.on('city.near.portal');
         if ((o.dodge || o.pulse || enter) && this.near) this.talk(this.near);
         // the portal: walking into it starts a run
         var P = this.lay.portal;
@@ -5998,6 +6215,7 @@
       this.stickKnob = L.image(0, 0, 'stick_knob', 3).setVisible(false);
       this.stickId = null; this.shown = {};
       this.refresh(g);
+      G.Hints.attach(this); G.Hints.on('city.enter');
     },
     refresh: function (g) {
       this.goldText.setText('' + (g.gold | 0)); this.scrollText.setText('x' + (g.scrolls | 0));
@@ -6007,6 +6225,7 @@
       if (this.shown.k !== k) { this.shown.k = k; this.refresh(g); }
       var c = G.city, nl = c && !G.paused && !c.entering ? c.nearLabel(c.near) : null;
       if (nl !== this.shown.nl) { this.shown.nl = nl; if (nl) this.talkBtn.setLabel(nl); this.talkBtn.setVisible(!!nl); }
+      G.Hints.tick(this);
       if (this.toastT > 0 && --this.toastT <= 0) this.toast.setVisible(false);
       else if (this.toastT > 0 && this.toastT < 30) this.toast.setAlpha(this.toastT / 30);
     }
@@ -6628,6 +6847,8 @@
       this.L = null; this.level = null; this.toastT = 0; this.toastMsg = null; this.pickCard = -1; this.SL = null;
       this.botWait = 0; this.endT = -1; this.stickId = null; this.choiceL = null; this.merchL = null;
       this.build();
+      if (this.game_.sim.roomIndex === 0) { G.Hints.on('run.start'); G.Hints.on('run.crack'); }      // the first room's event came before this scene existed
+      if (this.game_.sim.cage) G.Hints.on('run.cage');
       this.game.events.on('viewchange', this.onView, this);
 
       var kb = this.input.keyboard;
@@ -6747,6 +6968,7 @@
         this.tDodge = mk(V.W - 58, V.H - 26, 't_dodge', function () { if (!G.paused) self.game_.controls.dodge(); }, 'tdodge');
       }
       this.refresh();
+      G.Hints.attach(this);
     },
 
     toggleDebug: function () {
@@ -6813,6 +7035,7 @@
     },
 
     onEvent: function (e) {
+      this.hintEvent(e);
       if (e.t === 'pickup') {
         if (e.kind === 'scroll') this.say(G.t('toast.scroll'), 'gold');
         else if (!e.item) this.say(G.t('toast.tome'), 'tome2');      // gear goes into the sealed bag: the counter shows it
@@ -6823,6 +7046,20 @@
       else if (e.t === 'dead' || e.t === 'won' || e.t === 'left') { this.endT = 50; var sm = this.game_.sim; if (sm.testRoom < 0) G.restockShop(sm.gear, sm.B, sm.clsId); G.storeSave(G.save); }      // the bag was banked (or, on death, the worn gear kept): save it now
       else if (e.t === 'equip' || e.t === 'identify') G.storeSave(G.save);
       else if (e.t === 'room') { this.last = {}; G.storeSave(G.save); }
+    },
+
+    // first-time hints (src/view/hints.js): which game events fire which trigger
+    hintEvent: function (e) {
+      var H = G.Hints, sim = this.game_.sim;
+      if (e.t === 'room') { if (e.index === 0) H.on('run.start'); if (sim.cage) H.on('run.cage'); }
+      else if (e.t === 'blocked') H.on('run.blocked');
+      else if (e.t === 'fissure' && e.state === 'opening') H.on('run.crack');
+      else if (e.t === 'die') H.on('run.kill');
+      else if (e.t === 'phase') H.on('run.' + e.phase);
+      else if (e.t === 'levelup') H.on('run.levelup');
+      else if (e.t === 'choice') H.on('run.choice');
+      else if (e.t === 'gold') H.on('run.gold');
+      else if (e.t === 'pickup') { if (e.kind === 'scroll') H.on('run.scroll'); else if (e.item && e.item.unid) H.on('run.unid'); }
     },
 
     // ------------------------------------------------- after a room: leave or a door
@@ -7148,6 +7385,8 @@
     update: function () {
       var gs = this.game_, sim = gs.sim;
       this.refresh();
+      if (sim.merchant && sim.state === 'play' && Math.abs(sim.merchant.x - sim.player.x) < 70 && Math.abs(sim.merchant.y - sim.player.y) < 70) G.Hints.on('run.merchant');
+      G.Hints.tick(this);
       if (this.toastT > 0) {
         this.toastT--;
         if (this.toastT < 30) this.toast.setAlpha(this.toastT < 15 ? 0.4 : 0.7);
@@ -7189,6 +7428,7 @@
     P.L = null; P.current = null;
     if (c === 'inventory') P.openInventory(scene, true);
     else if (c === 'settings') P.openSettings(scene, P.back);
+    else if (c === 'backup') P.openBackup(scene, null);
     else if (c === 'result') P.openResult(scene, P.resultState);
     else if (c === 'debug') P.openDebug(scene);
     else if (c === 'abilities') P.openAbilities(scene);
@@ -7593,12 +7833,35 @@
   };
 
   // -------------------------------------------------------------- settings
+  // two rows under the sliders: [HINTS: ON] [RESET HINTS] and [EXPORT SAVE] [IMPORT SAVE]
+  function settingsExtra(L, scene, x0, y, pw, more) {
+    var reopen = function () { (more ? P.openSettingsMore : P.openSettings)(scene, P.back); };
+    var bw = Math.floor((pw - 22) / 2), H = G.Hints, off = G.save.hints && G.save.hints.off;
+    L.button(x0 + 8, y, bw, 16, G.t(off ? 'set.hintsOff' : 'set.hintsOn'), function () { H.setOff(!off); reopen(); }, { name: 'set_hints', color: off ? 'ui_dim' : 'ui_good' });
+    L.button(x0 + 14 + bw, y, bw, 16, G.t('set.hintsReset'), function () { H.reset(); reopen(); }, { name: 'set_hints_reset' });
+    // save backup: export is always there; import replaces the save, so not in the middle of a run
+    if (sim()) L.button(x0 + 8, y + 20, pw - 16, 16, G.t('set.export'), function () { P.openBackup(scene, 'export'); }, { name: 'set_export' });
+    else {
+      L.button(x0 + 8, y + 20, bw, 16, G.t('set.export'), function () { P.openBackup(scene, 'export'); }, { name: 'set_export' });
+      L.button(x0 + 14 + bw, y + 20, bw, 16, G.t('set.import'), function () { P.openBackup(scene, 'import'); }, { name: 'set_import' });
+    }
+  }
+  // the second settings page of a very small screen: hints and save backup
+  P.openSettingsMore = function (scene, back) {
+    if (P.L) P.L.destroy();
+    var V = G.view, pw = Math.min(V.W - 8, 200), ph = 96;
+    P.current = 'settings'; P.scene = scene; P.back = back || null; G.paused = true;
+    var L = P.L = UI.modal(scene, pw, ph, G.t('set.title')), x0 = L.x, y0 = L.y;
+    L.button(x0 + pw - 22, y0 + 3, 18, 16, '', function () { P.openSettings(scene, back); }, { icon: 'i_close', name: 'set_close' });
+    settingsExtra(L, scene, x0, y0 + 26, pw, true);
+    L.button(x0 + 8, y0 + ph - 26, pw - 16, 18, G.t('set.close'), function () { P.openSettings(scene, back); }, { name: 'set_resume' });
+  };
   P.openSettings = function (scene, back) {
     if (P.L) P.L.destroy();
     var V = G.view, set = G.save.settings, inRun = !!sim();
     P.current = 'settings'; P.scene = scene; P.back = back || null; G.paused = true;
     if (G.screen !== 'title' && G.screen !== 'city') G.screen = 'settings';
-    var compact = V.H < 222, pw = Math.min(V.W - 8, 200), ph = compact ? 166 : 214, t = G.t;
+    var compact = V.H < 222, pw = Math.min(V.W - 8, 200), ph = compact ? 166 : 214 + 40, t = G.t;      // compact: hints and save backup move to a MORE page
     var L = P.L = UI.modal(scene, pw, ph, t('set.title')), x0 = L.x, y0 = L.y, tw = pw - 16 - 36;
     L.button(x0 + pw - 22, y0 + 3, 18, 16, '', function () { leave(); }, { icon: 'i_close', name: 'set_close' });
     function leave() { if (P.back === 'inventory') P.openInventory(scene); else P.close(); }
@@ -7652,11 +7915,18 @@
     }
     vrow('music', t('set.music'), 'music');
     vrow('sfx', t('set.sfx'), 'sfx');
+    if (!compact) { settingsExtra(L, scene, x0, y0 + ry + 2, pw); ry += 42; }      // hints on/off, reset hints, save backup
 
-    var bw = Math.floor((pw - 22) / 2);
-    L.button(x0 + 8, y0 + ph - 26, bw, 18, inRun ? t('set.resume') : t('set.close'), leave, { name: 'set_resume' });
-    if (inRun) L.button(x0 + 14 + bw, y0 + ph - 26, bw, 18, t('set.quit'), function () { P.close(true); G.toCity(); }, { name: 'set_quit', color: 'ui_bad' });
-    else L.button(x0 + 14 + bw, y0 + ph - 26, bw, 18, t('set.reset'), function () {
+    var bw = Math.floor((pw - 22) / 2), mw = 0;
+    if (compact) {      // a very small screen: hints and save backup on their own page
+      mw = 36;
+      L.button(x0 + 8, y0 + ph - 26, mw, 18, '...', function () { P.openSettingsMore(scene, P.back); }, { name: 'set_more' });
+      bw = Math.floor((pw - 28 - mw) / 2);
+    }
+    var bx = x0 + 8 + (mw ? mw + 6 : 0);
+    L.button(bx, y0 + ph - 26, bw, 18, inRun ? t('set.resume') : t('set.close'), leave, { name: 'set_resume' });
+    if (inRun) L.button(bx + 6 + bw, y0 + ph - 26, bw, 18, t('set.quit'), function () { P.close(true); G.toCity(); }, { name: 'set_quit', color: 'ui_bad' });
+    else L.button(bx + 6 + bw, y0 + ph - 26, bw, 18, t('set.reset'), function () {
       var keep = G.save.settings; G.save = G.newSave(); G.save.settings = keep; G.storeSave(G.save); P.close(true); G.toTitle();
     }, { name: 'set_reset', color: 'ui_bad' });
     void tw;
@@ -7860,6 +8130,234 @@
     var g = G.game.scene; G.closeManualCopy();
     G.paused = false; G.openGearOnTitle = !!openGear; G.daily = null;
     g.stop('hud'); g.stop('game'); g.stop('cityhud'); g.stop('city'); g.start('title');
+  };
+})(globalThis.G = globalThis.G || {});
+
+// ---- src/view/hints.js
+// First-time guidance (step UX): short contextual hints, each shown once per save, dismissed by a tap or after a few seconds.
+// They never pause anything. The table is data: id, trigger, text key (and a touch variant, a position, a time).
+// Triggers are fired with G.Hints.on(trigger, alt) from the HUD, the city and the game; `alt` picks the row's `alt` text when it has one.
+// State: G.save.hints = { off, seen: { id: true } } (settings: Hints on/off, Reset hints). The sim never sees any of it.
+(function (G) {
+  var UI = G.UI;
+  var SEC = 6.5;      // seconds a hint stays when nobody taps it
+  G.HINTS = [
+    // a run
+    { id: 'move', trig: 'run.start', text: 'hint.move', touch: 'hint.moveT' },
+    { id: 'crack', trig: 'run.crack', text: 'hint.crack', touch: 'hint.crackT' },
+    { id: 'blocked', trig: 'run.blocked', text: 'hint.blocked', touch: 'hint.blockedT' },
+    { id: 'darken', trig: 'run.kill', text: 'hint.darken' },
+    { id: 'super', trig: 'run.super', text: 'hint.super' },
+    { id: 'chest', trig: 'run.chest', text: 'hint.chest' },
+    { id: 'exit', trig: 'run.exit', text: 'hint.exit' },
+    { id: 'levelup', trig: 'run.levelup', text: 'hint.levelup', pos: 'bottom', sec: 9 },
+    { id: 'choice', trig: 'run.choice', text: 'hint.choice', pos: 'bottom', sec: 10 },
+    { id: 'unid', trig: 'run.unid', text: 'hint.unid' },
+    { id: 'scroll', trig: 'run.scroll', text: 'hint.scroll' },
+    { id: 'gold', trig: 'run.gold', text: 'hint.gold' },
+    { id: 'merchant', trig: 'run.merchant', text: 'hint.merchant', touch: 'hint.merchantT' },
+    { id: 'cage', trig: 'run.cage', text: 'hint.cage', touch: 'hint.cageT' },
+    // the city: one line per stall, the first time the hero walks up to it
+    { id: 'city', trig: 'city.enter', text: 'hint.city' },
+    { id: 'smith', trig: 'city.near.smith', text: 'hint.smith' },
+    { id: 'trainer', trig: 'city.near.trainer', text: 'hint.trainer' },
+    { id: 'montoto', trig: 'city.near.montoto', text: 'hint.montoto', alt: 'hint.montotoEmpty' },
+    { id: 'portal', trig: 'city.near.portal', text: 'hint.portal' }
+  ];
+
+  var H = G.Hints = { q: [], cur: null, scene: null, L: null };
+  function st() { if (!G.save.hints) G.save.hints = G.cleanHints(null); return G.save.hints; }
+  H.enabled = function () {
+    var gs = G.gameScene, inRun = G.screen !== 'title' && G.screen !== 'city';
+    if (st().off) return false;
+    if (inRun && gs && gs.sim && (gs.sim.testRoom >= 0 || gs.bot)) return false;      // not in the test room, not while the QA bot plays
+    return true;
+  };
+  H.on = function (trig, alt) {
+    if (!G.save || !H.enabled()) return;
+    var seen = st().seen;
+    G.HINTS.forEach(function (h) {
+      if (h.trig !== trig || seen[h.id] || (H.cur && H.cur.h === h) || H.q.some(function (r) { return r.h === h; })) return;
+      if (H.q.length >= 4) return;      // an old hint that was never shown can fire again later
+      H.q.push({ h: h, alt: !!alt && !!h.alt });
+    });
+  };
+  H.seenOf = function (id) { return !!st().seen[id]; };
+  H.setOff = function (off) { st().off = !!off; if (off) { H.q = []; H.hide(); } G.storeSave(G.save); };
+  H.reset = function () { st().seen = {}; H.q = []; H.hide(); G.storeSave(G.save); };
+
+  // a scene (HUD or city overlay) builds its layer: draw the current hint again, or drop everything left from another scene
+  H.attach = function (scene) {
+    if (H.scene !== scene) { H.q = []; H.cur = null; }
+    H.scene = scene;
+    if (H.L) { H.L.destroy(); H.L = null; }
+    if (H.cur) H.draw();
+  };
+  H.hide = function () { delete G.qa.hits.hint; if (H.L) { H.L.destroy(); H.L = null; } H.cur = null; };
+  H.tick = function (scene) {
+    if (H.scene !== scene) return;
+    var now = scene.time.now;
+    // a panel (settings, inventory, shop...) is open: keep the hint off screen and its clock paused
+    if (G.Panels && G.Panels.current) {
+      if (H.L) { H.L.destroy(); H.L = null; delete G.qa.hits.hint; }
+      if (H.cur) H.cur.until = Math.max(H.cur.until, now + 1500);
+      return;
+    }
+    if (H.cur && !H.L) H.draw();
+    if (H.cur && now >= H.cur.until) H.hide();
+    if (!H.cur && H.q.length) {
+      if (!H.enabled()) { H.q = []; return; }
+      var r = H.q.shift(), h = r.h;
+      st().seen[h.id] = true; G.storeSave(G.save);
+      if (h.id === 'blocked') st().seen.crack = true;      // blocked by a crack says it better than seeing one
+      H.cur = { h: h, alt: r.alt, until: now + (h.sec || SEC) * 1000 };
+      H.draw();
+    }
+  };
+  H.draw = function () {
+    var scene = H.scene, c = H.cur, h = c.h, V = G.view, inCity = G.screen === 'city' || scene.scene.key === 'cityhud';
+    if (!scene || !scene.sys || !scene.sys.isActive()) return;
+    var key = c.alt ? h.alt : (G.touch && h.touch ? h.touch : h.text);
+    var L = H.L = UI.layer(scene, 2600);
+    var w = Math.min(V.W - 16, inCity && V.W >= 300 ? 300 : 232), probe = UI.text(scene, 0, 0, G.t(key), 'ui_text').setMaxWidth(w - 12), th = probe.height;
+    probe.destroy();
+    var ph = th + 12, x = Math.round((V.W - w) / 2), y;
+    if (h.pos === 'bottom' || (inCity && V.W < 300)) y = V.H - ph - (inCity ? 54 : 6);
+    else y = (inCity ? 6 : (G.hud && G.hud.obj ? G.hud.obj.y + 30 : 34)) + 3;
+    L.panel(x, y, w, ph, 'plate', 0);
+    L.text(x + 6, y + 6, G.t(key), 'ui_text').setMaxWidth(w - 12);
+    var hit = scene.add.image(x, y, 'atlas', 'px').setOrigin(0, 0).setDisplaySize(w, ph).setAlpha(0.01);
+    hit._dz = 3; hit.setInteractive({ useHandCursor: true });
+    hit.on('pointerdown', function () { H.hide(); });
+    L.add(hit);
+    UI.hit('hint', x, y, w, ph);
+    H.box = { x: x, y: y, w: w, h: ph };
+  };
+})(globalThis.G = globalThis.G || {});
+
+// ---- src/view/backup.js
+// Save backup panel (step UX): EXPORT SAVE and IMPORT SAVE, opened from Settings. The code itself is made and read by src/backup.js.
+// The code is shown in a real DOM text box laid over the canvas (a canvas cannot select or paste text): it is also the manual-copy
+// fallback when the clipboard is blocked (inside an iframe, say). Import: paste, CHECK, a summary of what the code holds, then confirm.
+(function (G) {
+  var UI = G.UI, P = G.Panels;
+  P.bak = { mode: 'export', phase: 'input', text: '', status: '', err: '', res: null };
+
+  var ERR = { empty: 'bak.err.empty', format: 'bak.err.format', checksum: 'bak.err.checksum', data: 'bak.err.data', shape: 'bak.err.shape', version: 'bak.err.version' };
+  var ta = null;      // the DOM text box while the panel is open
+  function dropBox() {
+    if (!ta) return;
+    P.bak.text = ta.value;
+    if (ta.parentNode) ta.parentNode.removeChild(ta);
+    ta = null;
+  }
+  function hexCss(key) { return '#' + ('000000' + UI.hex(key).toString(16)).slice(-6); }
+  function box(scene, x, y, w, h, readonly, value) {
+    var S = G.view.S, r = scene.game.canvas.getBoundingClientRect(), el = document.createElement('textarea');
+    el.value = value; el.readOnly = readonly; el.spellcheck = false; el.setAttribute('autocomplete', 'off'); el.setAttribute('aria-label', G.t('bak.label'));
+    var st = el.style;
+    st.position = 'fixed'; st.left = Math.round(r.left + x * S) + 'px'; st.top = Math.round(r.top + y * S) + 'px';
+    st.width = Math.round(w * S) + 'px'; st.height = Math.round(h * S) + 'px'; st.boxSizing = 'border-box'; st.margin = '0'; st.padding = Math.round(2 * S) + 'px';
+    st.background = hexCss('ui_bg'); st.color = hexCss('ui_text'); st.border = Math.max(1, S) + 'px solid ' + hexCss('ui_line');
+    st.font = Math.max(11, 4 * S) + 'px monospace'; st.resize = 'none'; st.outline = 'none'; st.overflowY = 'auto';
+    st.wordBreak = 'break-all'; st.zIndex = '20'; st.userSelect = 'text'; st.webkitUserSelect = 'text'; st.touchAction = 'auto';
+    st.opacity = '0.99';      // without it Chromium leaves a hole in the page under the box in screenshots (headless compositor quirk)
+    // keys typed or pasted here belong to the box, never to the game (I, WASD, ESC and 1-3 are bound)
+    ['keydown', 'keyup', 'keypress'].forEach(function (k) { el.addEventListener(k, function (e) { e.stopPropagation(); }); });
+    el.addEventListener('focus', function () { if (readonly) el.select(); });
+    document.body.appendChild(el);
+    if (!readonly && !G.touch) el.focus();
+    return el;
+  }
+  P.backupBoxValue = function () { return ta ? ta.value : P.bak.text; };      // QA hook
+
+  function copyText(text, done) {
+    var viaOld = function () {
+      try { if (ta) { ta.focus(); ta.select(); return !!document.execCommand('copy'); } } catch (e) { /* blocked */ }
+      return false;
+    };
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(function () { done(true); }, function () { done(viaOld()); }); return; }
+    } catch (e) { /* fall through */ }
+    done(viaOld());
+  }
+  function download(text) {
+    try {
+      var url = URL.createObjectURL(new Blob([text + '\n'], { type: 'text/plain' })), a = document.createElement('a');
+      a.href = url; a.download = 'riftscar-save.txt'; a.style.display = 'none';
+      document.body.appendChild(a); a.click();
+      setTimeout(function () { document.body.removeChild(a); URL.revokeObjectURL(url); }, 500);
+      return true;
+    } catch (e) { return false; }
+  }
+
+  // mode 'export' | 'import'; phase (import): 'input' | 'confirm'
+  P.openBackup = function (scene, mode, keep) {
+    dropBox();
+    if (P.L) P.L.destroy();
+    var B = P.bak, V = G.view, t = G.t;
+    if (mode) { B.mode = mode; if (!keep) { B.phase = 'input'; B.text = ''; B.status = ''; B.err = ''; B.res = null; } }
+    var exp = B.mode === 'export', confirm = !exp && B.phase === 'confirm';
+    if (exp) B.text = G.encodeSave(G.save);
+    P.current = 'backup'; P.scene = scene; G.paused = true;
+    var pw = Math.min(V.W - 8, 250), ph = 160, L = P.L = UI.modal(scene, pw, ph, t(exp ? 'set.export' : 'set.import')), x0 = L.x, y0 = L.y, inner = pw - 16, bw = Math.floor((inner - 6) / 2);
+    var plainDestroy = L.destroy;
+    L.destroy = function () { dropBox(); plainDestroy(); };
+    function back() { dropBox(); P.openSettings(scene, P.back); }
+    function status(s, color) { return L.text(x0 + 8, y0 + 98, s, color || 'ui_dim').setMaxWidth(inner); }
+    L.button(x0 + pw - 22, y0 + 3, 18, 16, '', back, { icon: 'i_close', name: 'bak_close' });
+
+    if (confirm) {
+      var r = B.res.info, y = y0 + 22;
+      L.text(x0 + 8, y, t('bak.found'), 'ui_warn'); y += 11;
+      r.chars.forEach(function (c) {
+        var tx = L.text(x0 + 8, y, t('bak.char', { name: G.classLabel(c.id), items: G.plural('items', c.items), gold: c.gold }), 'ui_text').setMaxWidth(inner); y += tx.height + 3;
+      });
+      if (!r.chars.length) { L.text(x0 + 8, y, t('bak.none'), 'ui_dim'); y += 10; }
+      var tt = L.text(x0 + 8, y + 2, t('bak.total', { items: G.plural('items', r.items), gold: r.gold, runs: r.runs }), 'gold').setMaxWidth(inner); y += tt.height + 8;
+      L.text(x0 + 8, y, t('bak.warn'), 'ui_bad').setMaxWidth(inner);
+      L.button(x0 + 8, y0 + ph - 26, bw, 18, t('bak.replace'), function () {
+        var keepSet = G.save.settings, s = B.res.save;
+        s.settings = keepSet;      // zoom, shake and language belong to this device, not to the backup
+        G.save = s; G.storeSave(G.save); B.res = null; B.text = '';
+        P.close(true); G.toTitle();
+      }, { name: 'bak_replace', color: 'ui_bad' });
+      L.button(x0 + 14 + bw, y0 + ph - 26, bw, 18, t('bak.cancel'), function () { B.phase = 'input'; B.res = null; P.openBackup(scene, 'import', true); }, { name: 'bak_cancel' });
+      return;
+    }
+
+    var hint = L.text(x0 + 8, y0 + 20, t(exp ? 'bak.exportHint' : 'bak.importHint'), 'ui_dim').setMaxWidth(inner), by = y0 + 22 + hint.height;
+    ta = box(scene, x0 + 8, by, inner, Math.max(28, y0 + 95 - by), exp, B.text);
+    if (B.err) status(t(B.err), 'ui_bad'); else if (B.status) status(t(B.status), B.status === 'bak.copied' || B.status === 'bak.downloaded' ? 'ui_good' : 'ui_warn');
+    if (exp) {
+      L.button(x0 + 8, y0 + 118, bw, 18, t('bak.copy'), function () {
+        var code = ta ? ta.value : B.text;
+        copyText(code, function (okc) {
+          B.err = ''; B.status = okc ? 'bak.copied' : 'bak.copyBlocked';
+          if (P.current === 'backup' && B.mode === 'export') { var keepSel = !okc; dropBox(); P.openBackup(scene, null); if (keepSel && ta) { ta.focus(); ta.select(); } }
+        });
+      }, { name: 'bak_copy', color: 'ui_good' });
+      L.button(x0 + 14 + bw, y0 + 118, bw, 18, t('bak.download'), function () {
+        var code = ta ? ta.value : B.text, okd = download(code);
+        B.err = ''; B.status = okd ? 'bak.downloaded' : 'bak.noDownload';
+        dropBox(); P.openBackup(scene, null);
+      }, { name: 'bak_download' });
+    } else {
+      L.button(x0 + 8, y0 + 118, bw, 18, t('bak.paste'), function () {
+        var fail = function () { B.err = 'bak.pasteBlocked'; B.status = ''; dropBox(); P.openBackup(scene, null); if (ta) ta.focus(); };
+        try {
+          if (!navigator.clipboard || !navigator.clipboard.readText) { fail(); return; }
+          navigator.clipboard.readText().then(function (s) { B.text = s; B.err = ''; B.status = ''; if (P.current === 'backup') { dropBox(); B.text = s; P.openBackup(scene, null, true); } }, fail);
+        } catch (e) { fail(); }
+      }, { name: 'bak_paste' });
+      L.button(x0 + 14 + bw, y0 + 118, bw, 18, t('bak.check'), function () {
+        var code = ta ? ta.value : B.text, res = G.decodeSave(code);
+        dropBox(); B.text = code;
+        if (res.ok) { B.res = res; B.phase = 'confirm'; B.err = ''; } else { B.err = ERR[res.err] || ERR.data; B.status = ''; }
+        P.openBackup(scene, null, true);
+      }, { name: 'bak_check', color: 'ui_good' });
+    }
+    L.button(x0 + 8, y0 + ph - 22, inner, 16, t('bak.back'), back, { name: 'bak_back' });
   };
 })(globalThis.G = globalThis.G || {});
 

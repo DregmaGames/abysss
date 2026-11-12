@@ -12,6 +12,7 @@
       monsterDmg: 0.75,               // ... with softer hits, so a room is about as deadly as before
       // +0.45 % monster hp/dmg per point of the gear score the hero BRINGS INTO the run (step 10: items equipped during the run no longer count,
       // so a fresh save is not punished for equipping its finds; it only slows the snowball of a geared career; was 0.5 % of the live gear score)
+      gentle: { rooms: 3, mult: 0.8 },   // the first run of a fresh character: monsters in rooms 1-3 have this share of hp and damage (src/sim/core.js loadRoom; gear.ux.runs === 0)
       gearK: 0.0045,
       ilvlRooms: 3,                   // item level of drops = 1 + floor(room / ilvlRooms)
       testRoom: 1,                    // ?room=test / TEST ROOM button: this room, restarted on every clear

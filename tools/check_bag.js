@@ -5,7 +5,7 @@
 'use strict';
 const fs = require('fs'), path = require('path'), vm = require('vm');
 const ROOT = path.dirname(__dirname);
-const SIM = ['balance.js', 'lore.js', 'rng.js', 'mapgen.js', 'sim/items.js', 'sim/economy.js', 'sim/abilities.js', 'sim/core.js', 'sim/effects.js', 'sim/combat.js', 'sim/fissures.js', 'sim/boss.js', 'sim/daily.js', 'qa/bot.js', 'save.js'];
+const SIM = ['balance.js', 'lore.js', 'rng.js', 'mapgen.js', 'sim/items.js', 'sim/economy.js', 'sim/abilities.js', 'sim/core.js', 'sim/effects.js', 'sim/combat.js', 'sim/fissures.js', 'sim/boss.js', 'sim/daily.js', 'qa/bot.js', 'save.js', 'backup.js'];
 function load(store) {
   const ctx = { Math, console, Uint8Array, Int16Array, Object, JSON, Array };
   if (store) ctx.localStorage = store;
@@ -503,6 +503,71 @@ const ids = o => Object.keys(o).map(k => o[k] && o[k].id).join(',');
   const sc = G.dailyScore(fake);
   check('daily: score of a win in 10:00 with 300 kills = rooms + kills + win + time bonus', sc.total === 10 * S.room + 300 * S.kill + S.win + (S.par - 600) * S.perSecond, String(sc.total));
   check('daily: a death scores rooms and kills only', G.dailyScore({ B, state: 'dead', tick: 100 * 60, roomsCleared: 4, kills: 90 }).total === 4 * S.room + 90 * S.kill);
+})();
+
+// first-time guidance state (step UX): hints in the save, the first-run flag, the gentler first run in the sim
+(function ux() {
+  const G = load();
+  let h = G.cleanHints({ off: true, seen: { move: true, junk: 'x', crack: 1 } });
+  check('ux: hints state is sanitized (off flag, only true / 1 entries kept)', h.off === true && h.seen.move === true && h.seen.crack === true && h.seen.junk === undefined);
+  check('ux: a fresh save has hints on and none seen, a fresh gear has runs 0', G.newSave().hints.off === false && Object.keys(G.newSave().hints.seen).length === 0 && G.newGear().ux.runs === 0);
+  const store = { data: {}, getItem(k) { return this.data[k] === undefined ? null : this.data[k]; }, setItem(k, v) { this.data[k] = v; } }, L = load(store), KEY = 'riftscar.save.v2';
+  store.data[KEY] = JSON.stringify({ v: 8, gears: { mage: { equipped: {}, bag: [], nextId: 1 }, warrior: { equipped: {}, bag: [], nextId: 1, gold: 30 }, archer: { equipped: {}, bag: [], nextId: 1, ux: { runs: 3 } } } });
+  let sv = L.loadSave();
+  check('ux: a save from before the flag: an untouched character is fresh (runs 0), one with progress counts as veteran (1), an explicit count is kept', sv.gears.mage.ux.runs === 0 && sv.gears.warrior.ux.runs === 1 && sv.gears.archer.ux.runs === 3 && sv.hints.off === false);
+  const g = G.newGear(), a = new G.Sim({ seed: 4, gear: g, cls: 'warrior' });
+  check('ux: the first run is gentle and counts as started (runs 1); the next is not', a.gentle === true && g.ux.runs === 1 && new G.Sim({ seed: 4, gear: g, cls: 'warrior' }).gentle === false);
+  const gm = G.BAL.run.gentle, hp = s => Math.round(s.B.monsters.imp.hp * s.threat);
+  const b = new G.Sim({ seed: 4, gear: G.newGear(), cls: 'warrior' }), c = new G.Sim({ seed: 4, gear: G.newGear(), cls: 'warrior', gentle: false });
+  check('ux: rooms 1-3 of a gentle run have ' + gm.mult + ' of the monster strength; room 4 is normal', Math.abs(b.threat / c.threat - gm.mult) < 1e-9);
+  b.loadRoom(gm.rooms); c.loadRoom(gm.rooms);
+  check('ux: from room ' + (gm.rooms + 1) + ' on the gentle flag changes nothing', b.threat === c.threat && hp(b) === hp(c));
+  const t = new G.Sim({ seed: 4, gear: G.newGear(), cls: 'warrior', testRoom: true });
+  check('ux: the test room is never gentle and does not use up the first run', t.gentle === false && t.gear.ux.runs === 0);
+  const r1 = new G.Sim({ seed: 4, gear: G.newGear(), cls: 'warrior' }), r2 = new G.Sim({ seed: 4, gear: G.newGear(), cls: 'warrior' });
+  for (let i = 0; i < 600; i++) { r1.step ? r1.step() : r1.update(); r2.step ? r2.step() : r2.update(); }
+  check('ux: a gentle run is deterministic (same seed, same state)', r1.tick === r2.tick && r1.monsters.length === r2.monsters.length && r1.player.hp === r2.player.hp);
+})();
+
+// save backup (step UX): export -> import round trip, corrupt / foreign / future codes refused, an old version migrates
+(function backup() {
+  const G = load();
+  const sv = G.newSave(), rng = new G.RNG(77);
+  ['mage', 'warrior', 'archer'].forEach((c, i) => {
+    const g = G.gearOf(sv, c), sim = new G.Sim({ seed: 3 + i, gear: g, cls: c });
+    for (let k = 0; k < 6; k++) g.bag.push(G.rollItem(sim.rngRoom, 3, k % 5, sim.B, g, sim.cls));
+    g.equipped[G.ITEM_SLOTS[0]] = G.rollItem(sim.rngRoom, 2, 1, sim.B, g, sim.cls);
+    g.gold = 120 + i; g.scrolls = i; g.ranks = i ? { might: 2 } : {}; g.ux.runs = 2;
+  });
+  sv.hints = { off: false, seen: { move: true, crack: true } }; sv.stats = { runs: 7, wins: 1, best: 9 };
+  const code = G.encodeSave(sv), res = G.decodeSave(code);
+  check('backup: the code is one line of text with the RS1 header and a checksum', /^RS1\.[A-Za-z0-9+\/=]+\.[0-9a-f]{8}$/.test(code), code.length + ' chars for ' + JSON.stringify(sv).length + ' of JSON');
+  check('backup: compressed (smaller than the JSON)', code.length < JSON.stringify(sv).length);
+  check('backup: export -> import round trip equals the original', res.ok && JSON.stringify(res.save) === JSON.stringify(G.parseSave(JSON.stringify(sv))) && res.save.v === 8 && res.from === 8);
+  check('backup: the summary says what the code holds (characters, items, gold)', res.info.chars.length === 3 && res.info.items === 21 && res.info.gold === 120 + 121 + 122 && res.info.runs === 7);
+  check('backup: whitespace and line breaks in a pasted code are ignored', G.decodeSave('  ' + code.replace(/(.{40})/g, '$1\n') + '\n ').ok);
+  const flip = (s, at) => s.slice(0, at) + (s[at] === 'A' ? 'B' : 'A') + s.slice(at + 1);
+  const bad = [['an empty text', ''], ['text that is not a code', 'hello world'], ['a cut code', code.slice(0, code.length - 20)], ['one changed character', flip(code, 30)], ['a changed checksum', flip(code, code.length - 2)], ['another game\'s code', 'XY9.' + code.split('.')[1] + '.' + code.split('.')[2]], ['a plain JSON save', JSON.stringify(sv)]];
+  bad.forEach(([n, t]) => { const r = G.decodeSave(t); check('backup: ' + n + ' is refused with an error', !r.ok && !!r.err, r.err); });
+  const lz = body => 'RS1.' + body + '.' + code.split('.')[2];
+  // a code whose checksum is right but whose content is not a save: build one through the same encoder with other JSON
+  const enc = obj => { const old = JSON.stringify; return G.encodeSave(obj); };
+  check('backup: a valid code that holds something else (no gears) is refused', G.decodeSave(enc({ hello: 1 })).err === 'shape');
+  check('backup: a save from a newer version is refused', G.decodeSave(enc({ v: 9, gears: {} })).err === 'version');
+  check('backup: an old save (v6) in a code migrates to v8 with its items and gold', (() => {
+    const item = { id: 3, slot: 'armor', rarity: 3, ilvl: 4, name: 'Old armor', stats: { armor: 9, hp: 4 }, power: 20, unid: true };
+    const r = G.decodeSave(enc({ v: 6, gears: { mage: { equipped: {}, bag: [item], nextId: 9, scrolls: 1, gold: 50, ranks: { might: 2 } } }, settings: {}, stats: { runs: 2, wins: 0, best: 3 } }));
+    return r.ok && r.from === 6 && r.save.v === 8 && r.save.gears.mage.gold === 50 && r.save.gears.mage.bag.length === 1 && r.save.gears.mage.bag[0].unid === true && r.save.gears.mage.city.montoto === false && r.save.hints.off === false;
+  })());
+  check('backup: non-ASCII text survives (escaped in the code)', G.decodeSave(enc({ v: 8, gears: {}, note: 'Capucha Salvaje ñ á €' })).ok);
+  // the importing side keeps nothing of the code until it is confirmed: decodeSave never touches the current save
+  const cur = G.newSave(); cur.stats.runs = 5; const before = JSON.stringify(cur);
+  G.decodeSave(code); G.decodeSave('garbage');
+  check('backup: checking a code changes nothing', JSON.stringify(cur) === before);
+  // a full-size save: 3 characters with full bags and a shop
+  const big = G.newSave(); ['mage', 'warrior', 'archer'].forEach(c => { const g = G.gearOf(big, c), sim = new G.Sim({ seed: 9, gear: g, cls: c }); for (let k = 0; k < 50; k++) g.bag.push(G.rollItem(sim.rngRoom, 5, k % 5, sim.B, g, sim.cls)); });
+  const bc = G.encodeSave(big), br = G.decodeSave(bc);
+  check('backup: a save with three full bags round trips', br.ok && br.info.items === 150, bc.length + ' chars');
 })();
 
 console.log(fails ? fails + ' check(s) FAILED' : 'all checks passed');

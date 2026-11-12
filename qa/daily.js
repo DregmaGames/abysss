@@ -38,7 +38,7 @@ function nodeDaily(date) {
   for (const size of ['landscape', 'portrait']) {
     const page = await Q.open(browser, `?fresh=1&bot=1&speed=${SPEED}&daily=${DATE}`, size);
     await page.context().grantPermissions(['clipboard-read', 'clipboard-write']).catch(() => {});
-    const saveBefore = await page.evaluate(() => JSON.stringify(G.save));
+    const saveBefore = await page.evaluate(() => { const c = JSON.parse(JSON.stringify(G.save)); delete c.hints; return JSON.stringify(c); });
     // 1. from the title
     await page.waitForTimeout(500);
     await Q.click(page, 'title_daily');
@@ -93,7 +93,7 @@ function nodeDaily(date) {
     ok(st.screen === 'result' && s2.daily && s2.daily.score === s1.daily.score && s2.kills === s1.kills && s2.tick === s1.tick && s2.daily.share === s1.daily.share, `${size}: the run from the city is the same day's run (${s2.daily && s2.daily.score} vs ${s1.daily.score})`);
     await Q.shot(page, `daily/result_city_${size}`);
     // 4. the save did not change
-    const saveAfter = await page.evaluate(() => JSON.stringify(G.save));
+    const saveAfter = await page.evaluate(() => { const c = JSON.parse(JSON.stringify(G.save)); delete c.hints; return JSON.stringify(c); });      // hint 'seen' flags are UI state, not progress
     ok(saveAfter === saveBefore, `${size}: the save is unchanged after two daily runs`);
     await Q.click(page, 'res_city');
     await page.waitForTimeout(300);

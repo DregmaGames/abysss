@@ -21,6 +21,7 @@
     P.L = null; P.current = null;
     if (c === 'inventory') P.openInventory(scene, true);
     else if (c === 'settings') P.openSettings(scene, P.back);
+    else if (c === 'backup') P.openBackup(scene, null);
     else if (c === 'result') P.openResult(scene, P.resultState);
     else if (c === 'debug') P.openDebug(scene);
     else if (c === 'abilities') P.openAbilities(scene);
@@ -425,12 +426,35 @@
   };
 
   // -------------------------------------------------------------- settings
+  // two rows under the sliders: [HINTS: ON] [RESET HINTS] and [EXPORT SAVE] [IMPORT SAVE]
+  function settingsExtra(L, scene, x0, y, pw, more) {
+    var reopen = function () { (more ? P.openSettingsMore : P.openSettings)(scene, P.back); };
+    var bw = Math.floor((pw - 22) / 2), H = G.Hints, off = G.save.hints && G.save.hints.off;
+    L.button(x0 + 8, y, bw, 16, G.t(off ? 'set.hintsOff' : 'set.hintsOn'), function () { H.setOff(!off); reopen(); }, { name: 'set_hints', color: off ? 'ui_dim' : 'ui_good' });
+    L.button(x0 + 14 + bw, y, bw, 16, G.t('set.hintsReset'), function () { H.reset(); reopen(); }, { name: 'set_hints_reset' });
+    // save backup: export is always there; import replaces the save, so not in the middle of a run
+    if (sim()) L.button(x0 + 8, y + 20, pw - 16, 16, G.t('set.export'), function () { P.openBackup(scene, 'export'); }, { name: 'set_export' });
+    else {
+      L.button(x0 + 8, y + 20, bw, 16, G.t('set.export'), function () { P.openBackup(scene, 'export'); }, { name: 'set_export' });
+      L.button(x0 + 14 + bw, y + 20, bw, 16, G.t('set.import'), function () { P.openBackup(scene, 'import'); }, { name: 'set_import' });
+    }
+  }
+  // the second settings page of a very small screen: hints and save backup
+  P.openSettingsMore = function (scene, back) {
+    if (P.L) P.L.destroy();
+    var V = G.view, pw = Math.min(V.W - 8, 200), ph = 96;
+    P.current = 'settings'; P.scene = scene; P.back = back || null; G.paused = true;
+    var L = P.L = UI.modal(scene, pw, ph, G.t('set.title')), x0 = L.x, y0 = L.y;
+    L.button(x0 + pw - 22, y0 + 3, 18, 16, '', function () { P.openSettings(scene, back); }, { icon: 'i_close', name: 'set_close' });
+    settingsExtra(L, scene, x0, y0 + 26, pw, true);
+    L.button(x0 + 8, y0 + ph - 26, pw - 16, 18, G.t('set.close'), function () { P.openSettings(scene, back); }, { name: 'set_resume' });
+  };
   P.openSettings = function (scene, back) {
     if (P.L) P.L.destroy();
     var V = G.view, set = G.save.settings, inRun = !!sim();
     P.current = 'settings'; P.scene = scene; P.back = back || null; G.paused = true;
     if (G.screen !== 'title' && G.screen !== 'city') G.screen = 'settings';
-    var compact = V.H < 222, pw = Math.min(V.W - 8, 200), ph = compact ? 166 : 214, t = G.t;
+    var compact = V.H < 222, pw = Math.min(V.W - 8, 200), ph = compact ? 166 : 214 + 40, t = G.t;      // compact: hints and save backup move to a MORE page
     var L = P.L = UI.modal(scene, pw, ph, t('set.title')), x0 = L.x, y0 = L.y, tw = pw - 16 - 36;
     L.button(x0 + pw - 22, y0 + 3, 18, 16, '', function () { leave(); }, { icon: 'i_close', name: 'set_close' });
     function leave() { if (P.back === 'inventory') P.openInventory(scene); else P.close(); }
@@ -484,11 +508,18 @@
     }
     vrow('music', t('set.music'), 'music');
     vrow('sfx', t('set.sfx'), 'sfx');
+    if (!compact) { settingsExtra(L, scene, x0, y0 + ry + 2, pw); ry += 42; }      // hints on/off, reset hints, save backup
 
-    var bw = Math.floor((pw - 22) / 2);
-    L.button(x0 + 8, y0 + ph - 26, bw, 18, inRun ? t('set.resume') : t('set.close'), leave, { name: 'set_resume' });
-    if (inRun) L.button(x0 + 14 + bw, y0 + ph - 26, bw, 18, t('set.quit'), function () { P.close(true); G.toCity(); }, { name: 'set_quit', color: 'ui_bad' });
-    else L.button(x0 + 14 + bw, y0 + ph - 26, bw, 18, t('set.reset'), function () {
+    var bw = Math.floor((pw - 22) / 2), mw = 0;
+    if (compact) {      // a very small screen: hints and save backup on their own page
+      mw = 36;
+      L.button(x0 + 8, y0 + ph - 26, mw, 18, '...', function () { P.openSettingsMore(scene, P.back); }, { name: 'set_more' });
+      bw = Math.floor((pw - 28 - mw) / 2);
+    }
+    var bx = x0 + 8 + (mw ? mw + 6 : 0);
+    L.button(bx, y0 + ph - 26, bw, 18, inRun ? t('set.resume') : t('set.close'), leave, { name: 'set_resume' });
+    if (inRun) L.button(bx + 6 + bw, y0 + ph - 26, bw, 18, t('set.quit'), function () { P.close(true); G.toCity(); }, { name: 'set_quit', color: 'ui_bad' });
+    else L.button(bx + 6 + bw, y0 + ph - 26, bw, 18, t('set.reset'), function () {
       var keep = G.save.settings; G.save = G.newSave(); G.save.settings = keep; G.storeSave(G.save); P.close(true); G.toTitle();
     }, { name: 'set_reset', color: 'ui_bad' });
     void tw;
