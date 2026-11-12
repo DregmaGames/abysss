@@ -110,7 +110,7 @@ Design decisions live in the plan doc (the user has it); this file is what an ag
   `qa/bot.js --seeds 3,4,5` (HD on): 0 errors, 0 softlocks, all match Node. `node qa/hd.js`: 960x540 and 540x960, hd on / off: HD skeletons and floor present
   when on, chunky when off, boss poses idle / slam / charge / burst seen, death corpses play, Settings toggle off -> on works and is saved, Montoto HD in the city; 0 console errors.
   Zoom S=3 (1440x810) and S=1 looked at: no blur.
-- HTML 1 845 562 -> 1 976 591 bytes (+131 KB: HD atlas 512x128 and the floor tile).
+- HTML 1 845 562 -> 1 976 616 bytes (+131 KB: HD atlas 512x128 and the floor tile).
 - Screenshots: `/tmp/hd_testroom_landscape.png`, `/tmp/hd_testroom_portrait.png`, `/tmp/hd_boss.png`, `/tmp/hd_city_montoto.png`, `/tmp/hd_motion_strip.png` (copies in `/home/claude/builds/hd/`).
 - Rough (the look, to judge): the HD skeleton reads THINNER and weaker than the chunky one (the blade takes a fifth of its 50 px, ribs turn to speckle at that size; the
   source has ~75 native pixels, reduced by 2/3); HD sprites next to the chunky hero, imps, bats and walls mix two densities; the tilt shows stair-step edges while walking;
