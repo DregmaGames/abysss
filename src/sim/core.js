@@ -8,6 +8,7 @@
     this.clsId = C.id;
     this.seed = opts.seed >>> 0;
     this.gear = opts.gear;
+    this.daily = opts.daily || null;     // the daily challenge (G.dailyInfo): its door after each room is fixed
     this.keepEvents = !!opts.events;
     this.events = [];
     this.input = { mx: 0, my: 0, dodge: false, pulse: false };
@@ -43,6 +44,7 @@
     this.merchantAt = this.testRoom >= 0 ? [] : G.merchantRooms(this.seed, B);
     this.cageAt = this.testRoom >= 0 ? -1 : G.cageRoom(this.seed, B, this.gear);   // step 8: Don Montoto's cage: room 5, every run, until this character rescued him
     this.cage = null; this.rescued = false;
+    this.startGear = this.gear ? G.gearScore(this.gear) : 0;      // run.gearK scales monsters by the gear brought into the run (items equipped in the run do not count)
     this.loadRoom(this.testRoom >= 0 ? this.testRoom : 0);
   }
   var S = Sim.prototype;
@@ -115,7 +117,9 @@
     this.mod = mod && B.doors.mods[mod] ? mod : null;
     this.modDef = dm; this.lootBonus = dm.loot || 0;
     this.rngRoom = new G.RNG(G.hash32(room.seed, 77));
-    this.threat = B.run.roomMult[index] * (dm.threat || 1) * (1 + B.run.gearK * G.gearScore(this.gear));
+    var th = B.run.roomMult[index] * (dm.threat || 1) * (1 + B.run.gearK * this.startGear);
+    this.threat = th * (B.run.monsterDmg || 1);      // monster damage
+    this.hpThreat = th * (B.run.monsterHp || 1);      // monster HP
     this.ilvl = 1 + Math.floor(index / B.run.ilvlRooms);
     this.player.x = room.start.x; this.player.y = room.start.y;
     this.player.dashT = 0;
@@ -164,6 +168,7 @@
   S.enterChoice = function () {
     this.state = 'choice';
     this.doors = G.doorsFor(this.seed, this.roomIndex, this.B);
+    if (this.daily) this.doors = [this.doors[this.daily.doors[this.roomIndex] | 0]];      // daily: only the day's door (or leave)
     this.progress();
     this.emit({ t: 'choice', doors: this.doors.slice() });
   };

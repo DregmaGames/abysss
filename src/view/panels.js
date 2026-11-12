@@ -26,6 +26,7 @@
     else if (c === 'abilities') P.openAbilities(scene);
     else if (c === 'shop') P.openShop(scene, true);
     else if (c === 'montoto') P.openMontoto(scene, true);
+    else if (c === 'daily') P.openDaily(scene);
   };
   function sim() { return G.gameScene && G.screen !== 'title' && G.screen !== 'city' ? G.gameScene.sim : null; }
   function gear() { var s = sim(); return s ? s.gear : G.gearOf(G.save, G.cls); }
@@ -517,6 +518,7 @@
   P.openResult = function (scene, state) {
     if (P.L) P.L.destroy();
     var V = G.view, s = G.gameScene.sim, B = s.B, won = state === 'won', left = state === 'left', R = s.result || { items: 0, kept: 0, lost: 0, best: -1 };
+    if (s.daily) { P.openDailyResult(scene, state); return; }
     if ((P.resultState !== state || !P.counted) && s.testRoom < 0) {      // test-room deaths are not runs
       P.counted = true;
       G.save.stats.runs++; if (won) G.save.stats.wins++;
@@ -547,20 +549,102 @@
     L.button(x0 + 16 + bw, y0 + ph - 28, bw, 20, G.t('res.city'), function () { P.counted = false; P.close(true); G.toCity(); }, { name: 'res_city', color: 'gold' });
   };
 
+  // ---------------------------------------------------------------- daily challenge (step 10)
+  // today's run: ?daily=YYYY-MM-DD picks the day (QA), else the UTC date of this machine
+  G.dailyToday = function () {
+    var q = G.params && G.params.get('daily');
+    return G.dailyInfo(q && /^\d{4}-\d{2}-\d{2}$/.test(q) ? q : G.utcDate(new Date()), G.BAL);
+  };
+  // what a player pastes: one line, the same for everyone who got the same result
+  G.dailyShare = function (s) {
+    var B = s.B, t = Math.floor(s.tick / 60), won = s.state === 'won';
+    var res = won ? G.t('daily.shareWon') : s.state === 'left' ? G.t('daily.shareLeft', { a: s.roomIndex + 1, b: B.run.rooms }) : s.state === 'dead' ? G.t('daily.shareDead', { a: s.roomIndex + 1, b: B.run.rooms }) : G.t('daily.shareOn', { a: s.roomIndex + 1, b: B.run.rooms });
+    return G.t('daily.share', { d: s.daily.date, c: G.classLabel(s.clsId), res: res, k: s.kills, t: Math.floor(t / 60) + ':' + ('0' + t % 60).slice(-2), n: G.dailyScore(s).total });
+  };
+  // copy to the clipboard: the async API when there is one, else a hidden textarea; done(ok)
+  G.copyText = function (text, done) {
+    function legacy() {
+      var ok = false;
+      try {
+        var ta = document.createElement('textarea');
+        ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.left = '-9999px';
+        document.body.appendChild(ta); ta.select(); ok = document.execCommand('copy'); document.body.removeChild(ta);
+      } catch (e) { ok = false; }
+      G.lastCopied = ok ? text : null; done(ok);
+    }
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(function () { G.lastCopied = text; done(true); }, legacy);
+      else legacy();
+    } catch (e) { legacy(); }
+  };
+  G.startDaily = function () {
+    var g = G.game.scene;
+    G.daily = G.dailyToday(); G.testRoom = false; G.paused = false;
+    ['backdrop', 'title', 'cityhud', 'city', 'hud', 'game'].forEach(function (k) { if (g.isActive(k) || g.isPaused(k)) g.stop(k); });
+    g.start('game');
+  };
+  // the daily board (title button, city sign): today's date, class and rules, START
+  P.openDaily = function (scene) {
+    if (P.L) P.L.destroy();
+    var V = G.view, D = G.dailyToday(), t = G.t;
+    P.current = 'daily'; P.scene = scene; G.paused = true;
+    var pw = Math.min(V.W - 8, 230), ph = 132;
+    var L = P.L = UI.modal(scene, pw, ph, t('daily.title')), x0 = L.x, y0 = L.y, cx = V.W / 2, y = y0 + 24;
+    L.button(x0 + pw - 22, y0 + 3, 18, 16, '', function () { P.close(); }, { icon: 'i_close', name: 'daily_close' });
+    [[t('daily.date', { d: D.date }), 'ui_text'], [t('daily.class', { c: G.classLabel(D.cls).toUpperCase() }), 'ui_warn'], [t('daily.rules'), 'ui_dim'], [t('daily.kept'), 'ui_dim']].forEach(function (l) {
+      var tx = L.text(0, y, l[0], l[1]).setMaxWidth(pw - 14);
+      UI.centerX(tx, cx);
+      y += 12 + Math.max(0, Math.round(tx.height / 10) - 1) * 10;
+    });
+    var bw = Math.floor((pw - 24) / 2);
+    L.button(x0 + 8, y0 + ph - 26, bw, 20, t('daily.start'), function () { P.close(true); G.startDaily(); }, { name: 'daily_start', color: 'ui_good' });
+    L.button(x0 + 16 + bw, y0 + ph - 26, bw, 20, t('set.close'), function () { P.close(); }, { name: 'daily_back' });
+  };
+  // the daily result: score, its parts, the share text and COPY. Nothing is counted in the save's stats.
+  P.openDailyResult = function (scene, state) {
+    var V = G.view, s = G.gameScene.sim, B = s.B, won = state === 'won', left = state === 'left', sc = G.dailyScore(s), share = G.dailyShare(s), t = G.t;
+    P.current = 'result'; P.scene = scene; P.resultState = state; G.paused = true; G.screen = 'result';
+    G.gameScene.ended = true;
+    var pw = Math.min(V.W - 8, 250), ph = V.H >= 300 ? 196 : 176;
+    var L = P.L = UI.modal(scene, pw, ph, null), x0 = L.x, y0 = L.y, cx = V.W / 2, tm = Math.floor(s.tick / 60);
+    UI.centerX(L.text(0, y0 + 6, t('daily.title') + '  ' + s.daily.date, 'ui_dim'), cx);
+    UI.centerX(L.text(0, y0 + 17, t(won ? 'res.won' : (left ? 'res.left' : 'res.dead')), won ? 'ui_good' : (left ? 'ui_warn' : 'ui_bad'), true), cx);
+    var lines = [
+      [won ? t('res.allCleared', { n: B.run.rooms }) : left ? t('res.leftAfter', { a: s.roomIndex + 1, b: B.run.rooms }) : t('res.fell', { a: s.roomIndex + 1, b: B.run.rooms }), 'ui_text'],
+      [G.classLabel(s.clsId).toUpperCase() + '   ' + t('res.stats', { l: s.player.level, k: s.kills, t: Math.floor(tm / 60) + ':' + ('0' + tm % 60).slice(-2) }), 'ui_dim'],
+      [t('daily.score', { n: sc.total }), 'gold'],
+      [t('daily.parts', { r: sc.rooms, k: sc.kills, w: sc.win + sc.time }), 'ui_dim'],
+      [t('daily.kept'), 'ui_dim']];
+    var ly = y0 + 40;
+    lines.forEach(function (l) {
+      var tx = L.text(0, ly, l[0], l[1]).setMaxWidth(pw - 12);
+      UI.centerX(tx, cx);
+      ly += 12 + Math.max(0, Math.round(tx.height / 10) - 1) * 10;
+    });
+    var st = L.text(0, ly + 2, '', 'ui_good'); UI.centerX(st, cx);
+    var bw = Math.floor((pw - 24) / 2);
+    L.button(x0 + 8, y0 + ph - 50, pw - 16, 20, t('daily.copy'), function () {
+      G.copyText(share, function (ok) { if (P.L !== L) return; st.setText(t(ok ? 'daily.copied' : 'daily.copyFail')).setTint(UI.hex(ok ? 'ui_good' : 'ui_bad')); UI.centerX(st, cx); });
+    }, { name: 'daily_copy', color: 'gold' });
+    L.button(x0 + 8, y0 + ph - 26, bw, 20, t('daily.again'), function () { P.close(true); G.restartRun(); }, { name: 'res_again', color: 'ui_good' });
+    L.button(x0 + 16 + bw, y0 + ph - 26, bw, 20, t('res.city'), function () { P.close(true); G.toCity(); }, { name: 'res_city', color: 'gold' });
+  };
+
   G.restartRun = function () {
     var g = G.game.scene;
-    G.runSeed = (G.runSeed + 1) >>> 0;
+    if (!G.daily) G.runSeed = (G.runSeed + 1) >>> 0;      // a daily run restarts the same day's run
     G.paused = false;
     g.stop('hud'); g.stop('game'); g.start('game');
   };
   G.toCity = function () {
     var g = G.game.scene;
-    G.paused = false; G.runSeed = (G.runSeed + 1) >>> 0;      // a new seed for the next run from the portal
+    G.paused = false; if (!G.daily) G.runSeed = (G.runSeed + 1) >>> 0;      // a new seed for the next run from the portal (a daily run did not use it)
+    G.daily = null;
     g.stop('hud'); g.stop('game'); g.start('city');
   };
   G.toTitle = function (openGear) {
     var g = G.game.scene;
-    G.paused = false; G.openGearOnTitle = !!openGear;
+    G.paused = false; G.openGearOnTitle = !!openGear; G.daily = null;
     g.stop('hud'); g.stop('game'); g.stop('cityhud'); g.stop('city'); g.start('title');
   };
 })(globalThis.G = globalThis.G || {});

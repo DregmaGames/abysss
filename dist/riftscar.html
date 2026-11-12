@@ -18,6 +18,8 @@
     run: {
       rooms: 10,                      // the last room is the boss room
       roomMult: [1.05, 1.3, 1.55, 1.8, 2.1, 2.4, 2.75, 3.1, 3.5, 3.0],   // monster hp/dmg multiplier per room
+      monsterHp: 1,                   // x monster HP in every room (on top of roomMult)
+      monsterDmg: 1,                  // x monster damage in every room (on top of roomMult)
       gearK: 0.005,                   // +0.5 % monster hp/dmg per point of gear score ("gear level scales the room")
       ilvlRooms: 3,                   // item level of drops = 1 + floor(room / ilvlRooms)
       testRoom: 1,                    // ?room=test / TEST ROOM button: this room, restarted on every clear
@@ -547,6 +549,17 @@
     bot: { reactionTicks: 12, career: { startRoom: 3, step: 1, cap: 10, lowHp: 0.4, pushHp: 0.7, pushGear: 6 },
            shop: { rankOrder: ['vitality', 'might', 'haste', 'guard', 'insight'], potionHp: 0.5, baseItemMax: 2 } },
 
+    // Daily challenge (step 10, src/sim/daily.js). The UTC date gives the seed, the class and the door taken after each room (salt: mixed into
+    // the date hash). kit: the fixed starting gear (slot, rarity) at item level kitIlvl, identified and worn; scrolls: scrolls of Identification
+    // to start with. Nothing of the daily run is banked into the save. score = room x rooms cleared + kill x kills, and for a win: win +
+    // perSecond x every second under par (game time).
+    daily: {
+      salt: 1010,
+      kit: [{ slot: 'weapon', rarity: 1 }, { slot: 'armor', rarity: 0 }, { slot: 'boots', rarity: 0 }],
+      kitIlvl: 2, scrolls: 2,
+      score: { room: 1000, kill: 10, win: 5000, par: 900, perSecond: 5 }
+    },
+
     fx: { shakeCap: 5, shakeDecay: 9 },   // max shake offset in art px at 100 %
     softlockSeconds: 400
   };
@@ -690,6 +703,14 @@
     'res.kept': '{items} kept in your bag', 'res.keptLost': ', {n} lost (bag full)',
     'res.goldLost': 'Gold: {n} lost', 'res.goldNone': 'Gold: none earned', 'res.goldKept': 'Gold: +{n} kept', 'res.gear': 'Gear score {n}',
     'res.again': 'RUN AGAIN', 'res.city': 'BACK TO CITY',
+    'title.daily': 'DAILY RIFT', 'city.daily': 'DAILY RIFT',
+    'daily.title': 'DAILY RIFT', 'daily.date': 'Today (UTC): {d}', 'daily.class': 'Class: {c}',
+    'daily.rules': 'Same seed, class and doors for everyone today. Fixed starting kit.',
+    'daily.kept': 'Practice run: nothing found is kept.',
+    'daily.start': 'START', 'daily.again': 'TRY AGAIN', 'daily.copy': 'COPY SHARE TEXT', 'daily.copied': 'Copied to the clipboard', 'daily.copyFail': 'Could not copy',
+    'daily.score': 'SCORE {n}', 'daily.parts': 'Rooms {r} + kills {k} + win {w}',
+    'daily.share': 'Riftscar Daily Rift {d} - {c} - {res} - {k} kills - {t} - score {n}',
+    'daily.shareWon': 'rift sealed', 'daily.shareDead': 'fell in room {a}/{b}', 'daily.shareLeft': 'left after room {a}/{b}', 'daily.shareOn': 'in room {a}/{b}',
     // counts
     'items.one': '{n} item', 'items.other': '{n} items',
     // item parts (English assembly: [adjective] base)
@@ -795,6 +816,14 @@
     'res.kept': '{items} en tu bolsa', 'res.keptLost': ', {n} perdidos (bolsa llena)',
     'res.goldLost': 'Oro: {n} perdido', 'res.goldNone': 'Oro: nada ganado', 'res.goldKept': 'Oro: +{n} conservado', 'res.gear': 'Equipo {n}',
     'res.again': 'OTRA INCURSIÓN', 'res.city': 'A LA CIUDAD',
+    'title.daily': 'RETO DIARIO', 'city.daily': 'RETO DIARIO',
+    'daily.title': 'RETO DIARIO', 'daily.date': 'Hoy (UTC): {d}', 'daily.class': 'Clase: {c}',
+    'daily.rules': 'La misma semilla, clase y puertas para todos hoy. Equipo inicial fijo.',
+    'daily.kept': 'Incursión de práctica: no conservas nada.',
+    'daily.start': 'EMPEZAR', 'daily.again': 'REINTENTAR', 'daily.copy': 'COPIAR PARA COMPARTIR', 'daily.copied': 'Copiado al portapapeles', 'daily.copyFail': 'No se pudo copiar',
+    'daily.score': 'PUNTOS {n}', 'daily.parts': 'Salas {r} + bajas {k} + victoria {w}',
+    'daily.share': 'Riftscar Reto Diario {d} - {c} - {res} - {k} bajas - {t} - {n} puntos',
+    'daily.shareWon': 'brecha sellada', 'daily.shareDead': 'caí en la sala {a}/{b}', 'daily.shareLeft': 'salí tras la sala {a}/{b}', 'daily.shareOn': 'en la sala {a}/{b}',
     'items.one': '{n} objeto', 'items.other': '{n} objetos',
     // item parts (Spanish assembly: noun + intrinsic adjective + bonus adjective + complement, all agreeing with the noun)
     // base value: 'Noun;gender (m/f + s/p);intrinsic adjective (masculine singular);complement'
@@ -1924,6 +1953,7 @@
     this.clsId = C.id;
     this.seed = opts.seed >>> 0;
     this.gear = opts.gear;
+    this.daily = opts.daily || null;     // the daily challenge (G.dailyInfo): its door after each room is fixed
     this.keepEvents = !!opts.events;
     this.events = [];
     this.input = { mx: 0, my: 0, dodge: false, pulse: false };
@@ -1959,6 +1989,7 @@
     this.merchantAt = this.testRoom >= 0 ? [] : G.merchantRooms(this.seed, B);
     this.cageAt = this.testRoom >= 0 ? -1 : G.cageRoom(this.seed, B, this.gear);   // step 8: Don Montoto's cage: room 5, every run, until this character rescued him
     this.cage = null; this.rescued = false;
+    this.startGear = this.gear ? G.gearScore(this.gear) : 0;      // run.gearK scales monsters by the gear brought into the run (items equipped in the run do not count)
     this.loadRoom(this.testRoom >= 0 ? this.testRoom : 0);
   }
   var S = Sim.prototype;
@@ -2031,7 +2062,9 @@
     this.mod = mod && B.doors.mods[mod] ? mod : null;
     this.modDef = dm; this.lootBonus = dm.loot || 0;
     this.rngRoom = new G.RNG(G.hash32(room.seed, 77));
-    this.threat = B.run.roomMult[index] * (dm.threat || 1) * (1 + B.run.gearK * G.gearScore(this.gear));
+    var th = B.run.roomMult[index] * (dm.threat || 1) * (1 + B.run.gearK * this.startGear);
+    this.threat = th * (B.run.monsterDmg || 1);      // monster damage
+    this.hpThreat = th * (B.run.monsterHp || 1);      // monster HP
     this.ilvl = 1 + Math.floor(index / B.run.ilvlRooms);
     this.player.x = room.start.x; this.player.y = room.start.y;
     this.player.dashT = 0;
@@ -2080,6 +2113,7 @@
   S.enterChoice = function () {
     this.state = 'choice';
     this.doors = G.doorsFor(this.seed, this.roomIndex, this.B);
+    if (this.daily) this.doors = [this.doors[this.daily.doors[this.roomIndex] | 0]];      // daily: only the day's door (or leave)
     this.progress();
     this.emit({ t: 'choice', doors: this.doors.slice() });
   };
@@ -2891,7 +2925,7 @@
       if (ctx) dmg *= mul;
       this.bolts.push({ id: this.nextId++, x: p.x, y: p.y - 2, vx: G.M.cos(ang) * A.speed, vy: G.M.sin(ang) * A.speed,
         r: A.r, dmg: dmg, crit: crit, life: life, pierce: s.pierce, knock: A.knock, knockElite: A.knockElite, hit: {}, atk: true, main: i === 0,
-        bounce: bounce ? bounce.n : 0 });
+        bounce: bounce ? bounce.n : 0, bounceF: bounce });
     }
     if (!(ctx && ctx.echo)) this.emit({ t: 'cast', x: p.x, y: p.y });
   };
@@ -2973,9 +3007,9 @@
 
   // ---------------------------------------------------------------- monsters
   S.spawnMonster = function (type, x, y, fid) {
-    var def = this.B.monsters[type], th = this.threat;
+    var def = this.B.monsters[type], th = this.threat, hth = this.hpThreat || th;
     if (this.boxHits(x, y, def.r)) { var f = this.fissures[fid]; x = f.x; y = f.y; }
-    var m = { id: this.nextId++, type: type, def: def, x: x, y: y, r: def.r, hp: Math.round(def.hp * th), maxHp: Math.round(def.hp * th),
+    var m = { id: this.nextId++, type: type, def: def, x: x, y: y, r: def.r, hp: Math.round(def.hp * hth), maxHp: Math.round(def.hp * hth),
       dmg: def.dmg * th, mul: th, fid: fid, hitCd: 0.5, kx: 0, ky: 0, st: 'chase', t: 0, cd: 0.6 + this.rngCombat.next() * 1.2,
       cd2: def.summonEvery || 0, wind: 0, lx: 0, ly: 0, face: 1, los: true, emerge: 0.35, age: 0, atk: 0, ba: 0, px: x, py: y, bump: 0, detour: 0, walkLos: false, fx: null, slowMul: 1, side: this.rngCombat.chance(0.5) ? 1 : -1 };
     if (def.boss) { m.t = 1.6; }
@@ -3194,7 +3228,9 @@
   // ------------------------------------------------------------- projectiles
   // Ricochet: turn a spent bolt toward the nearest living monster it has not hit, in range and in sight
   S.bounceBolt = function (b) {
-    var f = this.boltMods.bounce, ms = this.monsters, best = null, bd = f.r, i;
+    var f = b.bounceF || this.boltMods.bounce, ms = this.monsters, best = null, bd, i;      // the ricochet the bolt was shot with (it may have been replaced since)
+    if (!f) return false;
+    bd = f.r;
     for (i = 0; i < ms.length; i++) {
       var q = ms[i];
       if (q.dead || q.emerge > 0 || b.hit[q.id]) continue;
@@ -3568,7 +3604,7 @@
   S.superProgress = function () {
     var f = this.fissures[this.fissures.length - 1], left = 0, i;
     if (f.state === 'scar' || f.state === 'closing') return 1;
-    for (i = 0; i < f.queue.length; i++) left += Math.round(this.B.monsters[f.queue[i]].hp * this.threat);
+    for (i = 0; i < f.queue.length; i++) left += Math.round(this.B.monsters[f.queue[i]].hp * (this.hpThreat || this.threat));
     for (i = 0; i < this.monsters.length; i++) if (!this.monsters[i].dead && this.monsters[i].fid === f.id) left += this.monsters[i].hp;
     return f.dealt + left > 0 ? f.dealt / (f.dealt + left) : 0;
   };
@@ -3679,6 +3715,49 @@
       default:   // slam, summon: stand still until the timer runs out
         if (m.t <= 0) { m.st = 'chase'; m.t = D.chaseTime * rate; }
     }
+  };
+})(globalThis.G = globalThis.G || {});
+
+// ---- src/sim/daily.js
+// The daily challenge (step 10): one run a day, the same for everyone. No server, no accounts, no clock in the sim:
+// the view passes today's UTC date ('YYYY-MM-DD') and everything else follows from it (BAL.daily).
+//   seed  = hash of the date, class = picked from the date, doors = the door taken after each room is fixed (only that one is offered),
+//   gear  = a fixed starting kit in a gear set of its own (the save is never read or written: nothing found is banked),
+//   score = rooms cleared, kills and, for a win, a bonus that grows the faster it was won (G.dailyScore).
+(function (G) {
+  // 'YYYY-MM-DD' of a Date, in UTC
+  G.utcDate = function (d) { return d.toISOString().slice(0, 10); };
+
+  // the day's run from its date: { date, seed, cls, doors: [door index after room 1, 2, ...] }
+  G.dailyInfo = function (date, B) {
+    var D = B.daily, n = parseInt(String(date).replace(/-/g, ''), 10) >>> 0, h = G.hash32(n, D.salt);
+    var ids = G.classIds(B), rng = new G.RNG(G.hash32(h, 31)), doors = [], i;
+    for (i = 0; i < B.run.rooms - 1; i++) doors.push(rng.int(0, (B.doors.offer || 2) - 1));
+    return { date: String(date), seed: h % 1000000, cls: ids[G.hash32(h, 7) % ids.length], doors: doors };
+  };
+
+  // the fixed starting kit: a new gear set (never the player's), items rolled from the day's seed, identified and worn.
+  // Don Montoto counts as rescued (no cage in the daily run), there is no gold and no rank.
+  G.dailyGear = function (info, B) {
+    var D = B.daily, g = G.newGear(), rng = new G.RNG(G.hash32(info.seed, 2024)), cls = G.classDef(B, info.cls).id;
+    g.city.montoto = true;
+    g.scrolls = D.scrolls;
+    D.kit.forEach(function (k) {
+      var wd = null;
+      if (k.slot === 'weapon') wd = rng.pick(B.loot.weaponTypes.filter(function (w) { return w.cls === cls; }));
+      var it = G.makeItem(rng, k.slot, k.rarity, wd, D.kitIlvl, B, g);
+      delete it.unid; it.src = 'daily';
+      g.equipped[k.slot] = it;
+    });
+    return g;
+  };
+
+  // the score of a finished (or current) daily run: integers only, the same on every machine
+  G.dailyScore = function (sim, B) {
+    var S = (B || sim.B).daily.score, won = sim.state === 'won', sec = Math.floor(sim.tick / 60);
+    var parts = { rooms: sim.roomsCleared * S.room, kills: sim.kills * S.kill, win: won ? S.win : 0, time: won ? Math.max(0, S.par - sec) * S.perSecond : 0 };
+    parts.total = parts.rooms + parts.kills + parts.win + parts.time;
+    return parts;
   };
 })(globalThis.G = globalThis.G || {});
 
@@ -3976,6 +4055,8 @@
     }
     this.thinkTick = sim.tick;
     var ax = 0, ay = 0, nearest = null, nd = 1e9, close = 0, inPulse = 0, heavy = 0, dodge = false, urgent = 0;
+    // nothing has moved on for a while (e.g. monsters penned behind an open crack, out of sight): stop keeping away and walk up, as a player would
+    var bold = sim.stuckSeconds() > 20;
 
     for (i = 0; i < sim.monsters.length; i++) {
       var m = sim.monsters[i];
@@ -3983,7 +4064,7 @@
       var dx = m.x - p.x, dy = m.y - p.y, d = Math.sqrt(dx * dx + dy * dy) || 0.01, gap = d - m.r;
       if (gap < nd) { nd = gap; nearest = m; }
       var keep = KEEP[m.type] * this.keep + (m.st === 'lunge' || m.st === 'wind' || m.st === 'charge' || m.st === 'chargeWind' ? 24 : 0);
-      if (gap < keep) { var w = (keep - gap) / keep * (m.def.boss ? 3 : 2); ax -= dx / d * w; ay -= dy / d * w; }
+      if (gap < keep && !bold) { var w = (keep - gap) / keep * (m.def.boss ? 3 : 2); ax -= dx / d * w; ay -= dy / d * w; }
       if (gap < 15) close++;
       if (gap < K.radius - 8) { inPulse++; if (m.def.elite || m.def.boss) heavy++; }
       // a lunging husk / charging boss aimed at us: sidestep with a dodge
@@ -4088,7 +4169,7 @@
   G.botRun = function (seed, opts) {
     opts = opts || {};
     var gear = opts.gear || G.newGear();
-    var sim = new G.Sim({ seed: seed, gear: gear, bal: opts.bal, cls: opts.cls }), bot = new Bot(sim, opts.build, { leave: opts.leave, lowHp: opts.lowHp, pushHp: opts.pushHp, pushGear: opts.pushGear, rescue: opts.rescue });
+    var sim = new G.Sim({ seed: seed, gear: gear, bal: opts.bal, cls: opts.cls, daily: opts.daily }), bot = new Bot(sim, opts.build, { leave: opts.leave, lowHp: opts.lowHp, pushHp: opts.pushHp, pushGear: opts.pushGear, rescue: opts.rescue });
     var maxTicks = (opts.maxSeconds || 1200) * 60, softlock = false, worstStuck = 0, roomTicks = [], last = 0, lastRoom = 0, minHp = sim.B.run.roomMult.map(function () { return 1; });
     while (sim.tick < maxTicks && (sim.state === 'play' || sim.state === 'levelup' || sim.state === 'choice' || sim.state === 'merchant')) {
       if (sim.state === 'merchant') { sim.closeMerchant(); continue; }
@@ -4844,7 +4925,7 @@
     create: function () {
       var self = this;
       G.screen = 'title';
-      G.hud = null; G.gameScene = null; G.paused = false;
+      G.hud = null; G.gameScene = null; G.paused = false; G.daily = null;
       if (G.runSeed == null) G.runSeed = G.params.has('seed') ? (parseInt(G.params.get('seed'), 10) >>> 0) : ((Date.now() ^ (Math.random() * 1e9)) >>> 0) % 1000000;
       if (G.cls == null) G.cls = G.classDef(G.BAL, G.params.get('class') || (G.save && G.save.settings.cls)).id;
       this.scene.launch('backdrop');
@@ -4889,7 +4970,10 @@
       this.seedX = rowX;
       this.btnSeed = L.button(rowX + seedW + 8, y, rw, 18, rt, function () { G.runSeed = Math.floor(Math.random() * 1000000); self.refresh(); }, { name: 'reroll' });
       y += tall ? 34 : 24;
-      L.button(cx - 30, y, 60, 20, G.t('title.settings'), function () { if (!G.Panels.isOpen()) G.Panels.openSettings(self); }, { name: 'title_settings' });
+      // settings and the daily challenge side by side
+      var dt = G.t('title.daily'), st = G.t('title.settings'), dw = Math.max(60, dt.length * 6 + 12), sw = Math.max(60, st.length * 6 + 12), rx = Math.round(cx - (sw + 6 + dw) / 2);
+      L.button(rx, y, sw, 20, st, function () { if (!G.Panels.isOpen()) G.Panels.openSettings(self); }, { name: 'title_settings' });
+      L.button(rx + sw + 6, y, dw, 20, dt, function () { if (!G.Panels.isOpen()) G.Panels.openDaily(self); }, { name: 'title_daily', color: 'gold' });
       y += tall ? 28 : 24;
       // practice: one room with the crack network, restarted on every clear (also ?scene=game&room=test)
       L.button(cx - 76, y, 152, 20, G.t('title.test'), function () { if (self.input.activePointer.wasTouch) G.touch = true; self.start(true); }, { name: 'title_test', color: 'ui_good' });
@@ -4976,6 +5060,7 @@
     sign: { x: 144, y: 184 },
     crates: [[304, 200], [320, 202], [312, 188]],
     portal: { x: 208, y: 222, w: 20, h: 18 },        // walking into it starts a run
+    board: { x: 244, y: 214 },                       // the daily challenge board (step 10), beside the portal
     start: { x: 208, y: 140 },
     path: function (x, y) { return (x >= 12 && x <= 13 && y >= 5) || (y >= 7 && y <= 8 && x >= 2 && x <= 23); }
   };
@@ -4986,6 +5071,7 @@
     sign: { x: 150, y: 216 },
     crates: [[202, 322], [218, 324], [210, 310]],
     portal: { x: 128, y: 334, w: 20, h: 18 },
+    board: { x: 84, y: 330 },
     start: { x: 128, y: 146 },
     path: function (x, y) { return (x >= 7 && x <= 8 && y >= 5) || ((y === 7 || y === 8 || y === 15 || y === 16) && x >= 2 && x <= 13); }
   };
@@ -5003,6 +5089,7 @@
     L.spots.forEach(function (s) { out.push([s.x - 22, s.y - SOLID_H, s.x + 22, s.y]); });
     out.push([L.plot.x - 24, L.plot.y - L.plot.h, L.plot.x + 24, L.plot.y]);
     out.push([L.sign.x - 4, L.sign.y - 5, L.sign.x + 4, L.sign.y]);
+    out.push([L.board.x - 4, L.board.y - 5, L.board.x + 4, L.board.y]);
     L.crates.forEach(function (c) { out.push([c[0] - 6, c[1] - 8, c[0] + 6, c[1]]); });
     return out;
   }
@@ -5014,7 +5101,7 @@
 
     create: function () {
       var self = this, C = this.cls = G.classDef(G.BAL, G.cls);
-      G.screen = 'city'; G.city = this; G.gameScene = null; G.hud = null; G.paused = false; G.testRoom = false;
+      G.screen = 'city'; G.city = this; G.gameScene = null; G.hud = null; G.paused = false; G.testRoom = false; G.daily = null;
       if (G.runSeed == null) G.runSeed = G.params.has('seed') ? (parseInt(G.params.get('seed'), 10) >>> 0) : 1;
       this.gear = G.gearOf(G.save, G.cls);
       var L = this.lay = pickLayout();
@@ -5051,7 +5138,7 @@
         this.px = L.start.x; this.py = L.start.y;
         this.follow(true);
         this.buildWorld();
-        var o = at === 'plot' ? this.plotOwner : this.spots[at];
+        var o = at === 'plot' ? this.plotOwner : at === 'daily' ? this.boardOwner : this.spots[at];
         if (o) { this.px = o.front.x; this.py = o.front.y + 6; }
       }
       this.relabel(); this.follow(true);
@@ -5090,6 +5177,10 @@
       this.sign.on('pointerdown', function () { self.say(G.t('city.mageSign'), 'ui_dim'); });
       this.plotOwner = { s: { id: 'plot' }, front: { x: L.sign.x - 6, y: L.sign.y + 6 }, label: plotLabel };
       L.crates.forEach(function (c) { put(c[0], c[1], 'c_crate').setOrigin(0.5, 1).setDepth(c[1]); });
+      // the daily challenge board: a sign beside the portal (READ opens today's run)
+      this.board = put(L.board.x, L.board.y, 'c_sign').setOrigin(0.5, 1).setDepth(L.board.y).setInteractive({ useHandCursor: true });
+      this.board.on('pointerdown', function () { self.tap(self.boardOwner); });
+      this.boardOwner = { s: { id: 'daily' }, front: { x: L.board.x, y: L.board.y + 8 }, label: this.label('city.daily', 'gold', L.board.x, L.board.y - 22) };
       // the portal
       this.portal = put(L.portal.x, L.portal.y, 'portal_0').setOrigin(0.5, 1).setDepth(L.portal.y - 20);
       put(L.portal.x, L.portal.y - 16, 'glow').setDepth(-640).setBlendMode(Phaser.BlendModes.ADD).setTint(UI.hex('rg2')).setAlpha(0.25);
@@ -5154,6 +5245,8 @@
       });
       var po = this.plotOwner, dx2 = this.px - po.front.x, dy2 = this.py - po.front.y;
       if (!best && dx2 * dx2 + dy2 * dy2 <= 28 * 28) best = po;
+      var bo = this.boardOwner, dx3 = this.px - bo.front.x, dy3 = this.py - bo.front.y;
+      if (!best && dx3 * dx3 + dy3 * dy3 <= 24 * 24) best = bo;
       return best;
     },
     talk: function (o) {
@@ -5163,13 +5256,14 @@
       hud.dropStick();
       if (id === 'smith') G.Panels.openShop(hud, false, 'smith');
       else if (id === 'trainer') G.Panels.openShop(hud, false, 'trainer');
+      else if (id === 'daily') G.Panels.openDaily(hud);
       else if (id === 'montoto') {
         if (o.empty) this.say(G.montotoText('emptyStall'), 'ui_warn');
         else G.Panels.openMontoto(hud, false);
       } else this.say(G.t('city.mageSign'), 'ui_dim');
     },
     // the label and what the button says for the thing in reach
-    nearLabel: function (o) { return !o ? null : G.t(o.s.id === 'plot' ? 'city.read' : o.empty ? 'city.look' : 'city.talk'); },
+    nearLabel: function (o) { return !o ? null : G.t(o.s.id === 'plot' || o.s.id === 'daily' ? 'city.read' : o.empty ? 'city.look' : 'city.talk'); },
 
     // ---------------------------------------------------------------- movement
     blocked: function (x, y) {
@@ -5244,7 +5338,7 @@
       var spots = {}, L = this.lay, wv = this.cameras.main.worldView;
       for (var k in this.spots) spots[k] = { x: this.spots[k].front.x, y: this.spots[k].front.y, empty: !!this.spots[k].empty, sx: this.spots[k].s.x, sy: this.spots[k].s.y };
       return { x: Math.round(this.px), y: Math.round(this.py), near: this.near ? this.near.s.id : null, rescued: this.rescued, entering: this.entering, spots: spots,
-        portal: { x: L.portal.x, y: L.portal.y }, start: L.start, sign: { x: this.plotOwner.front.x, y: this.plotOwner.front.y }, layout: L.id, map: { w: L.w, h: L.h },
+        portal: { x: L.portal.x, y: L.portal.y }, start: L.start, sign: { x: this.plotOwner.front.x, y: this.plotOwner.front.y }, board: { x: this.boardOwner.front.x, y: this.boardOwner.front.y }, layout: L.id, map: { w: L.w, h: L.h },
         view: { x: wv.x, y: wv.y, w: wv.width, h: wv.height },
         labels: this.labels.map(function (b) { return { key: b.key, x: b.box.x, y: b.box.y, w: b.box.w, h: b.box.h }; }),
         tag: this.tag.visible && this.tagBox ? { text: this.tag.text, x: this.tagBox.x, y: this.tagBox.y, w: this.tagBox.w, h: this.tagBox.h } : null };
@@ -5370,7 +5464,10 @@
       G.debug = P.get('debug') !== '0' && P.get('bot') !== '1';    // ?debug=0 hides the debug button
       this.speed = P.has('speed') ? parseFloat(P.get('speed')) : G.cheats.speed;
       G.manualLevel = P.get('manual') === '1';      // QA: level-up cards are clicked by the test, not auto-picked
-      this.sim = new G.Sim({ seed: G.runSeed, gear: G.gearOf(G.save, G.cls), events: true, cheats: G.cheats, testRoom: !!G.testRoom, cls: G.cls });
+      // the daily challenge (G.startDaily): the day's seed, class and doors, and a kit of its own (the save's gear is not used or changed)
+      var D = G.daily && !G.testRoom ? G.daily : null;
+      this.sim = D ? new G.Sim({ seed: D.seed, gear: G.dailyGear(D, G.BAL), events: true, cheats: G.cheats, cls: D.cls, daily: D })
+        : new G.Sim({ seed: G.runSeed, gear: G.gearOf(G.save, G.cls), events: true, cheats: G.cheats, testRoom: !!G.testRoom, cls: G.cls });
       var C = this.cls = this.sim.cls;
       this.controls = new G.Controls(this);
       this.fx = new G.FX(this);
@@ -5932,6 +6029,7 @@
       out.sim = { state: sim.state, room: sim.roomIndex, phase: sim.phase, tick: sim.tick, hp: Math.round(p.hp), maxHp: p.maxHp, level: p.level,
         gold: sim.gold, scrolls: sim.scrolls, merchant: !!sim.merchant, canTalk: sim.canTalk(), cage: sim.cage ? { x: sim.cage.x, y: sim.cage.y } : null, canFree: sim.canFree(), roomClear: sim.roomClear(), cageAt: sim.cageAt, kills: sim.kills, rooms: sim.roomsCleared, stuck: +sim.stuckSeconds().toFixed(1), worstStuck: +gs.worstStuck.toFixed(1),
         monsters: sim.monsters.length, bag: sim.bag.length, kept: sim.gear.bag.length, mod: sim.mod, doors: sim.doors.slice(), result: sim.result, gearScore: G.gearScore(sim.gear), hash: sim.room.hash,
+        daily: sim.daily ? { date: sim.daily.date, seed: sim.daily.seed, cls: sim.daily.cls, score: G.dailyScore(sim).total, share: G.dailyShare ? G.dailyShare(sim) : null } : null,
         objective: sim.objective(), objectiveText: G.t(sim.objective()), test: sim.testRoom >= 0, loops: sim.loops, touch: !!G.touch, fissures: sim.fissures.map(function (f) { return f.state; }), x: Math.round(p.x), y: Math.round(p.y) };
     }
     return out;
@@ -6521,6 +6619,7 @@
     else if (c === 'abilities') P.openAbilities(scene);
     else if (c === 'shop') P.openShop(scene, true);
     else if (c === 'montoto') P.openMontoto(scene, true);
+    else if (c === 'daily') P.openDaily(scene);
   };
   function sim() { return G.gameScene && G.screen !== 'title' && G.screen !== 'city' ? G.gameScene.sim : null; }
   function gear() { var s = sim(); return s ? s.gear : G.gearOf(G.save, G.cls); }
@@ -7012,6 +7111,7 @@
   P.openResult = function (scene, state) {
     if (P.L) P.L.destroy();
     var V = G.view, s = G.gameScene.sim, B = s.B, won = state === 'won', left = state === 'left', R = s.result || { items: 0, kept: 0, lost: 0, best: -1 };
+    if (s.daily) { P.openDailyResult(scene, state); return; }
     if ((P.resultState !== state || !P.counted) && s.testRoom < 0) {      // test-room deaths are not runs
       P.counted = true;
       G.save.stats.runs++; if (won) G.save.stats.wins++;
@@ -7042,20 +7142,102 @@
     L.button(x0 + 16 + bw, y0 + ph - 28, bw, 20, G.t('res.city'), function () { P.counted = false; P.close(true); G.toCity(); }, { name: 'res_city', color: 'gold' });
   };
 
+  // ---------------------------------------------------------------- daily challenge (step 10)
+  // today's run: ?daily=YYYY-MM-DD picks the day (QA), else the UTC date of this machine
+  G.dailyToday = function () {
+    var q = G.params && G.params.get('daily');
+    return G.dailyInfo(q && /^\d{4}-\d{2}-\d{2}$/.test(q) ? q : G.utcDate(new Date()), G.BAL);
+  };
+  // what a player pastes: one line, the same for everyone who got the same result
+  G.dailyShare = function (s) {
+    var B = s.B, t = Math.floor(s.tick / 60), won = s.state === 'won';
+    var res = won ? G.t('daily.shareWon') : s.state === 'left' ? G.t('daily.shareLeft', { a: s.roomIndex + 1, b: B.run.rooms }) : s.state === 'dead' ? G.t('daily.shareDead', { a: s.roomIndex + 1, b: B.run.rooms }) : G.t('daily.shareOn', { a: s.roomIndex + 1, b: B.run.rooms });
+    return G.t('daily.share', { d: s.daily.date, c: G.classLabel(s.clsId), res: res, k: s.kills, t: Math.floor(t / 60) + ':' + ('0' + t % 60).slice(-2), n: G.dailyScore(s).total });
+  };
+  // copy to the clipboard: the async API when there is one, else a hidden textarea; done(ok)
+  G.copyText = function (text, done) {
+    function legacy() {
+      var ok = false;
+      try {
+        var ta = document.createElement('textarea');
+        ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.left = '-9999px';
+        document.body.appendChild(ta); ta.select(); ok = document.execCommand('copy'); document.body.removeChild(ta);
+      } catch (e) { ok = false; }
+      G.lastCopied = ok ? text : null; done(ok);
+    }
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(function () { G.lastCopied = text; done(true); }, legacy);
+      else legacy();
+    } catch (e) { legacy(); }
+  };
+  G.startDaily = function () {
+    var g = G.game.scene;
+    G.daily = G.dailyToday(); G.testRoom = false; G.paused = false;
+    ['backdrop', 'title', 'cityhud', 'city', 'hud', 'game'].forEach(function (k) { if (g.isActive(k) || g.isPaused(k)) g.stop(k); });
+    g.start('game');
+  };
+  // the daily board (title button, city sign): today's date, class and rules, START
+  P.openDaily = function (scene) {
+    if (P.L) P.L.destroy();
+    var V = G.view, D = G.dailyToday(), t = G.t;
+    P.current = 'daily'; P.scene = scene; G.paused = true;
+    var pw = Math.min(V.W - 8, 230), ph = 132;
+    var L = P.L = UI.modal(scene, pw, ph, t('daily.title')), x0 = L.x, y0 = L.y, cx = V.W / 2, y = y0 + 24;
+    L.button(x0 + pw - 22, y0 + 3, 18, 16, '', function () { P.close(); }, { icon: 'i_close', name: 'daily_close' });
+    [[t('daily.date', { d: D.date }), 'ui_text'], [t('daily.class', { c: G.classLabel(D.cls).toUpperCase() }), 'ui_warn'], [t('daily.rules'), 'ui_dim'], [t('daily.kept'), 'ui_dim']].forEach(function (l) {
+      var tx = L.text(0, y, l[0], l[1]).setMaxWidth(pw - 14);
+      UI.centerX(tx, cx);
+      y += 12 + Math.max(0, Math.round(tx.height / 10) - 1) * 10;
+    });
+    var bw = Math.floor((pw - 24) / 2);
+    L.button(x0 + 8, y0 + ph - 26, bw, 20, t('daily.start'), function () { P.close(true); G.startDaily(); }, { name: 'daily_start', color: 'ui_good' });
+    L.button(x0 + 16 + bw, y0 + ph - 26, bw, 20, t('set.close'), function () { P.close(); }, { name: 'daily_back' });
+  };
+  // the daily result: score, its parts, the share text and COPY. Nothing is counted in the save's stats.
+  P.openDailyResult = function (scene, state) {
+    var V = G.view, s = G.gameScene.sim, B = s.B, won = state === 'won', left = state === 'left', sc = G.dailyScore(s), share = G.dailyShare(s), t = G.t;
+    P.current = 'result'; P.scene = scene; P.resultState = state; G.paused = true; G.screen = 'result';
+    G.gameScene.ended = true;
+    var pw = Math.min(V.W - 8, 250), ph = V.H >= 300 ? 196 : 176;
+    var L = P.L = UI.modal(scene, pw, ph, null), x0 = L.x, y0 = L.y, cx = V.W / 2, tm = Math.floor(s.tick / 60);
+    UI.centerX(L.text(0, y0 + 6, t('daily.title') + '  ' + s.daily.date, 'ui_dim'), cx);
+    UI.centerX(L.text(0, y0 + 17, t(won ? 'res.won' : (left ? 'res.left' : 'res.dead')), won ? 'ui_good' : (left ? 'ui_warn' : 'ui_bad'), true), cx);
+    var lines = [
+      [won ? t('res.allCleared', { n: B.run.rooms }) : left ? t('res.leftAfter', { a: s.roomIndex + 1, b: B.run.rooms }) : t('res.fell', { a: s.roomIndex + 1, b: B.run.rooms }), 'ui_text'],
+      [G.classLabel(s.clsId).toUpperCase() + '   ' + t('res.stats', { l: s.player.level, k: s.kills, t: Math.floor(tm / 60) + ':' + ('0' + tm % 60).slice(-2) }), 'ui_dim'],
+      [t('daily.score', { n: sc.total }), 'gold'],
+      [t('daily.parts', { r: sc.rooms, k: sc.kills, w: sc.win + sc.time }), 'ui_dim'],
+      [t('daily.kept'), 'ui_dim']];
+    var ly = y0 + 40;
+    lines.forEach(function (l) {
+      var tx = L.text(0, ly, l[0], l[1]).setMaxWidth(pw - 12);
+      UI.centerX(tx, cx);
+      ly += 12 + Math.max(0, Math.round(tx.height / 10) - 1) * 10;
+    });
+    var st = L.text(0, ly + 2, '', 'ui_good'); UI.centerX(st, cx);
+    var bw = Math.floor((pw - 24) / 2);
+    L.button(x0 + 8, y0 + ph - 50, pw - 16, 20, t('daily.copy'), function () {
+      G.copyText(share, function (ok) { if (P.L !== L) return; st.setText(t(ok ? 'daily.copied' : 'daily.copyFail')).setTint(UI.hex(ok ? 'ui_good' : 'ui_bad')); UI.centerX(st, cx); });
+    }, { name: 'daily_copy', color: 'gold' });
+    L.button(x0 + 8, y0 + ph - 26, bw, 20, t('daily.again'), function () { P.close(true); G.restartRun(); }, { name: 'res_again', color: 'ui_good' });
+    L.button(x0 + 16 + bw, y0 + ph - 26, bw, 20, t('res.city'), function () { P.close(true); G.toCity(); }, { name: 'res_city', color: 'gold' });
+  };
+
   G.restartRun = function () {
     var g = G.game.scene;
-    G.runSeed = (G.runSeed + 1) >>> 0;
+    if (!G.daily) G.runSeed = (G.runSeed + 1) >>> 0;      // a daily run restarts the same day's run
     G.paused = false;
     g.stop('hud'); g.stop('game'); g.start('game');
   };
   G.toCity = function () {
     var g = G.game.scene;
-    G.paused = false; G.runSeed = (G.runSeed + 1) >>> 0;      // a new seed for the next run from the portal
+    G.paused = false; if (!G.daily) G.runSeed = (G.runSeed + 1) >>> 0;      // a new seed for the next run from the portal (a daily run did not use it)
+    G.daily = null;
     g.stop('hud'); g.stop('game'); g.start('city');
   };
   G.toTitle = function (openGear) {
     var g = G.game.scene;
-    G.paused = false; G.openGearOnTitle = !!openGear;
+    G.paused = false; G.openGearOnTitle = !!openGear; G.daily = null;
     g.stop('hud'); g.stop('game'); g.stop('cityhud'); g.stop('city'); g.start('title');
   };
 })(globalThis.G = globalThis.G || {});

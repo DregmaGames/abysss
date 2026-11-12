@@ -21,7 +21,10 @@
       G.debug = P.get('debug') !== '0' && P.get('bot') !== '1';    // ?debug=0 hides the debug button
       this.speed = P.has('speed') ? parseFloat(P.get('speed')) : G.cheats.speed;
       G.manualLevel = P.get('manual') === '1';      // QA: level-up cards are clicked by the test, not auto-picked
-      this.sim = new G.Sim({ seed: G.runSeed, gear: G.gearOf(G.save, G.cls), events: true, cheats: G.cheats, testRoom: !!G.testRoom, cls: G.cls });
+      // the daily challenge (G.startDaily): the day's seed, class and doors, and a kit of its own (the save's gear is not used or changed)
+      var D = G.daily && !G.testRoom ? G.daily : null;
+      this.sim = D ? new G.Sim({ seed: D.seed, gear: G.dailyGear(D, G.BAL), events: true, cheats: G.cheats, cls: D.cls, daily: D })
+        : new G.Sim({ seed: G.runSeed, gear: G.gearOf(G.save, G.cls), events: true, cheats: G.cheats, testRoom: !!G.testRoom, cls: G.cls });
       var C = this.cls = this.sim.cls;
       this.controls = new G.Controls(this);
       this.fx = new G.FX(this);
@@ -583,6 +586,7 @@
       out.sim = { state: sim.state, room: sim.roomIndex, phase: sim.phase, tick: sim.tick, hp: Math.round(p.hp), maxHp: p.maxHp, level: p.level,
         gold: sim.gold, scrolls: sim.scrolls, merchant: !!sim.merchant, canTalk: sim.canTalk(), cage: sim.cage ? { x: sim.cage.x, y: sim.cage.y } : null, canFree: sim.canFree(), roomClear: sim.roomClear(), cageAt: sim.cageAt, kills: sim.kills, rooms: sim.roomsCleared, stuck: +sim.stuckSeconds().toFixed(1), worstStuck: +gs.worstStuck.toFixed(1),
         monsters: sim.monsters.length, bag: sim.bag.length, kept: sim.gear.bag.length, mod: sim.mod, doors: sim.doors.slice(), result: sim.result, gearScore: G.gearScore(sim.gear), hash: sim.room.hash,
+        daily: sim.daily ? { date: sim.daily.date, seed: sim.daily.seed, cls: sim.daily.cls, score: G.dailyScore(sim).total, share: G.dailyShare ? G.dailyShare(sim) : null } : null,
         objective: sim.objective(), objectiveText: G.t(sim.objective()), test: sim.testRoom >= 0, loops: sim.loops, touch: !!G.touch, fissures: sim.fissures.map(function (f) { return f.state; }), x: Math.round(p.x), y: Math.round(p.y) };
     }
     return out;

@@ -254,7 +254,7 @@
   S.superProgress = function () {
     var f = this.fissures[this.fissures.length - 1], left = 0, i;
     if (f.state === 'scar' || f.state === 'closing') return 1;
-    for (i = 0; i < f.queue.length; i++) left += Math.round(this.B.monsters[f.queue[i]].hp * this.threat);
+    for (i = 0; i < f.queue.length; i++) left += Math.round(this.B.monsters[f.queue[i]].hp * (this.hpThreat || this.threat));
     for (i = 0; i < this.monsters.length; i++) if (!this.monsters[i].dead && this.monsters[i].fid === f.id) left += this.monsters[i].hp;
     return f.dealt + left > 0 ? f.dealt / (f.dealt + left) : 0;
   };

@@ -5,7 +5,7 @@
 'use strict';
 const fs = require('fs'), path = require('path'), vm = require('vm');
 const ROOT = path.dirname(__dirname);
-const SIM = ['balance.js', 'lore.js', 'rng.js', 'mapgen.js', 'sim/items.js', 'sim/economy.js', 'sim/abilities.js', 'sim/core.js', 'sim/effects.js', 'sim/combat.js', 'sim/fissures.js', 'sim/boss.js', 'qa/bot.js', 'save.js'];
+const SIM = ['balance.js', 'lore.js', 'rng.js', 'mapgen.js', 'sim/items.js', 'sim/economy.js', 'sim/abilities.js', 'sim/core.js', 'sim/effects.js', 'sim/combat.js', 'sim/fissures.js', 'sim/boss.js', 'sim/daily.js', 'qa/bot.js', 'save.js'];
 function load(store) {
   const ctx = { Math, console, Uint8Array, Int16Array, Object, JSON, Array };
   if (store) ctx.localStorage = store;
@@ -470,6 +470,39 @@ const ids = o => Object.keys(o).map(k => o[k] && o[k].id).join(',');
   store.data[KEY] = JSON.stringify({ v: 3, gear: { equipped: { armor: item }, bag: [item], nextId: 5 }, settings: {} });
   sv = L.loadSave(); check('city save: a v3 save gets the city state and keeps all items', sv.v === 8 && sv.gears.mage.city.montoto === false && sv.gears.mage.bag.length === 1 && sv.gears.mage.equipped.armor);
   check('city save: a fresh save is v8', L.newSave().v === 8 && L.newGear().city.montoto === false && L.newGear().city.story === 0);
+})();
+
+// step 10: the daily challenge. The date alone gives the run; the kit is its own gear set; nothing reaches a save.
+(function daily() {
+  const G = load(), G2 = load(), B = G.BAL;
+  const a = G.dailyInfo('2026-11-12', B), b = G2.dailyInfo('2026-11-12', G2.BAL);
+  check('daily: the same date gives the same seed, class and doors (two contexts)', JSON.stringify(a) === JSON.stringify(b), JSON.stringify(a));
+  const days = [], cls = new Set(), seeds = new Set();
+  for (let d = 1; d <= 30; d++) { const i = G.dailyInfo('2026-12-' + String(d).padStart(2, '0'), B); days.push(i); cls.add(i.cls); seeds.add(i.seed); }
+  check('daily: 30 days give 30 seeds and every class', seeds.size === 30 && cls.size === G.classIds(B).length, cls.size + ' classes');
+  check('daily: a door index for every choice, each 0 or 1', days.every(i => i.doors.length === B.run.rooms - 1 && i.doors.every(x => x === 0 || x === 1)));
+  check('daily: G.utcDate is the UTC day', G.utcDate(new Date(Date.UTC(2026, 10, 12, 23, 59))) === '2026-11-12' && G.utcDate(new Date(Date.UTC(2026, 10, 13, 0, 0))) === '2026-11-13');
+  const k1 = G.dailyGear(a, B), k2 = G2.dailyGear(b, G2.BAL), worn = g => G.SLOTS.map(s => g.equipped[s]).filter(Boolean);
+  check('daily: the kit is the same for everyone, worn, identified, the class can wear it', JSON.stringify(k1) === JSON.stringify(k2) && worn(k1).length === B.daily.kit.length && worn(k1).every(it => !it.unid && G.canEquip(it, B, a.cls)), worn(k1).map(it => it.name).join(', '));
+  check('daily: the kit has no gold, ranks or kept bag, starts with the daily scrolls, no cage', k1.gold === 0 && G.rankTotal(k1) === 0 && k1.bag.length === 0 && k1.scrolls === B.daily.scrolls && G.cageRoom(a.seed, B, k1) === -1);
+  // a daily sim offers only the day's door after each room
+  const sim = new G.Sim({ seed: a.seed, gear: G.dailyGear(a, B), cls: a.cls, daily: a }), all = G.doorsFor(a.seed, 0, B);
+  sim.enterChoice();
+  check('daily: one door offered, the day\'s one (leave still allowed)', sim.doors.length === 1 && sim.doors[0] === all[a.doors[0]], sim.doors.join(','));
+  // a whole daily run by the bot: the save is never touched
+  const store = { data: {}, getItem(k) { return this.data[k] === undefined ? null : this.data[k]; }, setItem(k, v) { this.data[k] = v; } };
+  const L = load(store), save = L.newSave(), mine = L.gearOf(save, 'mage');
+  mine.gold = 77; mine.bag.push(L.rollItem(new L.RNG(5), 2, 0, L.BAL, mine, 'mage'));
+  L.storeSave(save);
+  const before = store.data['riftscar.save.v2'], info = L.dailyInfo('2026-11-12', L.BAL), kit = L.dailyGear(info, L.BAL);
+  const r = L.botRun(info.seed, { cls: info.cls, gear: kit, daily: info });
+  check('daily: a bot run leaves the stored save and the save object as they were', store.data['riftscar.save.v2'] === before && JSON.stringify(save) === before, r.result + ' room ' + (r.room + 1));
+  check('daily: every door taken was the day\'s door', r.doors.every((d, i) => d === L.doorsFor(info.seed, i, L.BAL)[info.doors[i]]), r.doors.join('>'));
+  // the score
+  const S = B.daily.score, fake = { B, state: 'won', tick: 600 * 60, roomsCleared: 10, kills: 300 };
+  const sc = G.dailyScore(fake);
+  check('daily: score of a win in 10:00 with 300 kills = rooms + kills + win + time bonus', sc.total === 10 * S.room + 300 * S.kill + S.win + (S.par - 600) * S.perSecond, String(sc.total));
+  check('daily: a death scores rooms and kills only', G.dailyScore({ B, state: 'dead', tick: 100 * 60, roomsCleared: 4, kills: 90 }).total === 4 * S.room + 90 * S.kill);
 })();
 
 console.log(fails ? fails + ' check(s) FAILED' : 'all checks passed');

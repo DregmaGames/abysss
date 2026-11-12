@@ -8,7 +8,7 @@
 'use strict';
 const fs = require('fs'), path = require('path'), vm = require('vm');
 const ROOT = path.dirname(__dirname);
-const SIM = ['balance.js', 'lore.js', 'rng.js', 'mapgen.js', 'sim/items.js', 'sim/economy.js', 'sim/abilities.js', 'sim/core.js', 'sim/effects.js', 'sim/combat.js', 'sim/fissures.js', 'sim/boss.js', 'qa/bot.js', 'save.js'];
+const SIM = ['balance.js', 'lore.js', 'rng.js', 'mapgen.js', 'sim/items.js', 'sim/economy.js', 'sim/abilities.js', 'sim/core.js', 'sim/effects.js', 'sim/combat.js', 'sim/fissures.js', 'sim/boss.js', 'sim/daily.js', 'qa/bot.js', 'save.js'];
 const INEXACT = ['sin', 'cos', 'tan', 'asin', 'acos', 'atan', 'atan2', 'sinh', 'cosh', 'tanh', 'asinh', 'acosh', 'atanh',
   'exp', 'expm1', 'log', 'log1p', 'log2', 'log10', 'pow', 'cbrt', 'hypot'];
 const StrictMath = {};
@@ -78,4 +78,13 @@ let cageBad = 0;
   if (!ok) cageBad++;
   console.log(`cage seed ${seed} (room ${G.cageRoom(seed, G.BAL, G.newGear()) + 1}) rescue run twice: ${ok ? 'identical' : 'DIFFERENT'} (${a.result}, ${a.rooms} rooms, Don Montoto ${gA.city.montoto ? 'freed' : 'not freed'})`);
 }
-process.exit(cageBad || bad || modBad || ecoBad || abilBad || !same || hashes.size !== checked ? 1 : 0);
+// the daily challenge (step 10): the date gives seed, class, kit and doors; the bot's daily run twice
+let dailyBad = 0;
+{
+  const ia = G.dailyInfo('2026-11-12', G.BAL), ib = G2.dailyInfo('2026-11-12', G2.BAL);
+  const a = G.botRun(ia.seed, { cls: ia.cls, gear: G.dailyGear(ia, G.BAL), daily: ia }), b = G2.botRun(ib.seed, { cls: ib.cls, gear: G2.dailyGear(ib, G2.BAL), daily: ib });
+  const ok = JSON.stringify([ia, a]) === JSON.stringify([ib, b]);
+  if (!ok) dailyBad++;
+  console.log(`daily 2026-11-12 (seed ${ia.seed}, ${ia.cls}) twice: ${ok ? 'identical' : 'DIFFERENT'} (${a.result}, ${a.rooms} rooms, ${a.kills} kills, ${a.seconds} s, doors ${a.doors.join('>')})`);
+}
+process.exit(dailyBad || cageBad || bad || modBad || ecoBad || abilBad || !same || hashes.size !== checked ? 1 : 0);

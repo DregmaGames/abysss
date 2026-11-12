@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 // Bulk bot runs of the sim under Node (same sim + bot code the browser runs, no rendering).
-//   node tools/sim_bot.js [--seeds 1-200] [--class mage] [--build id] [--leave N] [--career N] [--json] [--set path=value ...]
+//   node tools/sim_bot.js [--seeds 1-100] [--class mage] [--build id] [--leave N] [--career N [--careers K]] [--brief] [--json] [--set path=value ...]
+// --brief: one summary line (no per-seed lines). --careers K (with --career N): K careers of N runs, career k on seeds[k*N ..]; one line:
+//   first win run per career, win share of the runs after the first win, win time, deaths per room, bestFromDrops.
 // Reports win rate, deaths per room, softlocks, and the seeds used.
 // --career N: play N consecutive runs keeping gear. Between runs the bot equips the best and discards
 //   the rest; it leaves when hurt or at a target room that rises after each extraction (BAL.bot.career). --leave N overrides the target.
@@ -12,7 +14,7 @@
 const fs = require('fs'), path = require('path'), vm = require('vm');
 const ROOT = path.dirname(__dirname);
 const SIM = ['balance.js', 'lore.js', 'rng.js', 'mapgen.js', 'sim/items.js', 'sim/economy.js', 'sim/abilities.js', 'sim/core.js', 'sim/effects.js', 'sim/combat.js',
-  'sim/fissures.js', 'sim/boss.js', 'qa/bot.js', 'save.js'];
+  'sim/fissures.js', 'sim/boss.js', 'sim/daily.js', 'qa/bot.js', 'save.js'];
 
 function load() {
   const ctx = { Math, console, Uint8Array, Int16Array, Object, JSON, Array };
@@ -23,7 +25,7 @@ function load() {
 }
 
 function parseArgs(argv) {
-  const a = { seeds: '1-100', cls: null, build: null, career: 0, leave: 0, json: false, set: [] };
+  const a = { seeds: '1-100', cls: null, build: null, career: 0, careers: 0, leave: 0, json: false, brief: false, set: [] };
   for (let i = 2; i < argv.length; i++) {
     const k = argv[i];
     if (k === '--seeds') a.seeds = argv[++i];
@@ -32,6 +34,8 @@ function parseArgs(argv) {
     else if (k === '--leave') a.leave = +argv[++i];
     else if (k === '--career') a.career = +argv[++i];
     else if (k === '--json') a.json = true;
+    else if (k === '--brief') a.brief = true;
+    else if (k === '--careers') a.careers = +argv[++i];
     else if (k === '--set') a.set.push(argv[++i]);
   }
   return a;
@@ -57,22 +61,51 @@ function main() {
   const res = [], deaths = new Array(rooms).fill(0);
   let gear = null;
   const t0 = Date.now();
-  if (args.career) {
-    gear = G.newGear();
+  function career(startIdx) {      // one career of args.career consecutive runs on seeds[startIdx ..]; returns { runs, gear }
+    const g = G.newGear(), out = [];
     const cp = G.BAL.bot.career, cls = G.classDef(G.BAL, args.cls).id;
     let target = cp.startRoom;
-    let visit = G.Bot.shopVisit(gear, G.BAL, cls);      // between runs, as a player on the title screen: identify, equip, sell, buy
+    G.Bot.shopVisit(g, G.BAL, cls);      // between runs, as a player on the title screen: identify, equip, sell, buy
     for (let i = 0; i < args.career; i++) {
-      const gs = G.gearScore(gear);
-      const r = G.botRun(seeds[i % seeds.length], { gear, cls: args.cls, build: args.build, leave: args.leave || target, lowHp: cp.lowHp, pushHp: args.leave ? 0 : cp.pushHp, pushGear: cp.pushGear, rescue: true });
+      const gs = G.gearScore(g);
+      const r = G.botRun(seeds[(startIdx + i) % seeds.length], { gear: g, cls: args.cls, build: args.build, leave: args.leave || target, lowHp: cp.lowHp, pushHp: args.leave ? 0 : cp.pushHp, pushGear: cp.pushGear, rescue: true });
       r.gearBefore = gs; r.target = args.leave || target;
-      G.restockShop(gear, G.BAL, cls);      // after every run, any result
-      const next = G.Bot.shopVisit(gear, G.BAL, cls);      // the title visit after this run (the last one counts too)
-      r.eco = { earned: r.bag.goldEarned, kept: r.bag.goldKept, lost: r.bag.goldLost, merchant: r.bag.goldSpent, visit: next, gearAfter: G.gearScore(gear),
-        gold: gear.gold | 0, ranks: G.rankTotal(gear), scrollsFound: r.bag.found, scrollsBought: r.bag.scrollsBought };
+      G.restockShop(g, G.BAL, cls);      // after every run, any result
+      const next = G.Bot.shopVisit(g, G.BAL, cls);      // the title visit after this run (the last one counts too)
+      const bg = r.bag || {};
+      r.eco = { earned: bg.goldEarned | 0, kept: bg.goldKept | 0, lost: bg.goldLost | 0, merchant: bg.goldSpent | 0, visit: next, gearAfter: G.gearScore(g),
+        gold: g.gold | 0, ranks: G.rankTotal(g), scrollsFound: bg.found | 0, scrollsBought: bg.scrollsBought | 0 };
       if (r.result === 'left' || r.result === 'win') target = Math.min(cp.cap, target + cp.step);
-      res.push(r);
+      out.push(r);
     }
+    return { runs: out, gear: g };
+  }
+  function dropsPass(g) {      // the best worn items are drops, not shop items
+    const worn = G.SLOTS.map(k => g.equipped[k]).filter(Boolean), val = it => G.itemValue(it, G.BAL);
+    worn.sort((a, b) => val(b) - val(a));
+    const bestDrop = worn.filter(it => it.src !== 'shop').map(val)[0] || 0, shopWorn = worn.filter(it => it.src === 'shop');
+    return { worn, shopWorn, pass: worn.slice(0, 3).every(it => it.src !== 'shop') && shopWorn.every(it => val(it) <= bestDrop) && !worn.some(it => it.src === 'shop' && it.rarity >= 3) };
+  }
+  if (args.careers > 1) {      // several careers from different starting seeds (career k starts at seeds[k * career]): one line per class
+    const firsts = [], post = [0, 0], dr = new Array(rooms).fill(0), winSec = [], soft = [];
+    let pass = 0, totalWins = 0;
+    for (let k = 0; k < args.careers; k++) {
+      const c = career(k * args.career), runs = c.runs;
+      const fw = runs.findIndex(r => r.result === 'win');
+      firsts.push(fw < 0 ? null : fw + 1);
+      if (fw >= 0) runs.slice(fw + 1).forEach(r => { post[1]++; if (r.result === 'win') post[0]++; });
+      runs.forEach(r => { if (r.result === 'dead') dr[r.room]++; if (r.result === 'win') { winSec.push(r.seconds); totalWins++; } if (r.result === 'softlock' || r.result === 'timeout') soft.push(r.seed); });
+      if (dropsPass(c.gear).pass) pass++;
+    }
+    const got = firsts.filter(v => v !== null), mean = a => a.length ? (a.reduce((t, v) => t + v, 0) / a.length) : NaN;
+    console.log(`${G.classDef(G.BAL, args.cls).id} careers ${args.careers}x${args.career}: wins ${totalWins}/${args.careers * args.career}, first win avg run ${mean(got).toFixed(1)} (${got.length}/${args.careers} careers won; [${firsts.map(v => v === null ? '-' : v).join(' ')}]), ` +
+      `after first win ${post[1] ? Math.round(100 * post[0] / post[1]) : 0}% (${post[0]}/${post[1]}), win time avg ${Math.round(mean(winSec))} s, deaths/room ${dr.join(',')}, softlocks ${soft.length}${soft.length ? ' [seeds ' + soft.join(' ') + ']' : ''}, bestFromDrops ${pass}/${args.careers}`);
+    process.exit(soft.length ? 2 : 0);
+  }
+  if (args.career) {
+    const c = career(0);
+    gear = c.gear;
+    c.runs.forEach(r => res.push(r));
   } else {
     for (const s of seeds) res.push(G.botRun(s, { cls: args.cls, build: args.build, leave: args.leave }));
   }
@@ -86,8 +119,8 @@ function main() {
     softlocks: soft.map(r => r.seed), timeouts: tout.map(r => r.seed), deathsByRoom: deaths,
     avgRoomsCleared: +avg('rooms').toFixed(2), avgSeconds: Math.round(avg('seconds')), avgLevel: +avg('level').toFixed(1),
     worstStuck: Math.max(...res.map(r => r.worstStuck)), winSeeds: res.filter(r => r.result === 'win').map(r => r.seed),
-    avgBagItems: +avg2(res.map(r => r.bag.items)), avgBagKept: +avg2(res.map(r => r.bag.kept)), avgBagLost: +avg2(res.map(r => r.bag.lost)),
-    avgScrollsFound: +avg2(res.map(r => r.bag.found)), avgScrollsKept: +avg2(res.map(r => r.bag.scrollsKept)), identifiedInRun: res.reduce((t, r) => t + r.identified, 0),
+    avgBagItems: +avg2(res.map(r => r.bag ? r.bag.items : 0)), avgBagKept: +avg2(res.map(r => r.bag ? r.bag.kept : 0)), avgBagLost: +avg2(res.map(r => r.bag ? r.bag.lost : 0)),
+    avgScrollsFound: +avg2(res.map(r => r.bag ? r.bag.found : 0)), avgScrollsKept: +avg2(res.map(r => r.bag ? r.bag.scrollsKept : 0)), identifiedInRun: res.reduce((t, r) => t + r.identified, 0),
     wallSeconds: +((Date.now() - t0) / 1000).toFixed(1)
   };
   if (res.length && res[0].build) {      // what the build came to
@@ -97,7 +130,10 @@ function main() {
     summary.mainFamily4 = res.filter(r => (r.fams[fam] || 0) >= 4).length;
   }
   summary.leave = args.leave || null;
-  if (args.json) console.log(JSON.stringify({ summary, runs: res }));
+  if (args.brief && !args.career) {      // one line: win rate, deaths per room, win time, softlocks
+    const ws = res.filter(r => r.result === 'win').map(r => r.seconds), wavg = ws.length ? Math.round(ws.reduce((t, v) => t + v, 0) / ws.length) : 0;
+    console.log(`${summary.cls} seeds ${args.seeds}: wins ${wins}/${res.length} (${summary.winRate}%), left ${lefts.length}, deaths/room ${deaths.join(',')}, win time avg ${wavg} s (min ${ws.length ? Math.min(...ws) : 0}), softlocks ${soft.length + tout.length}${soft.length + tout.length ? " [seeds " + soft.concat(tout).map(r => r.seed).join(" ") + "]" : ""}, worst stuck ${summary.worstStuck} s, ${summary.wallSeconds} s wall`);
+  } else if (args.json) console.log(JSON.stringify({ summary, runs: res }));
   else {
     console.log(summary);
     if (args.career) {
@@ -107,13 +143,10 @@ function main() {
       });
       const tot = { scrolls: 0, items: 0, upgrades: 0, ranks: 0 }, ed = res.map(r => r.eco.earned + r.eco.visit.goldSold);
       res.forEach(r => { for (const k in tot) tot[k] += r.eco.visit.spent[k]; });
-      const worn = G.SLOTS.map(k => gear.equipped[k]).filter(Boolean), val = it => G.itemValue(it, G.BAL);
-      worn.sort((a, b) => val(b) - val(a));
+      const dp = dropsPass(gear), worn = dp.worn, val = it => G.itemValue(it, G.BAL);
       console.log(`gold per run (earned + sold): ${ed.join(' ')} avg ${Math.round(ed.reduce((t, v) => t + v, 0) / ed.length)}; merchant spent ${res.reduce((t, r) => t + r.eco.merchant, 0)}; shop spent ${JSON.stringify(tot)}; ranks ${G.rankTotal(gear)}/25 ${JSON.stringify(gear.ranks)}`);
       worn.forEach(it => console.log(`  worn ${it.slot} ${it.name} rarity ${it.rarity} ilvl ${it.ilvl}${it.up ? ' (+' + it.up + ')' : ''} src ${it.src === 'shop' ? 'shop' : 'drop'} value ${val(it).toFixed(2)}`));
-      const bestDrop = worn.filter(it => it.src !== 'shop').map(val)[0] || 0, shopWorn = worn.filter(it => it.src === 'shop');
-      const pass = worn.slice(0, 3).every(it => it.src !== 'shop') && shopWorn.every(it => val(it) <= bestDrop) && !worn.some(it => it.src === 'shop' && it.rarity >= 3);
-      console.log(`worn shop items ${shopWorn.length}; bestFromDrops: ${pass ? 'PASS' : 'FAIL'}`);
+      console.log(`worn shop items ${dp.shopWorn.length}; bestFromDrops: ${dp.pass ? 'PASS' : 'FAIL'}`);
     }
   }
   process.exit(soft.length || tout.length ? 2 : 0);

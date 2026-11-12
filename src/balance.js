@@ -7,8 +7,12 @@
 
     run: {
       rooms: 10,                      // the last room is the boss room
-      roomMult: [1.05, 1.3, 1.55, 1.8, 2.1, 2.4, 2.75, 3.1, 3.5, 3.0],   // monster hp/dmg multiplier per room
-      gearK: 0.005,                   // +0.5 % monster hp/dmg per point of gear score ("gear level scales the room")
+      roomMult: [0.75, 1.25, 1.5, 1.85, 2.25, 2.7, 3.2, 3.8, 4.3, 3.8],   // monster hp/dmg multiplier per room (step 10: was 1.05 .. 3.5, boss 3.0)
+      monsterHp: 1.4,                 // x monster HP in every room (on top of roomMult); step 10: longer fights (win time 8-10 min) ...
+      monsterDmg: 0.75,               // ... with softer hits, so a room is about as deadly as before
+      // +0.45 % monster hp/dmg per point of the gear score the hero BRINGS INTO the run (step 10: items equipped during the run no longer count,
+      // so a fresh save is not punished for equipping its finds; it only slows the snowball of a geared career; was 0.5 % of the live gear score)
+      gearK: 0.0045,
       ilvlRooms: 3,                   // item level of drops = 1 + floor(room / ilvlRooms)
       testRoom: 1,                    // ?room=test / TEST ROOM button: this room, restarted on every clear
       // Dying empties the sealed bag. Whether the equipped gear survives is a design assumption the user has not confirmed:
@@ -51,7 +55,7 @@
     classes: {
       mage: {
         name: 'Mage',
-        base: { r: 5, hp: 100, speed: 78, dmg: 10, atkInterval: 0.5, range: 112, crit: 0.05, critMult: 1.8 },
+        base: { r: 5, hp: 110, speed: 78, dmg: 12.5, atkInterval: 0.5, range: 112, crit: 0.05, critMult: 1.8 },
         attack: { kind: 'bolt', firstCd: 0.4, speed: 250, r: 3, sideDmg: 0.6, spread: 0.22, life: 1.2, knock: 34, knockElite: 14, frame: 'bolt', glow: 'orb' },
         dodge: { dist: 54, time: 0.16, iframes: 0.34, cd: 1.6 },
         skill: { kind: 'pulse', name: 'Pulse', dmg: 26, radius: 54, cd: 7, knock: 200 },
@@ -60,7 +64,7 @@
       },
       warrior: {
         name: 'Warrior',
-        base: { r: 6, hp: 250, speed: 74, dmg: 32, atkInterval: 0.55, range: 30, crit: 0.05, critMult: 2 },
+        base: { r: 6, hp: 235, speed: 74, dmg: 28, atkInterval: 0.55, range: 30, crit: 0.05, critMult: 2 },
         attack: { kind: 'arc', firstCd: 0.3, arc: 2.2, knock: 60, knockElite: 22 },
         // weapon types: the weapon item's `wtype` picks one (none equipped: defaultWeapon). dmg and atk
         // (attack interval) multiply the stats, reach adds px to the swing, arc is the full width in rad.
@@ -81,7 +85,7 @@
       archer: {
         name: 'Archer',
         // longer reach than the mage, slower shots, arrows pierce 1 enemy at base (base.pierce)
-        base: { r: 5, hp: 90, speed: 76, dmg: 20, atkInterval: 0.8, range: 150, crit: 0.1, critMult: 2, pierce: 1 },
+        base: { r: 5, hp: 100, speed: 76, dmg: 20, atkInterval: 0.8, range: 150, crit: 0.1, critMult: 2, pierce: 1 },
         attack: { kind: 'bolt', firstCd: 0.5, speed: 330, r: 2.5, sideDmg: 0.6, spread: 0.18, life: 1.2, knock: 16, knockElite: 6, frame: 'arrow', glow: 'rg2', rotate: true },
         dodge: { dist: 52, time: 0.16, iframes: 0.32, cd: 1.5 },
         // Volley: a ring of `count` arrows (each `pierce` enemies, dmg = skill dmg incl. pulse passives) flying `range` px
@@ -158,7 +162,7 @@
       aliveThreat: 1.4,               // monsters alive from the network at once: up to this x one crack's budget
       firstDelay: 1.2,
       openTime: 1.0, closeTime: 1.0, superOpenTime: 1.8, superCloseTime: 1.6,
-      spawnEvery: 0.3, superSpawnEvery: 0.5,       // packs come out in a burst
+      spawnEvery: 1.3, superSpawnEvery: 0.5,       // s between two network spawns (step 10: was 0.3, a burst; slower spawns = longer rooms for a strong hero)
       closeExp: 5, closeHeal: 0.03, superHeal: 0.08
     },
 
@@ -234,8 +238,8 @@
       // ability stats in G.computeStats. cost[r] = gold for rank r + 1 (length = max rank). They do not count for families or gear score.
       rankCost: [40, 90, 160, 250, 360],
       ranks: {
-        vitality: { name: 'Vitality', stat: 'hp',     per: 6, text: '+6 max HP' },
-        might:    { name: 'Might',    stat: 'dmgPct', per: 3, text: '+3 % damage' },
+        vitality: { name: 'Vitality', stat: 'hp',     per: 8, text: '+8 max HP' },
+        might:    { name: 'Might',    stat: 'dmgPct', per: 4, text: '+4 % damage' },
         haste:    { name: 'Haste',    stat: 'atkPct', per: 2, text: '+2 % attack speed' },
         guard:    { name: 'Guard',    stat: 'armor',  per: 3, text: '+3 armor' },
         insight:  { name: 'Insight',  stat: 'expPct', per: 4, text: '+4 % EXP gain' }
@@ -534,8 +538,20 @@
     // is >= pushGear x the next room's number (1-based), checked again after every room (like a player who feels strong).
     // shop policy (step 7, docs/specs/economy.md "Bot policy"): rankOrder = tie-break order of ranks; potionHp: buy a merchant potion
     // when HP is under this share of max; baseItemMax: buy at most this many shop items per visit.
-    bot: { reactionTicks: 12, career: { startRoom: 3, step: 1, cap: 10, lowHp: 0.4, pushHp: 0.7, pushGear: 6 },
+    // step 10: career step 1 -> 2 (a player who got out of room N at full health aims two rooms deeper next time, not one)
+    bot: { reactionTicks: 12, career: { startRoom: 3, step: 2, cap: 10, lowHp: 0.4, pushHp: 0.7, pushGear: 6 },
            shop: { rankOrder: ['vitality', 'might', 'haste', 'guard', 'insight'], potionHp: 0.5, baseItemMax: 2 } },
+
+    // Daily challenge (step 10, src/sim/daily.js). The UTC date gives the seed, the class and the door taken after each room (salt: mixed into
+    // the date hash). kit: the fixed starting gear (slot, rarity) at item level kitIlvl, identified and worn; scrolls: scrolls of Identification
+    // to start with. Nothing of the daily run is banked into the save. score = room x rooms cleared + kill x kills, and for a win: win +
+    // perSecond x every second under par (game time).
+    daily: {
+      salt: 1010,
+      kit: [{ slot: 'weapon', rarity: 1 }, { slot: 'armor', rarity: 0 }, { slot: 'boots', rarity: 0 }],
+      kitIlvl: 2, scrolls: 2,
+      score: { room: 1000, kill: 10, win: 5000, par: 900, perSecond: 5 }
+    },
 
     fx: { shakeCap: 5, shakeDecay: 9 },   // max shake offset in art px at 100 %
     softlockSeconds: 400

@@ -13,7 +13,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Load order matters: balance and sim first (no Phaser), then QA bot, then the view.
 SRC = [
     'balance.js', 'lore.js', 'i18n.js', 'rng.js', 'mapgen.js',
-    'sim/items.js', 'sim/economy.js', 'sim/abilities.js', 'sim/core.js', 'sim/effects.js', 'sim/combat.js', 'sim/fissures.js', 'sim/boss.js',
+    'sim/items.js', 'sim/economy.js', 'sim/abilities.js', 'sim/core.js', 'sim/effects.js', 'sim/combat.js', 'sim/fissures.js', 'sim/boss.js', 'sim/daily.js',
     'qa/bot.js', 'save.js', 'input.js',
     'view/ui.js', 'view/fx.js', 'view/room.js', 'view/boot.js', 'view/title.js', 'view/city.js', 'view/game.js',
     'view/hud.js', 'view/panels.js', 'main.js',

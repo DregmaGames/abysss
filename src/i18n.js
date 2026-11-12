@@ -112,6 +112,14 @@
     'res.kept': '{items} kept in your bag', 'res.keptLost': ', {n} lost (bag full)',
     'res.goldLost': 'Gold: {n} lost', 'res.goldNone': 'Gold: none earned', 'res.goldKept': 'Gold: +{n} kept', 'res.gear': 'Gear score {n}',
     'res.again': 'RUN AGAIN', 'res.city': 'BACK TO CITY',
+    'title.daily': 'DAILY RIFT', 'city.daily': 'DAILY RIFT',
+    'daily.title': 'DAILY RIFT', 'daily.date': 'Today (UTC): {d}', 'daily.class': 'Class: {c}',
+    'daily.rules': 'Same seed, class and doors for everyone today. Fixed starting kit.',
+    'daily.kept': 'Practice run: nothing found is kept.',
+    'daily.start': 'START', 'daily.again': 'TRY AGAIN', 'daily.copy': 'COPY SHARE TEXT', 'daily.copied': 'Copied to the clipboard', 'daily.copyFail': 'Could not copy',
+    'daily.score': 'SCORE {n}', 'daily.parts': 'Rooms {r} + kills {k} + win {w}',
+    'daily.share': 'Riftscar Daily Rift {d} - {c} - {res} - {k} kills - {t} - score {n}',
+    'daily.shareWon': 'rift sealed', 'daily.shareDead': 'fell in room {a}/{b}', 'daily.shareLeft': 'left after room {a}/{b}', 'daily.shareOn': 'in room {a}/{b}',
     // counts
     'items.one': '{n} item', 'items.other': '{n} items',
     // item parts (English assembly: [adjective] base)
@@ -217,6 +225,14 @@
     'res.kept': '{items} en tu bolsa', 'res.keptLost': ', {n} perdidos (bolsa llena)',
     'res.goldLost': 'Oro: {n} perdido', 'res.goldNone': 'Oro: nada ganado', 'res.goldKept': 'Oro: +{n} conservado', 'res.gear': 'Equipo {n}',
     'res.again': 'OTRA INCURSIÓN', 'res.city': 'A LA CIUDAD',
+    'title.daily': 'RETO DIARIO', 'city.daily': 'RETO DIARIO',
+    'daily.title': 'RETO DIARIO', 'daily.date': 'Hoy (UTC): {d}', 'daily.class': 'Clase: {c}',
+    'daily.rules': 'La misma semilla, clase y puertas para todos hoy. Equipo inicial fijo.',
+    'daily.kept': 'Incursión de práctica: no conservas nada.',
+    'daily.start': 'EMPEZAR', 'daily.again': 'REINTENTAR', 'daily.copy': 'COPIAR PARA COMPARTIR', 'daily.copied': 'Copiado al portapapeles', 'daily.copyFail': 'No se pudo copiar',
+    'daily.score': 'PUNTOS {n}', 'daily.parts': 'Salas {r} + bajas {k} + victoria {w}',
+    'daily.share': 'Riftscar Reto Diario {d} - {c} - {res} - {k} bajas - {t} - {n} puntos',
+    'daily.shareWon': 'brecha sellada', 'daily.shareDead': 'caí en la sala {a}/{b}', 'daily.shareLeft': 'salí tras la sala {a}/{b}', 'daily.shareOn': 'en la sala {a}/{b}',
     'items.one': '{n} objeto', 'items.other': '{n} objetos',
     // item parts (Spanish assembly: noun + intrinsic adjective + bonus adjective + complement, all agreeing with the noun)
     // base value: 'Noun;gender (m/f + s/p);intrinsic adjective (masculine singular);complement'
@@ -246,7 +262,7 @@
     venom: ['Veneno', '+15% de daño de veneno y quemadura, +15% de duración de estados', 'Plaga: los enemigos envenenados dejan una nube tóxica al morir']
   };
   var esRank = {
-    vitality: ['Vitalidad', '+6 de vida máx.'], might: ['Poder', '+3 % de daño'], haste: ['Prisa', '+2 % de velocidad de ataque'],
+    vitality: ['Vitalidad', '+8 de vida máx.'], might: ['Poder', '+4 % de daño'], haste: ['Prisa', '+2 % de velocidad de ataque'],
     guard: ['Guardia', '+3 de armadura'], insight: ['Intuición', '+4 % de EXP ganada']
   };
   var esDoor = { longCracks: 'Grietas largas', manyCracks: 'Más grietas', fastSpawns: 'Aparición rápida', crowd: 'Multitud', elite: 'Élite extra', hardened: 'Enemigos duros' };

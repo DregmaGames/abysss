@@ -26,6 +26,7 @@
     sign: { x: 144, y: 184 },
     crates: [[304, 200], [320, 202], [312, 188]],
     portal: { x: 208, y: 222, w: 20, h: 18 },        // walking into it starts a run
+    board: { x: 244, y: 214 },                       // the daily challenge board (step 10), beside the portal
     start: { x: 208, y: 140 },
     path: function (x, y) { return (x >= 12 && x <= 13 && y >= 5) || (y >= 7 && y <= 8 && x >= 2 && x <= 23); }
   };
@@ -36,6 +37,7 @@
     sign: { x: 150, y: 216 },
     crates: [[202, 322], [218, 324], [210, 310]],
     portal: { x: 128, y: 334, w: 20, h: 18 },
+    board: { x: 84, y: 330 },
     start: { x: 128, y: 146 },
     path: function (x, y) { return (x >= 7 && x <= 8 && y >= 5) || ((y === 7 || y === 8 || y === 15 || y === 16) && x >= 2 && x <= 13); }
   };
@@ -53,6 +55,7 @@
     L.spots.forEach(function (s) { out.push([s.x - 22, s.y - SOLID_H, s.x + 22, s.y]); });
     out.push([L.plot.x - 24, L.plot.y - L.plot.h, L.plot.x + 24, L.plot.y]);
     out.push([L.sign.x - 4, L.sign.y - 5, L.sign.x + 4, L.sign.y]);
+    out.push([L.board.x - 4, L.board.y - 5, L.board.x + 4, L.board.y]);
     L.crates.forEach(function (c) { out.push([c[0] - 6, c[1] - 8, c[0] + 6, c[1]]); });
     return out;
   }
@@ -64,7 +67,7 @@
 
     create: function () {
       var self = this, C = this.cls = G.classDef(G.BAL, G.cls);
-      G.screen = 'city'; G.city = this; G.gameScene = null; G.hud = null; G.paused = false; G.testRoom = false;
+      G.screen = 'city'; G.city = this; G.gameScene = null; G.hud = null; G.paused = false; G.testRoom = false; G.daily = null;
       if (G.runSeed == null) G.runSeed = G.params.has('seed') ? (parseInt(G.params.get('seed'), 10) >>> 0) : 1;
       this.gear = G.gearOf(G.save, G.cls);
       var L = this.lay = pickLayout();
@@ -101,7 +104,7 @@
         this.px = L.start.x; this.py = L.start.y;
         this.follow(true);
         this.buildWorld();
-        var o = at === 'plot' ? this.plotOwner : this.spots[at];
+        var o = at === 'plot' ? this.plotOwner : at === 'daily' ? this.boardOwner : this.spots[at];
         if (o) { this.px = o.front.x; this.py = o.front.y + 6; }
       }
       this.relabel(); this.follow(true);
@@ -140,6 +143,10 @@
       this.sign.on('pointerdown', function () { self.say(G.t('city.mageSign'), 'ui_dim'); });
       this.plotOwner = { s: { id: 'plot' }, front: { x: L.sign.x - 6, y: L.sign.y + 6 }, label: plotLabel };
       L.crates.forEach(function (c) { put(c[0], c[1], 'c_crate').setOrigin(0.5, 1).setDepth(c[1]); });
+      // the daily challenge board: a sign beside the portal (READ opens today's run)
+      this.board = put(L.board.x, L.board.y, 'c_sign').setOrigin(0.5, 1).setDepth(L.board.y).setInteractive({ useHandCursor: true });
+      this.board.on('pointerdown', function () { self.tap(self.boardOwner); });
+      this.boardOwner = { s: { id: 'daily' }, front: { x: L.board.x, y: L.board.y + 8 }, label: this.label('city.daily', 'gold', L.board.x, L.board.y - 22) };
       // the portal
       this.portal = put(L.portal.x, L.portal.y, 'portal_0').setOrigin(0.5, 1).setDepth(L.portal.y - 20);
       put(L.portal.x, L.portal.y - 16, 'glow').setDepth(-640).setBlendMode(Phaser.BlendModes.ADD).setTint(UI.hex('rg2')).setAlpha(0.25);
@@ -204,6 +211,8 @@
       });
       var po = this.plotOwner, dx2 = this.px - po.front.x, dy2 = this.py - po.front.y;
       if (!best && dx2 * dx2 + dy2 * dy2 <= 28 * 28) best = po;
+      var bo = this.boardOwner, dx3 = this.px - bo.front.x, dy3 = this.py - bo.front.y;
+      if (!best && dx3 * dx3 + dy3 * dy3 <= 24 * 24) best = bo;
       return best;
     },
     talk: function (o) {
@@ -213,13 +222,14 @@
       hud.dropStick();
       if (id === 'smith') G.Panels.openShop(hud, false, 'smith');
       else if (id === 'trainer') G.Panels.openShop(hud, false, 'trainer');
+      else if (id === 'daily') G.Panels.openDaily(hud);
       else if (id === 'montoto') {
         if (o.empty) this.say(G.montotoText('emptyStall'), 'ui_warn');
         else G.Panels.openMontoto(hud, false);
       } else this.say(G.t('city.mageSign'), 'ui_dim');
     },
     // the label and what the button says for the thing in reach
-    nearLabel: function (o) { return !o ? null : G.t(o.s.id === 'plot' ? 'city.read' : o.empty ? 'city.look' : 'city.talk'); },
+    nearLabel: function (o) { return !o ? null : G.t(o.s.id === 'plot' || o.s.id === 'daily' ? 'city.read' : o.empty ? 'city.look' : 'city.talk'); },
 
     // ---------------------------------------------------------------- movement
     blocked: function (x, y) {
@@ -294,7 +304,7 @@
       var spots = {}, L = this.lay, wv = this.cameras.main.worldView;
       for (var k in this.spots) spots[k] = { x: this.spots[k].front.x, y: this.spots[k].front.y, empty: !!this.spots[k].empty, sx: this.spots[k].s.x, sy: this.spots[k].s.y };
       return { x: Math.round(this.px), y: Math.round(this.py), near: this.near ? this.near.s.id : null, rescued: this.rescued, entering: this.entering, spots: spots,
-        portal: { x: L.portal.x, y: L.portal.y }, start: L.start, sign: { x: this.plotOwner.front.x, y: this.plotOwner.front.y }, layout: L.id, map: { w: L.w, h: L.h },
+        portal: { x: L.portal.x, y: L.portal.y }, start: L.start, sign: { x: this.plotOwner.front.x, y: this.plotOwner.front.y }, board: { x: this.boardOwner.front.x, y: this.boardOwner.front.y }, layout: L.id, map: { w: L.w, h: L.h },
         view: { x: wv.x, y: wv.y, w: wv.width, h: wv.height },
         labels: this.labels.map(function (b) { return { key: b.key, x: b.box.x, y: b.box.y, w: b.box.w, h: b.box.h }; }),
         tag: this.tag.visible && this.tagBox ? { text: this.tag.text, x: this.tagBox.x, y: this.tagBox.y, w: this.tagBox.w, h: this.tagBox.h } : null };

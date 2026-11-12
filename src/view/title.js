@@ -7,7 +7,7 @@
     create: function () {
       var self = this;
       G.screen = 'title';
-      G.hud = null; G.gameScene = null; G.paused = false;
+      G.hud = null; G.gameScene = null; G.paused = false; G.daily = null;
       if (G.runSeed == null) G.runSeed = G.params.has('seed') ? (parseInt(G.params.get('seed'), 10) >>> 0) : ((Date.now() ^ (Math.random() * 1e9)) >>> 0) % 1000000;
       if (G.cls == null) G.cls = G.classDef(G.BAL, G.params.get('class') || (G.save && G.save.settings.cls)).id;
       this.scene.launch('backdrop');
@@ -52,7 +52,10 @@
       this.seedX = rowX;
       this.btnSeed = L.button(rowX + seedW + 8, y, rw, 18, rt, function () { G.runSeed = Math.floor(Math.random() * 1000000); self.refresh(); }, { name: 'reroll' });
       y += tall ? 34 : 24;
-      L.button(cx - 30, y, 60, 20, G.t('title.settings'), function () { if (!G.Panels.isOpen()) G.Panels.openSettings(self); }, { name: 'title_settings' });
+      // settings and the daily challenge side by side
+      var dt = G.t('title.daily'), st = G.t('title.settings'), dw = Math.max(60, dt.length * 6 + 12), sw = Math.max(60, st.length * 6 + 12), rx = Math.round(cx - (sw + 6 + dw) / 2);
+      L.button(rx, y, sw, 20, st, function () { if (!G.Panels.isOpen()) G.Panels.openSettings(self); }, { name: 'title_settings' });
+      L.button(rx + sw + 6, y, dw, 20, dt, function () { if (!G.Panels.isOpen()) G.Panels.openDaily(self); }, { name: 'title_daily', color: 'gold' });
       y += tall ? 28 : 24;
       // practice: one room with the crack network, restarted on every clear (also ?scene=game&room=test)
       L.button(cx - 76, y, 152, 20, G.t('title.test'), function () { if (self.input.activePointer.wasTouch) G.touch = true; self.start(true); }, { name: 'title_test', color: 'ui_good' });

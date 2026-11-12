@@ -111,9 +111,15 @@
     if (p.dodgeCd > 0 || p.dashT > 0) return 'wait';
     var base = G.M.atan2(uy, ux), tries = [0, 0.4, -0.4, 0.8, -0.8];
     for (i = 0; i < tries.length; i++) {
-      var a = base + tries[i], dx = G.M.cos(a), dy = G.M.sin(a), ok = true;
-      for (k = 6; k <= D.dist && ok; k += 6) if (sim.boxHits(p.x + dx * k, p.y + dy * k, p.r)) ok = false;
-      if (ok && !sim.crackHits(p.x + dx * D.dist, p.y + dy * D.dist, p.r)) return { x: dx, y: dy };
+      var a = base + tries[i], dx = G.M.cos(a), dy = G.M.sin(a), land = 0, over = false;
+      // the dash slides to a stop at a wall: it lands at the last free spot on its line; that spot must be past a crack and off it
+      for (k = 6; k <= D.dist; k += 6) {
+        if (sim.boxHits(p.x + dx * k, p.y + dy * k, p.r)) break;
+        land = k;
+        if (sim.crackHits(p.x + dx * k, p.y + dy * k, p.r)) over = true;
+      }
+      // stuck for a while (a pocket too small to land in): land on the crack itself, a hero can always walk off one
+      if (over && land >= 18 && (!sim.crackHits(p.x + dx * land, p.y + dy * land, p.r) || sim.stuckSeconds() > 20)) return { x: dx, y: dy };
     }
     return null;
   };
@@ -291,6 +297,8 @@
     }
     this.thinkTick = sim.tick;
     var ax = 0, ay = 0, nearest = null, nd = 1e9, close = 0, inPulse = 0, heavy = 0, dodge = false, urgent = 0;
+    // nothing has moved on for a while (e.g. monsters penned behind an open crack, out of sight): stop keeping away and walk up, as a player would
+    var bold = sim.stuckSeconds() > 20;
 
     for (i = 0; i < sim.monsters.length; i++) {
       var m = sim.monsters[i];
@@ -298,7 +306,7 @@
       var dx = m.x - p.x, dy = m.y - p.y, d = Math.sqrt(dx * dx + dy * dy) || 0.01, gap = d - m.r;
       if (gap < nd) { nd = gap; nearest = m; }
       var keep = KEEP[m.type] * this.keep + (m.st === 'lunge' || m.st === 'wind' || m.st === 'charge' || m.st === 'chargeWind' ? 24 : 0);
-      if (gap < keep) { var w = (keep - gap) / keep * (m.def.boss ? 3 : 2); ax -= dx / d * w; ay -= dy / d * w; }
+      if (gap < keep && !bold) { var w = (keep - gap) / keep * (m.def.boss ? 3 : 2); ax -= dx / d * w; ay -= dy / d * w; }
       if (gap < 15) close++;
       if (gap < K.radius - 8) { inPulse++; if (m.def.elite || m.def.boss) heavy++; }
       // a lunging husk / charging boss aimed at us: sidestep with a dodge
@@ -336,7 +344,7 @@
           g = this.pathDir(nearest.x, nearest.y);
           if (nd > 40 && (nearest.def.ai === 'ranged' || nearest.def.ai === 'elite' || nearest.def.ai === 'caster') && p.dodgeCd <= 0 && !urgent) dodge = true;
         } else { var hx = nearest.x - p.x, hy = nearest.y - p.y, hl = Math.sqrt(hx * hx + hy * hy) || 1; g = { x: hx / hl, y: hy / hl }; gw = 0.25; }
-      } else if (nd > s.range * 0.72 || !sim.los(p.x, p.y, nearest.x, nearest.y)) g = this.pathDir(nearest.x, nearest.y);
+      } else if (nd > s.range * 0.72 || !sim.los(p.x, p.y, nearest.x, nearest.y) || (bold && nd > 30)) g = this.pathDir(nearest.x, nearest.y);      // stuck: no circling, walk up to it
       else {   // in range: circle the target so shots miss
         var ox = nearest.x - p.x, oy = nearest.y - p.y, ol = Math.sqrt(ox * ox + oy * oy) || 1;
         if (sim.tick % 240 === 0) this.orbit = -this.orbit;
@@ -349,8 +357,10 @@
         var dr = sim.drops[i];
         if (dr.kind === 'item' && sim.bag.length >= sim.B.loot.bagSize) continue;
         var dd = Math.abs(dr.x - p.x) + Math.abs(dr.y - p.y);
-        if (dd < best && (!nearest || dd < 90)) { best = dd; want = dr; }
+        // a fight near: only drops within 90 px, or (no flip-flop at the edge) the one it was already walking to within 140
+        if (dd < best && (!nearest || dd < 90 || (dr === this.dropWant && dd < 140))) { best = dd; want = dr; }
       }
+      this.dropWant = want;
       if (want) { g = this.pathDir(want.x, want.y); gw = 1.2; }
       else if (!nearest) {
         if (sim.phase === 'chest') g = this.pathDir(sim.chest.x, sim.chest.y + 4);
@@ -403,7 +413,7 @@
   G.botRun = function (seed, opts) {
     opts = opts || {};
     var gear = opts.gear || G.newGear();
-    var sim = new G.Sim({ seed: seed, gear: gear, bal: opts.bal, cls: opts.cls }), bot = new Bot(sim, opts.build, { leave: opts.leave, lowHp: opts.lowHp, pushHp: opts.pushHp, pushGear: opts.pushGear, rescue: opts.rescue });
+    var sim = new G.Sim({ seed: seed, gear: gear, bal: opts.bal, cls: opts.cls, daily: opts.daily }), bot = new Bot(sim, opts.build, { leave: opts.leave, lowHp: opts.lowHp, pushHp: opts.pushHp, pushGear: opts.pushGear, rescue: opts.rescue });
     var maxTicks = (opts.maxSeconds || 1200) * 60, softlock = false, worstStuck = 0, roomTicks = [], last = 0, lastRoom = 0, minHp = sim.B.run.roomMult.map(function () { return 1; });
     while (sim.tick < maxTicks && (sim.state === 'play' || sim.state === 'levelup' || sim.state === 'choice' || sim.state === 'merchant')) {
       if (sim.state === 'merchant') { sim.closeMerchant(); continue; }

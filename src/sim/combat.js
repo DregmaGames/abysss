@@ -40,7 +40,7 @@
       if (ctx) dmg *= mul;
       this.bolts.push({ id: this.nextId++, x: p.x, y: p.y - 2, vx: G.M.cos(ang) * A.speed, vy: G.M.sin(ang) * A.speed,
         r: A.r, dmg: dmg, crit: crit, life: life, pierce: s.pierce, knock: A.knock, knockElite: A.knockElite, hit: {}, atk: true, main: i === 0,
-        bounce: bounce ? bounce.n : 0 });
+        bounce: bounce ? bounce.n : 0, bounceF: bounce });
     }
     if (!(ctx && ctx.echo)) this.emit({ t: 'cast', x: p.x, y: p.y });
   };
@@ -122,9 +122,9 @@
 
   // ---------------------------------------------------------------- monsters
   S.spawnMonster = function (type, x, y, fid) {
-    var def = this.B.monsters[type], th = this.threat;
+    var def = this.B.monsters[type], th = this.threat, hth = this.hpThreat || th;
     if (this.boxHits(x, y, def.r)) { var f = this.fissures[fid]; x = f.x; y = f.y; }
-    var m = { id: this.nextId++, type: type, def: def, x: x, y: y, r: def.r, hp: Math.round(def.hp * th), maxHp: Math.round(def.hp * th),
+    var m = { id: this.nextId++, type: type, def: def, x: x, y: y, r: def.r, hp: Math.round(def.hp * hth), maxHp: Math.round(def.hp * hth),
       dmg: def.dmg * th, mul: th, fid: fid, hitCd: 0.5, kx: 0, ky: 0, st: 'chase', t: 0, cd: 0.6 + this.rngCombat.next() * 1.2,
       cd2: def.summonEvery || 0, wind: 0, lx: 0, ly: 0, face: 1, los: true, emerge: 0.35, age: 0, atk: 0, ba: 0, px: x, py: y, bump: 0, detour: 0, walkLos: false, fx: null, slowMul: 1, side: this.rngCombat.chance(0.5) ? 1 : -1 };
     if (def.boss) { m.t = 1.6; }
@@ -343,7 +343,9 @@
   // ------------------------------------------------------------- projectiles
   // Ricochet: turn a spent bolt toward the nearest living monster it has not hit, in range and in sight
   S.bounceBolt = function (b) {
-    var f = this.boltMods.bounce, ms = this.monsters, best = null, bd = f.r, i;
+    var f = b.bounceF || this.boltMods.bounce, ms = this.monsters, best = null, bd, i;      // the ricochet the bolt was shot with (it may have been replaced since)
+    if (!f) return false;
+    bd = f.r;
     for (i = 0; i < ms.length; i++) {
       var q = ms[i];
       if (q.dead || q.emerge > 0 || b.hit[q.id]) continue;
