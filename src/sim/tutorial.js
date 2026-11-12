@@ -89,7 +89,7 @@
 
   S.tutAdvance = function () {
     var t = this.tut;
-    t.step++; t.act = {}; t.sub = 0; t.t = 0;
+    t.step++; t.act = {}; t.sub = 0; t.t = 0; t.idle = 0; t.pulled = 0; t.fightHp = 1e9;
     this.player.hp = this.player.maxHp;      // a fresh start for every step
     this.progress();
     if (t.step >= G.TUT_STEPS.length) { this.tutFinish(); return; }
@@ -142,6 +142,23 @@
           this.spawnMonster(t.crackLeft.shift(), px, R.lineY(px) - 18, 0);
           t.spawnCd = TB.crackEvery;
         } else t.spawnCd = 0.2;
+      }
+    }
+    // safety net: a fight step must never wait on a straggler (stuck behind a pillar, out of reach of a melee hero). With no monster hurt for
+    // stuckAfter seconds the live ones are brought next to the hero; if it happens again they are beaten.
+    if (id === 'skill' || id === 'darken' || id === 'super') {
+      var hp = 0, n = 0;
+      for (i = 0; i < this.monsters.length; i++) { m = this.monsters[i]; if (!m.dead && m.type !== 'dummy') { hp += m.hp; n++; } }
+      if (!n || hp < t.fightHp) { t.idle = 0; t.pulled = 0; } else t.idle = (t.idle || 0) + dt;
+      t.fightHp = n ? hp : 1e9;
+      if (t.idle >= TB.stuckAfter) {
+        t.idle = 0;
+        for (i = 0; i < this.monsters.length; i++) {
+          m = this.monsters[i]; if (m.dead || m.type === 'dummy') continue;
+          if (t.pulled) this.damageMonster(m, m.hp + 1, false, 'tut');
+          else { m.x = p.x; m.y = p.y - 6; }
+        }
+        t.pulled = 1;
       }
     }
     this.tutCheck();

@@ -192,6 +192,7 @@ Design decisions live in the plan doc (the user has it); this file is what an ag
 - Isolation: the tutorial Sim uses `testRoom = 0` rules (no banking, gold, merchant), hero cannot die, no exp. Bots, careers, daily never set `tutorial`. sim_bot seeds 1-10 per class identical before and after.
 - Kept item: the first completion keeps the identified own-class weapon equipped (once, `got`); a replay restores the previous weapon. Skip cleans up. Nothing else reaches the save.
 - QA: `tools/check_tutorial.js` (3 classes), `qa/tutorial.js` (land_en, land_es, port_en touch, port_es touch), `check_bag` tutorial flags. URL: `?tutorial=1` (pending), `&scene=game` starts the room; `?fresh=1` marks it done.
+- Safety net: in the skill, darken and super steps, 20 s (`balance.tutorial.stuckAfter`) with no monster hurt pulls the live ones to the hero; 20 s more beats them. `check_tutorial` holds monsters out of reach for 3 classes x 3 steps.
 - Rough: touch checked by emulation only; with a big modal open on tiny views the pop-up can overlap the panel top; ranged classes can kill the dummy from afar; the city sequence is saved only when the portal is entered; no tutorial sounds.
 
 ## Last measured (2026-11-11, tiers removed)

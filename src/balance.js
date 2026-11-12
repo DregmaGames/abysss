@@ -140,6 +140,7 @@
       superWave: ['imp', 'imp', 'bat', 'imp'],                           // step 7
       itemRarity: 1, itemIlvl: 2,     // the chest's item: magic, so it drops unidentified
       healBelow: 0.5, healRate: 0.2,  // under this share of max HP the hero heals this share of max HP per second
+      stuckAfter: 20,                 // fight steps: this many seconds with no monster hurt -> stragglers are brought to the hero, then beaten
       crossMargin: 13                 // px from the crack's centre line the hero must be past to have crossed (and the line it cannot be pushed back over)
     },
 

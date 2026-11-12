@@ -139,7 +139,7 @@ async function run(name, cfg, browser) {
     for (;;) {
       const s = await S();
       if (s.step > i) return;
-      if (Date.now() > end) throw new Error('timeout fighting in step ' + IDS[i]);
+      if (Date.now() > end) throw new Error('timeout fighting in step ' + IDS[i] + ' ' + JSON.stringify(await page.evaluate(() => { const m = G.gameScene.sim; return { hero: [m.player.x | 0, m.player.y | 0], crackY: m.room.tut.crackY, phase: m.phase, mons: m.monsters.filter(q => !q.dead).map(q => [q.id || q.type, q.x | 0, q.y | 0, q.hp | 0, q.fid]), fiss: m.fissures.map(f => [f.x | 0, f.y | 0, f.state, (f.queue || []).length, f.total]) }; })));
       const n = nearestMon(s), reach = Math.min(s.range * 0.55, 70);
       if (n && n.d > reach) await steer(n.m.x - s.hero.x, n.m.y - s.hero.y); else await stop();
       if (s.id === 'skill') { /* the skill was used already */ }

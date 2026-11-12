@@ -99,6 +99,24 @@ for (const cls of ['mage', 'warrior', 'archer']) {
   s.dropSealed(0); s.step();
   check('a tutorial item dropped from the bag comes back as a pickup (the step goes back)', s.tutId() === 'pickup' && s.drops.some(d => d.item === s.tut.item));
 }
+// stragglers: monsters that cannot be reached (held far away on the other side of the crack) must not hold a fight step for ever
+for (const cls of ['mage', 'warrior', 'archer']) {
+  for (const stepId of ['skill', 'darken', 'super']) {
+    const s = new G.Sim({ seed: 5, gear: G.newGear(), cls, tutorial: { reward: true }, events: true });
+    const R = s.room.tut;
+    s.tut.step = G.TUT_STEPS.indexOf(stepId); s.tut.act = {}; s.tutEnter(); s.phase = stepId === 'super' ? 'super' : s.phase;
+    if (stepId === 'super') { s.player.y = R.crackY - 40; const f = s.fissures[s.fissures.length - 1]; f.state = 'open'; f.spawnCd = 0.1; }
+    else if (stepId === 'darken') s.player.y = R.crackY - 40;
+    else s.player.y = R.crackY + 40;
+    let ticks = 0;
+    while (s.tutId() === stepId && ticks < 60 * 90) {
+      for (const m of s.monsters) if (!m.dead) { m.x = 24; m.y = s.room.h * 16 - 24; }      // held in a far corner, out of reach
+      s.input.mx = 0; s.input.my = 0; s.input.dodge = false; s.input.pulse = stepId === 'skill';
+      s.step(); ticks++;
+    }
+    check(cls + ': a fight step (' + stepId + ') with unreachable monsters ends by itself (' + (ticks / 60).toFixed(0) + ' s)', s.tutId() !== stepId, 'still in ' + stepId);
+  }
+}
 // the tutorial code is invisible to normal runs
 {
   const s = new G.Sim({ seed: 1, gear: G.newGear(), cls: 'mage' });
