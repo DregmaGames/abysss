@@ -93,9 +93,10 @@
     // touch: a finger needs about FINGER CSS px. A smaller button keeps its look and gets a hit box that reaches out around it.
     var need = G.finger || G.touch ? Math.ceil(UI.FINGER / G.view.S) : 0, ex = Math.max(0, Math.ceil((need - w) / 2)), ey = Math.max(0, Math.ceil((need - h) / 2));
     bg.setInteractive({ hitArea: new Phaser.Geom.Rectangle(-ex, -ey, w + 2 * ex, h + 2 * ey), hitAreaCallback: Phaser.Geom.Rectangle.Contains, useHandCursor: true });
-    bg.on('pointerover', function () { if (b.enabled) bg.setFrame('btn_hot'); });
+    var back = opts.icon === 'i_close' || /(^|_)(close|back|resume)/.test(opts.name || '');
+    bg.on('pointerover', function () { if (b.enabled) { bg.setFrame('btn_hot'); if (!G.finger) G.audio.ui('hover'); } });
     bg.on('pointerout', function () { bg.setFrame('btn'); });
-    bg.on('pointerdown', function (p) { if (!p.rightButtonDown()) b.click(); });
+    bg.on('pointerdown', function (p) { if (p.rightButtonDown()) return; var live = b.enabled && bg.visible; b.click(); if (live) G.audio.ui(back ? 'back' : 'click'); });
     if (opts.name) UI.hit(opts.name, x, y, w, h);
     return b;
   };

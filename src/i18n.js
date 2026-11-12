@@ -98,7 +98,7 @@
     'shop.ranks': 'PERMANENT RANKS (this class)', 'shop.rankNow': '(now +{n})', 'shop.max': 'MAX', 'shop.rankBuy': 'BUY {n}', 'shop.ranksNote': 'Ranks apply to every run of this class.',
     // settings
     'set.title': 'SETTINGS', 'set.language': 'Language', 'set.zoom': 'Zoom', 'set.zoomNone': 'Screen too small to zoom in.', 'set.zoomHint': 'Bigger pixels, closer view.',
-    'set.shake': 'Shake', 'set.shakeHint': 'Set to 0% to turn shake off.', 'set.resume': 'RESUME', 'set.close': 'CLOSE', 'set.quit': 'QUIT RUN', 'set.reset': 'RESET SAVE',
+    'set.music': 'Music', 'set.sfx': 'Effects', 'set.shake': 'Shake', 'set.shakeHint': 'Set to 0% to turn shake off.', 'set.resume': 'RESUME', 'set.close': 'CLOSE', 'set.quit': 'QUIT RUN', 'set.reset': 'RESET SAVE',
     // debug
     'dbg.title': 'DEBUG', 'dbg.god': 'GOD {s}', 'dbg.noCd': 'NO CD {s}', 'dbg.on': 'ON', 'dbg.off': 'OFF', 'dbg.speed': 'SPEED x{n}', 'dbg.killAll': 'KILL ALL',
     'dbg.skip': 'SKIP PHASE', 'dbg.level': 'LEVEL UP', 'dbg.restart': 'RESTART ROOM', 'dbg.next': 'NEXT ROOM', 'dbg.boss': 'BOSS ROOM', 'dbg.loot': 'GIVE LOOT',
@@ -205,7 +205,7 @@
     'shop.unidCard': 'Sin identificar: estadísticas ocultas', 'shop.slotEmpty': 'Ranura vacía', 'shop.better': 'Mejor que el equipado', 'shop.notBetter': 'No es mejor que el equipado',
     'shop.ranks': 'RANGOS PERMANENTES (esta clase)', 'shop.rankNow': '(ahora +{n})', 'shop.max': 'MÁX', 'shop.rankBuy': 'COMPRAR {n}', 'shop.ranksNote': 'Los rangos valen en cada incursión de esta clase.',
     'set.title': 'AJUSTES', 'set.language': 'Idioma', 'set.zoom': 'Zoom', 'set.zoomNone': 'Pantalla muy pequeña para acercar.', 'set.zoomHint': 'Vista más cercana.',
-    'set.shake': 'Temblor', 'set.shakeHint': 'Pon 0% para quitar el temblor.', 'set.resume': 'SEGUIR', 'set.close': 'CERRAR', 'set.quit': 'ABANDONAR', 'set.reset': 'BORRAR DATOS',
+    'set.music': 'Música', 'set.sfx': 'Efectos', 'set.shake': 'Temblor', 'set.shakeHint': 'Pon 0% para quitar el temblor.', 'set.resume': 'SEGUIR', 'set.close': 'CERRAR', 'set.quit': 'ABANDONAR', 'set.reset': 'BORRAR DATOS',
     'dbg.title': 'DEPURAR', 'dbg.god': 'DIOS {s}', 'dbg.noCd': 'SIN RECARGA {s}', 'dbg.on': 'SÍ', 'dbg.off': 'NO', 'dbg.speed': 'VELOCIDAD x{n}', 'dbg.killAll': 'MATAR TODO',
     'dbg.skip': 'SALTAR FASE', 'dbg.level': 'SUBIR NIVEL', 'dbg.restart': 'REINICIAR SALA', 'dbg.next': 'SIGUIENTE SALA', 'dbg.boss': 'SALA DEL JEFE', 'dbg.loot': 'DAR BOTÍN',
     'dbg.doors': 'PUERTAS', 'dbg.merchant': 'MERCADER', 'dbg.cage': 'JAULA', 'dbg.abilities': 'HABILIDADES', 'dbg.resume': 'SEGUIR',

@@ -129,6 +129,7 @@
       var ev = this.sim.events, fx = this.fx, i, e, s;
       for (i = 0; i < ev.length; i++) {
         e = ev[i];
+        G.audio.event(e, this);
         switch (e.t) {
           case 'hit':
             if (e.src === 'dot') { s = this.maps.monsters.get(e.id); if (s) fx.spark(e.x, e.y + 2, 'em3', 0.2); break; }   // dot ticks: no number, no flash
