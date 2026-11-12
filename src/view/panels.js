@@ -407,8 +407,11 @@
       return;
     }
     // his story: the line of this talk
+    // his portrait (imported art, 64 x 62) on the left of the line when the atlas has it
+    var pf = scene.textures.get('atlas').has('portrait_montoto') ? scene.textures.getFrame('atlas', 'portrait_montoto') : null, tx = pf ? pf.width + 8 : 0;
     L.panel(bx, y0 + 24, iw, 78, 'inset', 1);
-    L.text(bx + 6, y0 + 30, '"' + G.storyText(st.idx) + '"', 'ui_text').setMaxWidth(iw - 12);
+    if (pf) L.image(bx + 4 + pf.width / 2, y0 + 24 + 39, 'portrait_montoto');
+    L.text(bx + 6 + tx, y0 + 30, '"' + G.storyText(st.idx) + '"', 'ui_text').setMaxWidth(iw - 12 - tx);
     var hidden = g.bag.filter(function (it) { return it.unid; }).length, by = y0 + 108;
     L.text(bx, by, G.t('mon.hidden', { n: hidden }), 'ui_dim');
     L.button(bx, by + 14, iw, 20, G.t(hidden ? 'mon.identifyAll' : 'mon.nothingToIdentify'), function () {

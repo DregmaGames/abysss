@@ -1210,8 +1210,15 @@ gxg.awvwwvwabbbba.
     # the cage: iron bars round a hooded old man with a white beard (Don Montoto); 2 frames, he fidgets
     for f in range(2):
         cg = blank(18, 22)
-        rect(cg, 4, 6 + f, 10, 13 - f, 'tome1'); rect(cg, 5, 3 + f, 8, 5, 'tome1'); rect(cg, 6, 5 + f, 6, 3, 'skin'); rect(cg, 7, 7 + f, 1, 1, 'f0'); rect(cg, 10, 7 + f, 1, 1, 'f0')
-        rect(cg, 4, 6 + f, 10, 1, 'tome2'); rect(cg, 6, 9 + f, 6, 4, 'ui_text'); rect(cg, 7, 13 + f, 4, 1, 'ui_text')   # white beard
+        # an imported small Don Montoto (tools/import_asset.py -> assets/imported/parts/cage_montoto_<f>.png) stands
+        # behind the bars when it exists, so the cage matches an imported city sprite; else the code-drawn one
+        part = os.path.join(OUT, 'imported', 'parts', 'cage_montoto_%d.png' % f)
+        if os.path.exists(part):
+            mo_s = Image.open(part).convert('RGBA')
+            cg.alpha_composite(mo_s, ((18 - mo_s.width) // 2, 19 - mo_s.height))
+        else:
+            rect(cg, 4, 6 + f, 10, 13 - f, 'tome1'); rect(cg, 5, 3 + f, 8, 5, 'tome1'); rect(cg, 6, 5 + f, 6, 3, 'skin'); rect(cg, 7, 7 + f, 1, 1, 'f0'); rect(cg, 10, 7 + f, 1, 1, 'f0')
+            rect(cg, 4, 6 + f, 10, 1, 'tome2'); rect(cg, 6, 9 + f, 6, 4, 'ui_text'); rect(cg, 7, 13 + f, 4, 1, 'ui_text')   # white beard
         rect(cg, 0, 18, 18, 4, 'iron1'); rect(cg, 0, 18, 18, 1, 'iron2'); rect(cg, 0, 21, 18, 1, 'iron0')
         rect(cg, 0, 1, 18, 2, 'iron1'); rect(cg, 0, 1, 18, 1, 'iron2')
         for x in (1, 5, 9, 13, 16):

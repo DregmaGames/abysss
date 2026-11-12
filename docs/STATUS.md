@@ -62,7 +62,19 @@ Design decisions live in the plan doc (the user has it); this file is what an ag
   **Touch** (`node qa/touch.js`, hasTouch context, taps and CDP touch events): everything worked by tap; fixed: (1) once a finger has been seen (`G.finger`, set by a capturing `touchstart` listener) `UI.button` gives every button a hit box of at least 44 CSS px (`UI.FINGER`); before: settings [-] / [+] 28 px, close buttons 36 x 32, city END 52 x 28;
   the city overlay is rebuilt at the first touch; city settings / END buttons are 20 px tall; (2) a level-up or door choice that has just opened ignores taps and clicks for 400 ms (`GUARD`, `HudScene.tooSoon`): a finger on its way to the stick or DODGE picked a card; keys 1-3 and the bot are not held back;
   (3) narrow inventory in a run: the bag title ran into the scroll count (it now takes its short form); (4) result screen: a wrapped line (Spanish, portrait) was overprinted by the next one (lines now flow).
+- Step 9 art import (branch `step-art-import`, no sim change): the user's four Grok images went through `tools/import_asset.py`, each judged at game size against the code-drawn frame
+  (table in `docs/grok-prompts.md` > Status). **Kept**: Don Montoto in the city (`npc_montoto_0/1`, 18x23) and a new portrait `portrait_montoto` (64x62) left of his story in the talk panel
+  (`Panels.openMontoto`, shown only when the atlas has the frame; the text wraps beside it). **Rejected** (kept in `assets/imported/rejected/`, not packed): tyrant attack poses `tyrant_2/3/4`,
+  skeleton throw `skeleton_2`, the small Montoto for the cage (`pixelart.py` draws `assets/imported/parts/cage_montoto_<f>.png` behind the bars when it exists).
+  Importer: border-colour key with a narrow hue window (hot pink backdrops, purple robes survive), `--split cols`, `--own-box`, `--method mode` (majority vote, for pixel-art sources), `--accent`, `--smooth`, `--names`, layer PNG alpha.
 - `main` is the working base. One branch per step: `step-N-<slug>`.
+
+## Last measured (2026-11-12, step 9 art import)
+
+- `determinism.js` pass, `check_i18n.js` pass, `sim_bot --seeds 1-10 --class warrior` identical before / after (2 wins, seeds 3, 8; only wall time differs). `qa/city.js` 2518 of 2518, 0 errors.
+  `qa/bot.js --seeds 3,4,5`: 0 errors, 0 softlocks, all match Node. Every story line (16 x en / es x both sizes) fits beside the portrait (deepest text 56 of the 78 px inset).
+- Screenshots: `/tmp/art_compare.png` (old vs new frames x5 and in-game crops), `/tmp/art_montoto_panel.png`, `/tmp/art_boss_landscape.png`.
+- Rough: the imported Montoto's robe has a few dark specks; his two frames differ little (the breathing is subtle); the portrait's skin is a flat brown ramp (`skin_d` / `ch`), no candle light from below.
 
 ## Last measured (2026-11-11, step 9b: city portrait, prompt, tyrant claws, burst lanes, cultist, touch)
 
