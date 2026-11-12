@@ -64,7 +64,7 @@
       },
       warrior: {
         name: 'Warrior',
-        base: { r: 6, hp: 235, speed: 74, dmg: 28, atkInterval: 0.55, range: 30, crit: 0.05, critMult: 2 },
+        base: { r: 6, hp: 245, speed: 74, dmg: 27, atkInterval: 0.55, range: 30, crit: 0.05, critMult: 2 },
         attack: { kind: 'arc', firstCd: 0.3, arc: 2.2, knock: 60, knockElite: 22 },
         // weapon types: the weapon item's `wtype` picks one (none equipped: defaultWeapon). dmg and atk
         // (attack interval) multiply the stats, reach adds px to the swing, arc is the full width in rad.
@@ -85,7 +85,7 @@
       archer: {
         name: 'Archer',
         // longer reach than the mage, slower shots, arrows pierce 1 enemy at base (base.pierce)
-        base: { r: 5, hp: 100, speed: 76, dmg: 20, atkInterval: 0.8, range: 150, crit: 0.1, critMult: 2, pierce: 1 },
+        base: { r: 5, hp: 100, speed: 76, dmg: 21, atkInterval: 0.8, range: 150, crit: 0.1, critMult: 2, pierce: 1 },
         attack: { kind: 'bolt', firstCd: 0.5, speed: 330, r: 2.5, sideDmg: 0.6, spread: 0.18, life: 1.2, knock: 16, knockElite: 6, frame: 'arrow', glow: 'rg2', rotate: true },
         dodge: { dist: 52, time: 0.16, iframes: 0.32, cd: 1.5 },
         // Volley: a ring of `count` arrows (each `pierce` enemies, dmg = skill dmg incl. pulse passives) flying `range` px
@@ -238,8 +238,8 @@
       // ability stats in G.computeStats. cost[r] = gold for rank r + 1 (length = max rank). They do not count for families or gear score.
       rankCost: [40, 90, 160, 250, 360],
       ranks: {
-        vitality: { name: 'Vitality', stat: 'hp',     per: 8, text: '+8 max HP' },
-        might:    { name: 'Might',    stat: 'dmgPct', per: 4, text: '+4 % damage' },
+        vitality: { name: 'Vitality', stat: 'hp',     per: 6, text: '+6 max HP' },
+        might:    { name: 'Might',    stat: 'dmgPct', per: 3, text: '+3 % damage' },
         haste:    { name: 'Haste',    stat: 'atkPct', per: 2, text: '+2 % attack speed' },
         guard:    { name: 'Guard',    stat: 'armor',  per: 3, text: '+3 armor' },
         insight:  { name: 'Insight',  stat: 'expPct', per: 4, text: '+4 % EXP gain' }

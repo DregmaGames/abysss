@@ -264,7 +264,7 @@
     venom: ['Veneno', '+15% de daño de veneno y quemadura, +15% de duración de estados', 'Plaga: los enemigos envenenados dejan una nube tóxica al morir']
   };
   var esRank = {
-    vitality: ['Vitalidad', '+8 de vida máx.'], might: ['Poder', '+4 % de daño'], haste: ['Prisa', '+2 % de velocidad de ataque'],
+    vitality: ['Vitalidad', '+6 de vida máx.'], might: ['Poder', '+3 % de daño'], haste: ['Prisa', '+2 % de velocidad de ataque'],
     guard: ['Guardia', '+3 de armadura'], insight: ['Intuición', '+4 % de EXP ganada']
   };
   var esDoor = { longCracks: 'Grietas largas', manyCracks: 'Más grietas', fastSpawns: 'Aparición rápida', crowd: 'Multitud', elite: 'Élite extra', hardened: 'Enemigos duros' };

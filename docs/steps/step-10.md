@@ -48,6 +48,13 @@ time in game seconds (fresh / careers), deaths per room (fresh). All with the ca
   deaths 0,4,1,6,15,12,17,13,15,6. Best so far; misses: archer career wins in 7.4 min, 3 warrior careers never win.
 - Round 5 (round 4 with warrior hp 235 -> 245, archer dmg 21 -> 20 and hp 100 -> 110): mage = round 4. warrior 15 %, first 6.9 (9/10), post 39 %,
   time 538 / 503 s, deaths 0,0,0,0,5,8,17,20,19,16: all warrior targets met. archer 8 %, first 7.8 (9/10), post 70 %, time 486 / 446 s: worse, back to round 4's archer.
+- Round 6 (round 5's warrior, round 4's archer, network spawns every 1.3 -> 1.5 s to lengthen geared wins): mage 11 %, first 7.7 (10/10), post 30 %, time 597 / 515 s.
+  warrior 13 %, first 6.7 (10/10), post 33 %, time 552 / 487 s. archer 20 %, first 7.1 (9/10), post 50 %, time 518 / 463 s. Archer fresh out of range and its
+  career wins still under 8 min; mage first win later. spawnEvery stays 1.3.
+- Round 7 (written into src/balance.js: gearK 0.0045, warrior hp 245 dmg 27, archer hp 100 dmg 21, Vitality 6, Might 3; = rounds 4/5 combined):
+  mage 15 %, first 7.0 (10/10), post 47 %, time 566 / 499 s, deaths 0,0,3,3,12,16,5,21,20,5. warrior 15 %, first 6.9 (9/10), post 39 %, time 538 / 503 s,
+  deaths 0,0,0,0,5,8,17,20,19,16. archer 11 %, first 6.2 (9/10), post 50 %, time 493 / 442 s, deaths 0,4,1,6,15,12,17,13,15,6. 0 softlocks, bestFromDrops 10/10 x3.
+  Misses: archer career wins 7.4 min (fresh 8.2), one warrior and one archer career with no win, career deaths gather in rooms 9-10.
 
 ## Task
 
