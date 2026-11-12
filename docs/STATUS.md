@@ -62,7 +62,33 @@ Design decisions live in the plan doc (the user has it); this file is what an ag
   **Touch** (`node qa/touch.js`, hasTouch context, taps and CDP touch events): everything worked by tap; fixed: (1) once a finger has been seen (`G.finger`, set by a capturing `touchstart` listener) `UI.button` gives every button a hit box of at least 44 CSS px (`UI.FINGER`); before: settings [-] / [+] 28 px, close buttons 36 x 32, city END 52 x 28;
   the city overlay is rebuilt at the first touch; city settings / END buttons are 20 px tall; (2) a level-up or door choice that has just opened ignores taps and clicks for 400 ms (`GUARD`, `HudScene.tooSoon`): a finger on its way to the stick or DODGE picked a card; keys 1-3 and the bot are not held back;
   (3) narrow inventory in a run: the bag title ran into the scroll count (it now takes its short form); (4) result screen: a wrapped line (Spanish, portrait) was overprinted by the next one (lines now flow).
+- Step 10 (balance and daily challenge) on branch `step-10-balance-daily`. Rounds and numbers: `docs/steps/step-10.md` "Round log" (rounds 0-8, final = round 7).
+  **Balance** (`src/balance.js`): `run.roomMult` 0.75, 1.25, 1.5, 1.85, 2.25, 2.7, 3.2, 3.8, 4.3, boss 3.8; `run.monsterHp` 1.4 and `run.monsterDmg` 0.75 (x on top of roomMult: longer, softer fights);
+  `fissure.spawnEvery` 0.3 -> 1.3 s; mage hp 110 dmg 12.5; warrior hp 245 dmg 27; archer hp 100 dmg 21; ranks unchanged (Vitality +6, Might +3 %: the WIP's +8 / +4 fed the late-career snowball).
+  `run.gearK` kept at 0.0045 but now of the gear score the hero BRINGS INTO the run (`sim.startGear`; items equipped during the run no longer raise monsters): with gearK 0 a geared career wins 86-95 % of its runs after the first win.
+  Monster HP and damage threat are separate (`sim.hpThreat`, `sim.threat`). Bot (QA only): career target rises 2 rooms per extraction (`bot.career.step` 2; with 1 the earliest possible first win was run 8),
+  the dodge lands where the dash really stops, after 20 s without progress the bot walks up to monsters instead of keeping away (`bold`), no flip-flop between two drops. A ricochet uses the bounce it was shot with (crash fix when the ability was replaced).
+  `node tools/sim_bot.js --class C --seeds 1-100 --brief` (one line) and `--career 10 --careers 10` (10 careers of 10 runs, one line).
+  **Daily challenge** (`src/sim/daily.js`, `BAL.daily`): the UTC date ('YYYY-MM-DD', `?daily=` overrides for QA) hashes (salt 1010) to the seed, the class and the door taken after each room (only that door is offered, LEAVE stays).
+  Fixed kit: magic weapon of the class + common armor + common boots, item level 2, identified and worn, 2 scrolls, no gold / ranks, no cage; a gear set of its own, the save is never read for it nor changed (no stats, nothing banked).
+  Score = 1000 x rooms cleared + 10 x kills, a win adds 5000 + 5 x every second under 900 s of game time. Share text (one line, `daily.share`), e.g.
+  "Riftscar Daily Rift 2026-11-12 - Archer - fell in room 9/10 - 259 kills - 6:41 - score 10590"; COPY SHARE TEXT uses the async clipboard, then execCommand, and if both fail (an iframe without permission)
+  shows the text selected in a DOM box to copy by hand (`G.showManualCopy`, CLOSE / Escape). Entry: DAILY RIFT on the title (beside SETTINGS) and the DAILY RIFT board beside the portal in the city (READ).
+  Result: TRY AGAIN = the same day's run, BACK TO CITY. `node qa/daily.js` (both sizes: title and city entry, matches Node, copy, manual copy, save unchanged).
 - `main` is the working base. One branch per step: `step-N-<slug>`.
+
+## Last measured (2026-11-12, step 10: balance and daily challenge)
+
+- Per class, final (round 7). Fresh = seeds 1-100; careers = 10 careers x 10 runs on seeds 1-100 (first-win run averaged over the careers that won).
+  mage: fresh 15 %, first win run 7.0 (10/10 careers), after the first win 47 %, win time 566 s fresh / 499 s careers, deaths/room 0,0,3,3,12,16,5,21,20,5.
+  warrior: 15 %, 6.9 (9/10), 39 %, 538 / 503 s, deaths 0,0,0,0,5,8,17,20,19,16. archer: 11 %, 6.2 (9/10), 50 %, 493 / 442 s, deaths 0,4,1,6,15,12,17,13,15,6.
+  0 softlocks, bestFromDrops 10/10 for every class. Round 0 (the WIP): mage 15 % / 7.0 / 37 %, warrior 22 % / 6.8 / 55 %, archer 7 % / 7.5 / 52 %.
+- `determinism.js` pass (daily run twice identical), `check_bag.js` pass (daily checks), `check_i18n.js` pass (503 keys), `contrast.js` 0 failing (lowest 5.65:1), `qa/city.js` 2854 of 2854.
+  `qa/bot.js --seeds 3,4,5` (mage): 3 deaths, 0 errors, 0 softlocks, all match Node. `qa/daily.js`: 32 of 32 checks, 0 errors (2026-11-12: archer, dies in room 9, score 10590, same in Node).
+- Screenshots: `/tmp/step10_daily_result_landscape.png`, `/tmp/step10_daily_result_portrait.png`.
+- Rough: 10 careers per class is noisy (career wins moved 13-24 between rounds with small changes; one point of archer damage moved fresh 7 -> 17 -> 11 %), so the numbers sit near the edges of the targets;
+  archer career wins take 7.4 min (fresh 8.2); one warrior and one archer career out of 10 never won; in careers deaths gather in rooms 9-10 (the bot only dies when it pushes deep), the fresh spread is fine.
+  The daily result has an empty band above COPY; the board's label sits close to THE RIFT in the wide city; the daily board text was not tested in Spanish on screen (keys and font checked).
 
 ## Last measured (2026-11-11, step 9b: city portrait, prompt, tyrant claws, burst lanes, cultist, touch)
 

@@ -582,14 +582,17 @@
   G.showManualCopy = function (text) {
     G.closeManualCopy();
     var pal = G_ASSETS.palette, box = document.createElement('div'), lab = document.createElement('div'), ta = document.createElement('textarea'), btn = document.createElement('button');
+    // CSS values as word lists (joined with spaces): style rules, not text for the player
+    function css(el, o) { for (var k in o) el.style[k] = [].concat(o[k]).join(' '); }
+    var font = ['14px', 'monospace'];
     box.id = 'manual_copy';
-    box.style.cssText = 'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:20;width:min(92vw,440px);box-sizing:border-box;padding:12px;' +
-      'background:' + pal.ui_bg + ';border:3px solid ' + pal.ui_dim + ';color:' + pal.ui_text + ';font:14px monospace;text-align:center';
+    css(box, { position: 'fixed', left: '50%', top: '50%', transform: ['translate(-50%,-50%)'], zIndex: '20', width: 'min(92vw,440px)', boxSizing: 'border-box', padding: '12px',
+      background: pal.ui_bg, border: ['3px', 'solid', pal.ui_dim], color: pal.ui_text, font: font, textAlign: 'center' });
     lab.textContent = G.t('daily.manual');
     ta.value = text; ta.readOnly = true; ta.rows = 3;
-    ta.style.cssText = 'display:block;width:100%;box-sizing:border-box;margin:8px 0;font:14px monospace;resize:none;background:' + pal.ui_bg2 + ';color:' + pal.ui_text + ';border:1px solid ' + pal.ui_dim;
+    css(ta, { display: 'block', width: '100%', boxSizing: 'border-box', margin: ['8px', '0'], font: font, resize: 'none', background: pal.ui_bg2, color: pal.ui_text, border: ['1px', 'solid', pal.ui_dim] });
     btn.textContent = G.t('set.close');
-    btn.style.cssText = 'font:bold 14px monospace;min-height:44px;padding:0 18px;background:' + pal.ui_bg2 + ';color:' + pal.ui_text + ';border:2px solid ' + pal.ui_dim + ';cursor:pointer';
+    css(btn, { font: ['bold'].concat(font), minHeight: '44px', padding: ['0', '18px'], background: pal.ui_bg2, color: pal.ui_text, border: ['2px', 'solid', pal.ui_dim], cursor: 'pointer' });
     btn.onclick = function () { G.closeManualCopy(); };
     box.onkeydown = function (e) { if (e.key === 'Escape') G.closeManualCopy(); e.stopPropagation(); };
     box.appendChild(lab); box.appendChild(ta); box.appendChild(btn); document.body.appendChild(box);

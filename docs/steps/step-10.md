@@ -55,6 +55,11 @@ time in game seconds (fresh / careers), deaths per room (fresh). All with the ca
   mage 15 %, first 7.0 (10/10), post 47 %, time 566 / 499 s, deaths 0,0,3,3,12,16,5,21,20,5. warrior 15 %, first 6.9 (9/10), post 39 %, time 538 / 503 s,
   deaths 0,0,0,0,5,8,17,20,19,16. archer 11 %, first 6.2 (9/10), post 50 %, time 493 / 442 s, deaths 0,4,1,6,15,12,17,13,15,6. 0 softlocks, bestFromDrops 10/10 x3.
   Misses: archer career wins 7.4 min (fresh 8.2), one warrior and one archer career with no win, career deaths gather in rooms 9-10.
+- Round 8 (round 7 with gearK 0, careers only: fresh runs have no start gear): mage 48 career wins, first 5.6, post 86 %; warrior 50, first 5.2, post 95 %;
+  archer 51, first 5.5, post 91 %; win times 441 / 434 / 402 s. Without gearK a geared hero wins almost every run: gearK stays 0.0045 (of the start gear).
+  Stop here: final = round 7.
+- Kept from the WIP: roomMult, monsterHp / monsterDmg, spawnEvery 1.3, mage and archer HP, gearK on the start gear, the bot fixes, career step 2, the daily code.
+  Changed: warrior hp 235 -> 245 and dmg 28 -> 27, archer dmg 20 -> 21; reverted: the rank buff (Vitality 8 -> 6, Might 4 -> 3). Fixed: check_bag's rank check read a hardcoded +15 %.
 
 ## Task
 
