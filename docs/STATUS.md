@@ -90,7 +90,32 @@ Design decisions live in the plan doc (the user has it); this file is what an ag
   Settings: `save.settings.music` (default 50) and `sfx` (70), two sliders in the settings panel (0-100 % in steps of 10, with - / +); `settings` panel is taller (compact layout without hint lines when the view is under 222 art px high). Texts `set.music`, `set.sfx` in English and Spanish.
   Start: the AudioContext is created at the first pointer / key / touch event (nothing before); `?mute=1` turns audio off. Debug counters: `G.audio.stats` (played, dropped, cooled, voicesMax, ctx state, music mode, boss, byName).
   Rough: nobody has judged the new sound by ear yet (levels measured, taste not); the music has no melody memory between bars (by design) so phrases can feel loose; styles are "fantasy adventure" in general, no tune is taken from any game.
+- HD art pilot (branch `step-hd-pilot`, NOT merged; view only, the sim gains one debug action `cheatSpawn`): the user chose DOUBLE ART RESOLUTION, SAME
+  ON-SCREEN SIZE. Sprites in `assets/hd_atlas.png` (tools/hd_atlas.py; docs/grok-prompts.md > HD art) are drawn at half scale with the feet anchor
+  stored per frame, so at 960x540 one HD pixel = one screen pixel; hitboxes, speeds, rooms and camera are unchanged. Frames without HD art keep the chunky atlas.
+  `src/view/hd.js` (`G.HD`: init / set / frame / show / chunky; `G.Rig`: motion), `src/view/anim.js` (`G.ANIM`: frames per state, fps, fallbacks, motion knobs).
+  Imported: skeleton (one pose for every frame), tyrant idle/walk (= burst pose with the chest glow repainted, `--calm`), slam, charge, burst; Don Montoto
+  (city, 2 frames; and in his cage, bars redrawn at 2x). Motion (HD sprites only): flip toward the walk or the target, walk tied to the distance walked
+  (bob, alternating sway, squash on each landing, dust), breathing, wind-up lean (from the `windup` event) and release lunge + stretch (when the wind-up
+  ends / `shoot`), hit recoil + squash, death = flash, knock-back with a hop, tip over, flatten and fade with bits (boss: shudder and flashes, 1.6 s),
+  soft contact shadows sized from the frame's foot width. Offsets / squash are whole HD pixels (origin shifts: Phaser floors positions to art px), tilt in 0.035 rad steps.
+  HD floor: `assets/hd_floor.png` (256 HD px tile, code-made flagstones on a 4 art px grid, or a user texture mirrored 2x2) as a tile sprite under the walls in every dungeon room.
+  Switch: `?hd=0|1` > `save.settings.hd` (default true) > on; Settings title row "HD TEST: ON/OFF" (rebuilds the room / restarts the city). Debug in the test room:
+  BOSS HERE and SKELETONS replace BOSS ROOM and DOORS. The hero is drawn from HD frames as soon as a class sheet is imported (`G.ANIM.ent.mage` waits for it).
 - `main` is the working base. One branch per step: `step-N-<slug>`.
+
+## Last measured (2026-11-12, HD art pilot)
+
+- `determinism.js` pass, `check_i18n.js` pass (4 keys added), `check_bag.js` pass; `sim_bot --seeds 1-10 --class warrior` identical before / after (wins 1, 3).
+  `qa/bot.js --seeds 3,4,5` (HD on): 0 errors, 0 softlocks, all match Node. `node qa/hd.js`: 960x540 and 540x960, hd on / off: HD skeletons and floor present
+  when on, chunky when off, boss poses idle / slam / charge / burst seen, death corpses play, Settings toggle off -> on works and is saved, Montoto HD in the city; 0 console errors.
+  Zoom S=3 (1440x810) and S=1 looked at: no blur.
+- HTML 1 845 562 -> 1 976 591 bytes (+131 KB: HD atlas 512x128 and the floor tile).
+- Screenshots: `/tmp/hd_testroom_landscape.png`, `/tmp/hd_testroom_portrait.png`, `/tmp/hd_boss.png`, `/tmp/hd_city_montoto.png`, `/tmp/hd_motion_strip.png` (copies in `/home/claude/builds/hd/`).
+- Rough (the look, to judge): the HD skeleton reads THINNER and weaker than the chunky one (the blade takes a fifth of its 50 px, ribs turn to speckle at that size; the
+  source has ~75 native pixels, reduced by 2/3); HD sprites next to the chunky hero, imps, bats and walls mix two densities; the tilt shows stair-step edges while walking;
+  at S=3 an HD pixel is 1.5 screen px (uneven rows, no blur) and at S=1 every other HD pixel is dropped (floor grout breaks up); the code floor is busy (many 8 px fill stones);
+  the tyrant idle is the burst pose (arms spread) so idle and burst differ only by the chest glow; the shadow is subtle on the dark floor; "HD PRUEBA: SÍ" touches the button top.
 
 ## Last measured (2026-11-12, step 10: balance and daily challenge)
 
@@ -455,11 +480,12 @@ View (Phaser):
 Tools:
 - `tools/build.py` builds `dist/riftscar.html`. `tools/determinism.js`, `tools/check_bag.js`. `tools/sim_bot.js`
   (`--seeds`, `--leave N`, `--class id`, `--build id`, `--json`, `--set path=value`, `--career N`). `tools/contrast.js`.
-- `qa/bot.js`, `qa/screens.js`, `qa/session.js`, `qa/test_room.js`, `qa/city.js` (layouts, labels, prompt), `qa/touch.js` (touch emulation), `qa/lib.js`: headless Chromium checks.
+- `qa/bot.js`, `qa/screens.js`, `qa/session.js`, `qa/test_room.js`, `qa/city.js` (layouts, labels, prompt), `qa/touch.js` (touch emulation), `qa/hd.js` (HD pilot), `qa/lib.js`: headless Chromium checks.
+- `tools/hd_atlas.py`: HD art (import, floor, pack).
 - `tools/check_secrets.py`, `tools/clean_url.py`, `tools/hooks/`, `.claude/hooks/guard.py`.
 
 URL parameters: `seed`, `tier`, `class`, `build`, `speed`, `bot=1`, `manual=1`, `touch=1`, `fresh=1`, `scene`,
-`room=test`, `debug=0`, `leave=N` (bot).
+`room=test`, `debug=0`, `leave=N` (bot), `hd=0|1` (HD art pilot).
 
 ## Planned later
 

@@ -97,6 +97,55 @@ Delete the file to go back to the code-drawn version. Sub-folders are not packed
 `assets/imported/rejected/` keeps imports judged worse than the code-drawn frame (move one up to use it), and
 `assets/imported/parts/cage_montoto_<f>.png`, when present, is drawn behind the bars of `cage_<f>` by `pixelart.py`.
 
+## HD art (pilot, branch `step-hd-pilot`)
+
+HD sprites have TWICE the art density and are shown at half scale: same size on screen and in the world, one HD pixel =
+one screen pixel at 960x540. They keep the source's own colours (a shared table of 40, no palette snap). Tool:
+`tools/hd_atlas.py` (writes `assets/hd/<frame>.png`, repacks `assets/hd_atlas.png` / `.json`; previews in
+`qa/out/hd_<name>.png`). Sizes are in HD px (2 x art px). Run Python on downloaded art with `-I`, sources outside the repo.
+
+**A character sheet with a grid of frames** (the mage: idle x2, walk x4, attack x3, hurt x1, row-major in a 4x3 grid, on
+magenta or hot pink). All frames share one crop box, so feet stay on one row; `--height` is that box's height:
+
+```
+python3 -I tools/hd_atlas.py import /path/mage_sheet.png --name mage --grid 4x3 --cells 0-9 --height 48 \
+        --names mage_idle_0,mage_idle_1,mage_walk_0,mage_walk_1,mage_walk_2,mage_walk_3,mage_attack_0,mage_attack_1,mage_attack_2,mage_hurt
+python3 tools/build.py
+```
+
+The names are the ones `src/view/anim.js` (`G.ANIM.ent.mage`) expects; once they exist the hero is drawn from them
+(walk 9 fps at base speed, tied to the distance walked; attack frames on the sim's `cast`; hurt on damage). Figures in one
+row with uneven spacing: `--split cols --cells 0-9` instead of `--grid`. Another class: the same with its id, and an
+entry in `G.ANIM.ent` (copy the mage's). Other options: `--colors N` (table size), `--outline auto|yes|no` (auto adds a
+1 px dark outline only when the edge is not dark already), `--own-box --ref K` (poses of different sizes at one scale,
+frame K is `--height` tall), `--calm 0.3` (repaint warm glow below the top 30 %: an idle from an attack pose).
+
+**A floor texture** (a square image; tiled; mirrored 2 x 2 so it has no seam; reduced to 256 HD px = 128 art px):
+
+```
+python3 -I tools/hd_atlas.py floor --from /path/floor.png [--dim 0.8] [--no-mirror] [--colors 64]
+python3 tools/build.py
+```
+
+`--dim` darkens it to sit under the sprites (the code floor is the f1-f3 ramp), `--no-mirror` for a texture that is
+seamless already. Back to the code-made floor: `python3 -I tools/hd_atlas.py floor`. Preview: `qa/out/hd_floor.png`.
+
+**Commands used for the pilot** (2026-11-12):
+
+```
+python3 -I tools/hd_atlas.py import skeleton.jpg --name skeleton --height 50
+python3 -I tools/hd_atlas.py import boss.jpg --name tyrant --split cols --cells 0,1,2 --names tyrant_slam,tyrant_charge,tyrant_burst \
+        --own-box --ref 2 --height 68 --outline no
+python3 -I tools/hd_atlas.py import boss.jpg --name tyrant_burst --split cols --cells 2 --names tyrant_burst --height 68 --outline no   # own colour table: brighter chest
+python3 -I tools/hd_atlas.py import boss.jpg --name tyrant_idle --split cols --cells 2 --height 68 --calm 0.3
+python3 -I tools/hd_atlas.py import montoto.jpg --name montoto --split cols --cells 0,1 --names npc_montoto_0,npc_montoto_1 --height 46
+python3 -I tools/hd_atlas.py import montoto.jpg --name cage_montoto --split cols --cells 0 --names parts/cage_montoto --height 34
+python3 -I tools/hd_atlas.py floor
+```
+
+Results: skeleton 23x52 (outline added), tyrant slam 62x73, charge 67x54, burst 85x68, idle 85x68, Don Montoto 35x46 x2,
+cage 38x46 (bars redrawn at 2x by `pack`). Frame mapping: `src/view/anim.js`.
+
 ## Status
 
 Step 9 imports (2026-11-12, the user's Grok images; each judged at game size against the code-drawn frame,

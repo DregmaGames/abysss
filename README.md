@@ -28,7 +28,7 @@ python3 tools/build.py        # src/ + vendor/phaser.min.js + assets/ -> dist/ri
 
 Open `dist/riftscar.html` in a browser. URL options: `?seed=123` fixes the run seed,
 `&scene=game` or `&scene=city` skips the title, `&fresh=1` ignores the saved gear, `&touch=1` shows the
-touch controls with a mouse, `&bot=1&speed=8` lets the QA bot play fast-forward. `&fresh=1` also marks the tutorial as done (QA); `&tutorial=1` brings it back (`&scene=game&tutorial=1` starts the tutorial room).
+touch controls with a mouse, `&bot=1&speed=8` lets the QA bot play fast-forward. `&hd=0|1` turns the HD art pilot off / on for the session. `&fresh=1` also marks the tutorial as done (QA); `&tutorial=1` brings it back (`&scene=game&tutorial=1` starts the tutorial room).
 
 ## Layout
 
@@ -40,6 +40,7 @@ src/qa/bot.js         the QA bot (plays through the same inputs a player has)
 src/view/             Phaser scenes: title, city, game, HUD, panels, room and fissure rendering, FX
 tools/pixelart.py     all art, drawn in code at one pixel size
 tools/import_asset.py magenta-key import pipeline for generated art (docs/grok-prompts.md)
+tools/hd_atlas.py     HD art pilot: double-density sprites and floor (docs/grok-prompts.md > HD art)
 tools/sim_bot.js      bulk bot runs under Node: win rate, deaths per room, softlocks
 tools/contrast.js     WCAG contrast check of every HUD/panel text colour
 qa/                   headless Chromium checks (Playwright)
@@ -65,6 +66,7 @@ node qa/tutorial.js [land_en|land_es|port_en|port_es]  # the interactive tutoria
 node qa/touch.js [portrait|landscape] [lang]  # the game by finger (touch emulation): city, run, level-up, doors, inventory, settings
 node qa/test_room.js [dir]                  # test room: edge, blocked step, dodge arc, touch, restart; 2 shots
 node qa/session.js --minutes 10             # scripted real-time session with rotation, menus, restarts
+node qa/hd.js                               # HD art pilot: test room, boss, city, cage, both sizes, ?hd=1 and 0, the toggle
 ```
 
 Results of the last full pass are in `docs/qa-report.md`.
