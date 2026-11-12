@@ -102,9 +102,9 @@ Design decisions live in the plan doc (the user has it); this file is what an ag
   HD floor: `assets/hd_floor.png` (256 HD px tile, code-made flagstones on a 4 art px grid, or a user texture mirrored 2x2) as a tile sprite under the walls in every dungeon room.
   Switch: `?hd=0|1` > `save.settings.hd` (default true) > on; Settings title row "HD TEST: ON/OFF" (rebuilds the room / restarts the city). Debug in the test room:
   BOSS HERE and SKELETONS replace BOSS ROOM and DOORS. The hero is drawn from HD frames as soon as a class sheet is imported.
-  Mage imported (Grok 4x2 sheet, 8 frames, idle 28x54 HD px): walk x4 (loop 3,0,2,1: the sheet keeps the same leg in front, so it is not a true leg swap),
+  Mage imported (Grok 4x2 sheet, 8 frames, idle 28x54 HD px): walk x4 (row redrawn by Grok: stride, feet together, stride, feet together; both strides still show the same leg in front),
   idle x1, attack x2, hurt x1; `G.ANIM.ent.mage`. Checked: build, `qa/hd.js` (0 console errors), determinism. Rough: no screenshot check of the mage's own
-  walk / attack frames (`qa/hd.js` captures the skeleton), crystal colour dulled by the quantisation, warrior and archer still chunky.
+  walk / attack frames (`qa/hd.js` captures the skeleton), warrior and archer still chunky.
 - `main` is the working base. One branch per step: `step-N-<slug>`.
 
 ## Last measured (2026-11-12, HD art pilot)

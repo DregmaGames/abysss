@@ -36,11 +36,11 @@
       },
       // Don Montoto in the city (two imported idle frames) and the classes once their sheets arrive
       npc_montoto: { idle: { frames: ['npc_montoto_0', 'npc_montoto_1'], fps: 0.8 }, motion: M_NPC },
-      // the mage sheet (Grok, 4x2): walk x4, idle x1, attack x2 (staff raised, staff thrust), hurt x1. The walk frames
-      // of this sheet keep the same leg in front, so the loop is lift (3) -> wide (0, 2) -> narrow (1), not a true swap.
+      // the mage sheet (Grok, 4x2; walk row redrawn once): walk x4 (stride, feet together, stride, feet together),
+      // idle x1, attack x2 (staff raised, staff thrust), hurt x1
       mage: {
         idle: { frames: ['mage_idle_0'] },
-        walk: { frames: ['mage_walk_3', 'mage_walk_0', 'mage_walk_2', 'mage_walk_1'], fps: 9 },
+        walk: { frames: ['mage_walk_0', 'mage_walk_1', 'mage_walk_2', 'mage_walk_3'], fps: 9 },
         attack: { frames: ['mage_attack_0', 'mage_attack_1'], fps: 14, hold: 0.12 },
         hurt: { frames: ['mage_hurt'], hold: 0.25 },
         motion: { bob: 1, tilt: 0.02, squash: 0.04, lean: 1, lunge: 2, stretch: 0.05, recoil: 3, breathe: 0.02, breathT: 1.6, dust: 1, faces: 1, die: 0.9 }
