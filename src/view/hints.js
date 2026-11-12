@@ -1,39 +1,25 @@
 // First-time guidance (step UX): short contextual hints, each shown once per save, dismissed by a tap or after a few seconds.
+// The interactive tutorial (src/view/tutorial.js) took over everything that asks the player to act; these four only explain.
 // They never pause anything. The table is data: id, trigger, text key (and a touch variant, a position, a time).
 // Triggers are fired with G.Hints.on(trigger, alt) from the HUD, the city and the game; `alt` picks the row's `alt` text when it has one.
 // State: G.save.hints = { off, seen: { id: true } } (settings: Hints on/off, Reset hints). The sim never sees any of it.
 (function (G) {
   var UI = G.UI;
   var SEC = 6.5;      // seconds a hint stays when nobody taps it
+  // The hints that are not actions stay here. What the tutorial teaches (moving, cracks, the super fissure, the chest, the exit, level-ups, the door choice,
+  // the merchant, the cage, the city's first visit) is now a step in src/view/tutorial.js and has no hint.
   G.HINTS = [
-    // a run
-    { id: 'move', trig: 'run.start', text: 'hint.move', touch: 'hint.moveT' },
-    { id: 'crack', trig: 'run.crack', text: 'hint.crack', touch: 'hint.crackT' },
-    { id: 'blocked', trig: 'run.blocked', text: 'hint.blocked', touch: 'hint.blockedT' },
-    { id: 'darken', trig: 'run.kill', text: 'hint.darken' },
-    { id: 'super', trig: 'run.super', text: 'hint.super' },
-    { id: 'chest', trig: 'run.chest', text: 'hint.chest' },
-    { id: 'exit', trig: 'run.exit', text: 'hint.exit' },
-    { id: 'levelup', trig: 'run.levelup', text: 'hint.levelup', pos: 'bottom', sec: 9 },
-    { id: 'choice', trig: 'run.choice', text: 'hint.choice', pos: 'bottom', sec: 10 },
     { id: 'unid', trig: 'run.unid', text: 'hint.unid' },
     { id: 'scroll', trig: 'run.scroll', text: 'hint.scroll' },
     { id: 'gold', trig: 'run.gold', text: 'hint.gold' },
-    { id: 'merchant', trig: 'run.merchant', text: 'hint.merchant', touch: 'hint.merchantT' },
-    { id: 'cage', trig: 'run.cage', text: 'hint.cage', touch: 'hint.cageT' },
-    // the city: one line per stall, the first time the hero walks up to it
-    { id: 'city', trig: 'city.enter', text: 'hint.city' },
-    { id: 'smith', trig: 'city.near.smith', text: 'hint.smith' },
-    { id: 'trainer', trig: 'city.near.trainer', text: 'hint.trainer' },
-    { id: 'montoto', trig: 'city.near.montoto', text: 'hint.montoto', alt: 'hint.montotoEmpty' },
-    { id: 'portal', trig: 'city.near.portal', text: 'hint.portal' }
+    { id: 'montoto', trig: 'city.near.montoto', text: 'hint.montoto', alt: 'hint.montotoEmpty' }
   ];
 
   var H = G.Hints = { q: [], cur: null, scene: null, L: null };
   function st() { if (!G.save.hints) G.save.hints = G.cleanHints(null); return G.save.hints; }
   H.enabled = function () {
     var gs = G.gameScene, inRun = G.screen !== 'title' && G.screen !== 'city';
-    if (st().off) return false;
+    if (st().off || (G.Tut && (G.Tut.active() || G.tutorial))) return false;      // never under a tutorial pop-up or in the tutorial room
     if (inRun && gs && gs.sim && (gs.sim.testRoom >= 0 || gs.bot)) return false;      // not in the test room, not while the QA bot plays
     return true;
   };

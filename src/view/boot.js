@@ -15,6 +15,9 @@
         if (G.params.get('fresh') === '1') G.save = G.newSave();
         if (G.params.has('zoom')) G.save.settings.zoom = parseInt(G.params.get('zoom'), 10) || 0;
         G.setLang(G.detectLang(G.save.settings.lang, G.params.get('lang')));      // ?lang=en|es (QA) > saved choice > browser language
+        // QA: ?fresh=1 is a save that has done the tutorial (so the other scripts see the game they always saw); ?tutorial=1 brings it back (pending, pop-ups on)
+        if (G.params.get('fresh') === '1') G.save.hints.tut = G.newTut(true);
+        if (G.params.get('tutorial') === '1') { G.save.hints.tut = G.newTut(false); G.save.hints.off = false; G.tutorial = G.params.get('scene') === 'game'; }
         G.touch = G.params.get('touch') === '1';
         G.testRoom = G.params.get('room') === 'test';     // ?scene=game&room=test, or the TEST ROOM button
         G.applyView();

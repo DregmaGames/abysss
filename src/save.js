@@ -10,7 +10,7 @@
     return { equipped: eq, bag: [], nextId: 1, scrolls: 0, gold: 0, ranks: {}, shop: null, city: { montoto: false, story: 0 }, ux: { runs: 0 } };
   };
   G.newSave = function () {
-    return { v: 8, gears: {}, settings: { zoom: 0, shake: 100, lang: null, music: 50, sfx: 70 }, stats: { runs: 0, wins: 0, best: 0 }, hints: { off: false, seen: {} } };
+    return { v: 8, gears: {}, settings: { zoom: 0, shake: 100, lang: null, music: 50, sfx: 70 }, stats: { runs: 0, wins: 0, best: 0 }, hints: G.cleanHints(null) };
   };
   // the gear (worn items and kept bag) of a class; the sim takes this object as its `gear` option
   G.gearOf = function (save, clsId) {
@@ -52,7 +52,8 @@
           s.settings = Object.assign(d.settings, s.settings || {});
           if (s.settings.lang !== 'en' && s.settings.lang !== 'es') s.settings.lang = null;      // null: follow the browser language
           s.stats = Object.assign(d.stats, s.stats || {});
-          s.hints = G.cleanHints(s.hints);
+          var vet = (s.stats && s.stats.runs > 0) || Object.keys(s.gears).some(function (id) { return s.gears[id].ux.runs > 0; });      // a save with progress is a veteran: no forced tutorial room
+          s.hints = G.cleanHints(s.hints, vet);
           return s;
         }
         // v2 / v3 -> v4 (per-class gear): the one shared gear set (worn items + kept bag) goes whole to the class that was selected
@@ -82,12 +83,37 @@
     try { if (globalThis.localStorage) localStorage.setItem(KEY, JSON.stringify(save)); } catch (e) { /* storage full or blocked */ }
   };
   // ---- first-time guidance state (hints seen / switched off; per-character first-run flag)
-  G.cleanHints = function (h) {
-    var out = { off: false, seen: {} };
+  // The tutorial state lives in hints.tut (shared by the characters, like the hints): state 'pending' (the forced tutorial room has not been finished or skipped),
+  // 'done' or 'skipped'; got = the tutorial weapon was given once (a replay gives nothing); steps = the gated steps outside the tutorial room that were finished (G.TUT_GATES).
+  // A save from before the tutorial: with progress (`vet`) it counts as done with every gate finished, an untouched one gets the tutorial.
+  G.TUT_GATES = ['city', 'card', 'choice', 'merchant', 'cage'];
+  G.newTut = function (done) {
+    var t = { state: done ? 'done' : 'pending', got: !!done, steps: {} };
+    if (done) G.TUT_GATES.forEach(function (k) { t.steps[k] = true; });
+    return t;
+  };
+  // "Replay tutorial": every pop-up is shown again, from the tutorial room on (hints back on, nothing seen). `got` stays: the weapon is given only once.
+  G.resetTut = function (save) {
+    var H = save.hints = save.hints || G.cleanHints(null);
+    H.off = false; H.seen = {};
+    H.tut = H.tut || G.newTut(false);
+    H.tut.state = 'pending'; H.tut.steps = {};
+    return save;
+  };
+  G.cleanHints = function (h, vet) {
+    var out = { off: false, seen: {}, tut: G.newTut(false) };
     if (h && typeof h === 'object') {
       out.off = h.off === true;
       if (h.seen && typeof h.seen === 'object') Object.keys(h.seen).forEach(function (k) { if (h.seen[k] === true || h.seen[k] === 1) out.seen[k] = true; });
+      var t = h.tut;
+      if (t && typeof t === 'object') {
+        out.tut.state = t.state === 'done' || t.state === 'skipped' ? t.state : 'pending';
+        out.tut.got = t.got === true;
+        if (t.steps && typeof t.steps === 'object') G.TUT_GATES.forEach(function (k) { if (t.steps[k] === true) out.tut.steps[k] = true; });
+        return out;
+      }
     }
+    if (vet) out.tut = G.newTut(true);
     return out;
   };
   // runs: how many runs this character has started. A save from before this flag existed with any progress counts as 1 (no softened run for veterans).

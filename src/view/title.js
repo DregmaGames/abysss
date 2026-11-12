@@ -7,7 +7,7 @@
     create: function () {
       var self = this;
       G.screen = 'title';
-      G.hud = null; G.gameScene = null; G.paused = false; G.daily = null;
+      G.hud = null; G.gameScene = null; G.paused = false; G.daily = null; G.tutorial = false;
       if (G.runSeed == null) G.runSeed = G.params.has('seed') ? (parseInt(G.params.get('seed'), 10) >>> 0) : ((Date.now() ^ (Math.random() * 1e9)) >>> 0) % 1000000;
       if (G.cls == null) G.cls = G.classDef(G.BAL, G.params.get('class') || (G.save && G.save.settings.cls)).id;
       this.scene.launch('backdrop');
@@ -57,8 +57,10 @@
       L.button(rx, y, sw, 20, st, function () { if (!G.Panels.isOpen()) G.Panels.openSettings(self); }, { name: 'title_settings' });
       L.button(rx + sw + 6, y, dw, 20, dt, function () { if (!G.Panels.isOpen()) G.Panels.openDaily(self); }, { name: 'title_daily', color: 'gold' });
       y += tall ? 28 : 24;
-      // practice: one room with the crack network, restarted on every clear (also ?scene=game&room=test)
-      L.button(cx - 76, y, 152, 20, G.t('title.test'), function () { if (self.input.activePointer.wasTouch) G.touch = true; self.start(true); }, { name: 'title_test', color: 'ui_good' });
+      // practice: one room with the crack network, restarted on every clear (also ?scene=game&room=test); beside it the tutorial room
+      var pt = G.t('title.test'), tt = G.t('title.tutorial'), pw2 = Math.max(80, pt.length * 6 + 12), tw2 = Math.max(60, tt.length * 6 + 12), px2 = Math.round(cx - (pw2 + 6 + tw2) / 2);
+      L.button(px2, y, pw2, 20, pt, function () { if (self.input.activePointer.wasTouch) G.touch = true; self.start(true); }, { name: 'title_test', color: 'ui_good' });
+      L.button(px2 + pw2 + 6, y, tw2, 20, tt, function () { if (G.Panels.isOpen()) return; if (self.input.activePointer.wasTouch) G.touch = true; G.Tut.replay(); }, { name: 'title_tutorial', color: 'ui_warn' });
       y += tall ? 28 : 25;
       var sk = G.skillLabel(G.cls).toLowerCase(), sp = { skill: sk }, help = G.touch ? [G.t('title.helpTouch', sp)] : (V.W >= 300 ? [G.t('title.helpKeys', sp)] : [G.t('title.helpKeys1', sp), G.t('title.helpKeys2', sp)]);
       help.forEach(function (line, i) { if (y + i * 10 < V.H - 12) UI.centerX(L.text(0, y + i * 10, line, 'ui_dim'), cx); });
@@ -82,6 +84,7 @@
     },
     start: function (test) {
       if (G.Panels.isOpen()) return;
+      if (!test && G.Tut.forced()) { if (this.input.activePointer.wasTouch) G.touch = true; G.Tut.launch(); return; }      // the very first launch: the tutorial room, then the city
       G.testRoom = !!test;
       this.scene.stop('backdrop'); this.scene.start(test ? 'game' : 'city');      // the city is the hub: gear, shops and the portal are there
     },

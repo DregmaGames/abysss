@@ -15,8 +15,6 @@
       this.L = null; this.level = null; this.toastT = 0; this.toastMsg = null; this.pickCard = -1; this.SL = null;
       this.botWait = 0; this.endT = -1; this.stickId = null; this.choiceL = null; this.merchL = null;
       this.build();
-      if (this.game_.sim.roomIndex === 0) { G.Hints.on('run.start'); G.Hints.on('run.crack'); }      // the first room's event came before this scene existed
-      if (this.game_.sim.cage) G.Hints.on('run.cage');
       this.game.events.on('viewchange', this.onView, this);
 
       var kb = this.input.keyboard;
@@ -106,7 +104,7 @@
       var free = V.W - (86 + X * 2) - (26 + X * 2) - 44;      // 44: the gold plate left of the inventory button
       this.obj = free >= 150 ? { x: X + 86 + X, y: Y, w: free } : { x: X, y: Y + 30, w: V.W - X * 2 };
       // debug button (cheats for testing): under the inventory button, below the objective row if that wraps
-      if (G.debug) L.button(V.W - X - 26, (this.obj.y === Y ? Y : this.obj.y) + 30, 26, 14, 'DBG', function () { self.toggleDebug(); }, { name: 'dbg' });
+      if (G.debug && !this.game_.sim.tut) L.button(V.W - X - 26, (this.obj.y === Y ? Y : this.obj.y) + 30, 26, 14, 'DBG', function () { self.toggleDebug(); }, { name: 'dbg' });
       this.objPlate = L.panel(0, this.obj.y, 100, 27, 'plate');
       this.objText = L.text(0, this.obj.y + 5, '');
       this.roomText = L.text(0, this.obj.y + 16, '', 'ui_dim');
@@ -137,6 +135,7 @@
       }
       this.refresh();
       G.Hints.attach(this);
+      G.Tut.attach(this);
     },
 
     toggleDebug: function () {
@@ -157,6 +156,7 @@
       if (sim.state !== 'merchant' || !sim.merchant) return;
       if (G.Panels.isOpen()) G.Panels.close(true);
       this.dropStick();
+      G.Tut.did('merchant');
       G.screen = 'merchant'; G.paused = true;
       var mw = Math.min(V.W - 8, 240), mh = 124, m = this.merchL = UI.modal(this, mw, mh, G.t('merch.title')), x0 = m.x + 8, inner = mw - 16, mer = sim.merchant;
       m.button(m.x + mw - 22, m.y + 3, 18, 16, '', function () { self.closeMerchant(); }, { icon: 'i_close', name: 'merch_x' });
@@ -193,6 +193,7 @@
       if (st === 'dead' || st === 'won' || st === 'left') return;
       this.dropStick();
       G.Panels.openInventory(this);
+      if (this.game_.sim.tut) this.game_.sim.tutNote('bag');      // the tutorial's "open your bag" step
     },
 
     say: function (text, color, keep) {
@@ -213,20 +214,15 @@
       else if (e.t === 'choice') this.openChoice();
       else if (e.t === 'dead' || e.t === 'won' || e.t === 'left') { this.endT = 50; var sm = this.game_.sim; if (sm.testRoom < 0) G.restockShop(sm.gear, sm.B, sm.clsId); G.storeSave(G.save); }      // the bag was banked (or, on death, the worn gear kept): save it now
       else if (e.t === 'equip' || e.t === 'identify') G.storeSave(G.save);
+      else if (e.t === 'tutdone') G.Tut.complete(this, e);
+      else if (e.t === 'rescue') G.Tut.did('cage');
       else if (e.t === 'room') { this.last = {}; G.storeSave(G.save); }
     },
 
-    // first-time hints (src/view/hints.js): which game events fire which trigger
+    // the passive hints that are left (src/view/hints.js): gold, an unidentified item, a scroll
     hintEvent: function (e) {
-      var H = G.Hints, sim = this.game_.sim;
-      if (e.t === 'room') { if (e.index === 0) H.on('run.start'); if (sim.cage) H.on('run.cage'); }
-      else if (e.t === 'blocked') H.on('run.blocked');
-      else if (e.t === 'fissure' && e.state === 'opening') H.on('run.crack');
-      else if (e.t === 'die') H.on('run.kill');
-      else if (e.t === 'phase') H.on('run.' + e.phase);
-      else if (e.t === 'levelup') H.on('run.levelup');
-      else if (e.t === 'choice') H.on('run.choice');
-      else if (e.t === 'gold') H.on('run.gold');
+      var H = G.Hints;
+      if (e.t === 'gold') H.on('run.gold');
       else if (e.t === 'pickup') { if (e.kind === 'scroll') H.on('run.scroll'); else if (e.item && e.item.unid) H.on('run.unid'); }
     },
 
@@ -280,6 +276,7 @@
       var leave = i >= sim.doors.length;
       if (!leave && !sim.doors[i]) return;
       this.choiceL.destroy(); this.choiceL = null;
+      G.Tut.did('choice');
       G.screen = 'game'; G.paused = false;
       G.audio.play(leave ? 'leave' : 'door');
       if (leave) sim.leave(); else sim.takeDoor(i);
@@ -308,6 +305,7 @@
       var sim = this.game_.sim;
       if (!this.level || sim.state !== 'levelup' || !sim.choices[i]) return;
       this.level.destroy(); this.level = null; this.pickCard = -1;
+      G.Tut.did('card');
       G.screen = 'game'; G.audio.play('card');
       sim.chooseAbility(i, slot);      // may emit another 'levelup', handled next frame
     },
@@ -511,7 +509,7 @@
         L.obj = okey;
         this.objText.setText(obj);
         var showBar = sim.phase === 'super', n = fp.total + 1, pipsW = fp.total * 8 + 10, rowW = showBar ? 72 : pipsW;
-        var room = sim.testRoom >= 0 ? G.t('hud.test', { n: sim.loops + 1 }) : G.t('hud.room', { n: sim.roomIndex + 1, m: sim.B.run.rooms }) + (sim.mod ? ' ' + G.t('door.' + sim.mod) : '');
+        var room = sim.tut ? G.t('hud.tutorial') : sim.testRoom >= 0 ? G.t('hud.test', { n: sim.loops + 1 }) : G.t('hud.room', { n: sim.roomIndex + 1, m: sim.B.run.rooms }) + (sim.mod ? ' ' + G.t('door.' + sim.mod) : '');
         this.roomText.setText(room);
         var w = Math.min(O.w, Math.max(this.objText.width, rowW + this.roomText.width + 8) + 14), x0 = O.x + Math.round((O.w - w) / 2);
         // centre on the screen when the free area allows it
@@ -541,7 +539,7 @@
     // objective pointer: a blinking marker on the screen edge, only while the objective is off-screen
     updatePointer: function () {
       var gs = this.game_, t = gs.sim.objectiveTarget(), V = G.view, wv = gs.cameras.main.worldView;
-      if (!t || gs.sim.state !== 'play') { this.ptr.setVisible(false); return; }
+      if (!t || gs.sim.state !== 'play' || gs.sim.tut) { this.ptr.setVisible(false); return; }      // the tutorial has its own pointer
       var x = t.x - wv.x, y = t.y - wv.y, top = this.obj.y + 34, m = 12;
       if (x >= m && x <= V.W - m && y >= top && y <= V.H - m) { this.ptr.setVisible(false); return; }
       var cx = V.W / 2, cy = (top + V.H - m) / 2, dx = x - cx, dy = y - cy;
@@ -553,8 +551,9 @@
     update: function () {
       var gs = this.game_, sim = gs.sim;
       this.refresh();
-      if (sim.merchant && sim.state === 'play' && Math.abs(sim.merchant.x - sim.player.x) < 70 && Math.abs(sim.merchant.y - sim.player.y) < 70) G.Hints.on('run.merchant');
       G.Hints.tick(this);
+      if (sim.tut && G.paused) sim.tutCheck();      // a panel pauses the sim, but identifying and equipping in the bag finish tutorial steps
+      G.Tut.tick(this);
       if (this.toastT > 0) {
         this.toastT--;
         if (this.toastT < 30) this.toast.setAlpha(this.toastT < 15 ? 0.4 : 0.7);

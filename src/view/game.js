@@ -18,12 +18,13 @@
       if (G.cls == null) G.cls = G.classDef(G.BAL, P.get('class') || (G.save && G.save.settings.cls)).id;   // ?class=<id>, or the title's class picker
       // debug panel toggles (src/view/panels.js): kept for the whole browser session, across runs
       G.cheats = G.cheats || { god: false, noCd: false, speed: 1 };
-      G.debug = P.get('debug') !== '0' && P.get('bot') !== '1';    // ?debug=0 hides the debug button
+      G.debug = P.get('debug') !== '0' && P.get('bot') !== '1' && !G.tutorial;    // ?debug=0 hides the debug button
       this.speed = P.has('speed') ? parseFloat(P.get('speed')) : G.cheats.speed;
       G.manualLevel = P.get('manual') === '1';      // QA: level-up cards are clicked by the test, not auto-picked
       // the daily challenge (G.startDaily): the day's seed, class and doors, and a kit of its own (the save's gear is not used or changed)
-      var D = G.daily && !G.testRoom ? G.daily : null;
-      this.sim = D ? new G.Sim({ seed: D.seed, gear: G.dailyGear(D, G.BAL), events: true, cheats: G.cheats, cls: D.cls, daily: D })
+      var D = G.daily && !G.testRoom && !G.tutorial ? G.daily : null;
+      this.sim = G.tutorial ? new G.Sim({ seed: 1, gear: G.gearOf(G.save, G.cls), events: true, cheats: {}, cls: G.cls, tutorial: { reward: !G.save.hints.tut.got } })
+        : D ? new G.Sim({ seed: D.seed, gear: G.dailyGear(D, G.BAL), events: true, cheats: G.cheats, cls: D.cls, daily: D })
         : new G.Sim({ seed: G.runSeed, gear: G.gearOf(G.save, G.cls), events: true, cheats: G.cheats, testRoom: !!G.testRoom, cls: G.cls });
       var C = this.cls = this.sim.cls;
       this.controls = new G.Controls(this);
@@ -454,6 +455,12 @@
         g.fillStyle(UI.hex('mb3'), 1);
         for (j = 0; j < k; j++) g.fillRect(px + pts[j * 2], py + pts[j * 2 + 1], 1, 1);
       }
+      // the tutorial's marked spot beyond the crack: a pulsing ring on the floor (the arrow above it comes from the HUD)
+      if (sim.tut && sim.tutId() === 'cross') {
+        var sp = sim.room.tut.spot, rr = 9 + ((tick >> 3) % 3), ep = G.ellipsePixels(rr, Math.round(rr / 2));
+        g.fillStyle(UI.hex((tick >> 4) % 2 ? 'ui_warn' : 'orb_c'), 1);
+        for (j = 0; j < ep.length / 2; j++) g.fillRect(Math.round(sp.x) + ep[j * 2], Math.round(sp.y) + ep[j * 2 + 1], 1, 1);
+      }
       // lunges and charges: a dotted lane on the floor during the wind-up
       for (i = 0; i < sim.monsters.length; i++) {
         var m = sim.monsters[i], len = 0;
@@ -573,6 +580,7 @@
   G.attackPose = function (m, p) {
     var st = m.st, ai = m.def.ai;
     if (m.def.boss) return st === 'slam' ? 2 : st === 'burstWind' || st === 'burst' ? 4 : st === 'chargeWind' || st === 'charge' ? 3 : 0;
+    if (ai === 'dummy') return 0;
     if (ai === 'lunge') return st === 'wind' || st === 'lunge' ? 2 : 0;
     if (ai === 'ranged' || ai === 'elite' || ai === 'caster') return m.wind > 0 ? 2 : 0;
     var dx = p.x - m.x, dy = p.y - m.y, reach = m.r + p.r + 10;

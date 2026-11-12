@@ -182,6 +182,18 @@ Design decisions live in the plan doc (the user has it); this file is what an ag
 - Rough: touch not tested (the stick is a copy of the run's); tapping a stall from afar only says "Walk closer"; the reveal is plain (icon, name, stat lines one by one); the cage appears in 50 % of runs until freed (a guess); in portrait the city scrolls
   sideways and edge labels can be cut; the city has no music or ambient life; `qa/session.js` and `qa/screens.js` still use the old title buttons (`res_gear`, `title_shop`) and are stale; the Appraiser was replaced by Don Montoto (see the newer entry).
 
+## Interactive tutorial (branch `step-tutorial`)
+
+- Replaces the passive hints. Sim option `tutorial: {reward}` (`src/sim/tutorial.js`, `balance.tutorial`, `dummy` monster); view in `src/view/tutorial.js` (`G.Tut`);
+  strings in `src/i18n_tut.js` (EN and neutral LatAm ES). Room steps: move, attack, dodge, cross, skill, darken, super, chest, pickup, bag, identify, equip, exit, then "Well done".
+  City: Blacksmith, open his shop, Trainer, portal. Run: first level-up card (and slot replace), first after-room choice, first merchant, Don Montoto's cage.
+- Save: `hints.tut = {state: pending|done|skipped, got, steps:{city,card,choice,merchant,cage}}`, `hints.off`. Saves with runs or gear progress migrate to done (gates done, got = true).
+  Settings: "Tutorial pop-ups on/off" and "Replay tutorial" (hidden in a normal run); title has a TUTORIAL button. `G.resetTut` resets for replay.
+- Isolation: the tutorial Sim uses `testRoom = 0` rules (no banking, gold, merchant), hero cannot die, no exp. Bots, careers, daily never set `tutorial`. sim_bot seeds 1-10 per class identical before and after.
+- Kept item: the first completion keeps the identified own-class weapon equipped (once, `got`); a replay restores the previous weapon. Skip cleans up. Nothing else reaches the save.
+- QA: `tools/check_tutorial.js` (3 classes), `qa/tutorial.js` (land_en, land_es, port_en touch, port_es touch), `check_bag` tutorial flags. URL: `?tutorial=1` (pending), `&scene=game` starts the room; `?fresh=1` marks it done.
+- Rough: touch checked by emulation only; with a big modal open on tiny views the pop-up can overlap the panel top; ranged classes can kill the dummy from afar; the city sequence is saved only when the portal is entered; no tutorial sounds.
+
 ## Last measured (2026-11-11, tiers removed)
 
 - Fresh gear seeds 1-10, mage / warrior / archer: 0 / 1 / 2 wins, every run identical to before (fresh gear was tier 1). Careers of 10 (seeds 1-10): mage 3 wins, first at run 8 (same as before);

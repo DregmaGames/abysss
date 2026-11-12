@@ -28,14 +28,14 @@ python3 tools/build.py        # src/ + vendor/phaser.min.js + assets/ -> dist/ri
 
 Open `dist/riftscar.html` in a browser. URL options: `?seed=123` fixes the run seed,
 `&scene=game` or `&scene=city` skips the title, `&fresh=1` ignores the saved gear, `&touch=1` shows the
-touch controls with a mouse, `&bot=1&speed=8` lets the QA bot play fast-forward.
+touch controls with a mouse, `&bot=1&speed=8` lets the QA bot play fast-forward. `&fresh=1` also marks the tutorial as done (QA); `&tutorial=1` brings it back (`&scene=game&tutorial=1` starts the tutorial room).
 
 ## Layout
 
 ```
 src/balance.js        every tunable number (the only balance file)
 src/rng.js mapgen.js  deterministic RNG and room generator: same seed = same map
-src/sim/              the game rules, no Phaser, fixed 60 Hz step, runs under Node too
+src/sim/              the game rules, no Phaser, fixed 60 Hz step, runs under Node too (tutorial.js: the tutorial room and its director)
 src/qa/bot.js         the QA bot (plays through the same inputs a player has)
 src/view/             Phaser scenes: title, city, game, HUD, panels, room and fissure rendering, FX
 tools/pixelart.py     all art, drawn in code at one pixel size
@@ -54,12 +54,14 @@ layouts are computed from the art-pixel viewport and rebuilt on resize or rotati
 ```
 node tools/contrast.js                      # text contrast, fails under 4.5:1
 node tools/sim_bot.js --seeds 1-10 [--leave N]  # bot win rate in the Node sim (at most 10 seeds); --leave N: leaves after room N
-node tools/check_bag.js                     # die / leave / win bag outcomes, doors and modifiers, save migration, hints state, gentle first run, save backup codes
+node tools/check_bag.js                     # die / leave / win bag outcomes, doors and modifiers, save migration, hints state, tutorial flags, gentle first run, save backup codes
+node tools/check_tutorial.js                # the tutorial room in the Node sim: a scripted player walks all 13 steps for every class
 node tools/sim_bot.js --career 14           # consecutive runs keeping gear
 node qa/bot.js --seeds 1-12                 # bot plays the real game in headless Chromium:
                                             #   no console errors, no softlock, must match Node
 node qa/screens.js both                     # screenshots of every screen at 960x540 and 540x960
 node qa/city.js                             # city: both layouts, both languages: nothing off screen, no label or prompt overlaps, rotation
+node qa/tutorial.js [land_en|land_es|port_en|port_es]  # the interactive tutorial played in the browser (keyboard 960x540, touch 540x960), then the city steps and the gated run steps
 node qa/touch.js [portrait|landscape] [lang]  # the game by finger (touch emulation): city, run, level-up, doors, inventory, settings
 node qa/test_room.js [dir]                  # test room: edge, blocked step, dodge arc, touch, restart; 2 shots
 node qa/session.js --minutes 10             # scripted real-time session with rotation, menus, restarts

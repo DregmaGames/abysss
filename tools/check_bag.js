@@ -5,7 +5,7 @@
 'use strict';
 const fs = require('fs'), path = require('path'), vm = require('vm');
 const ROOT = path.dirname(__dirname);
-const SIM = ['balance.js', 'lore.js', 'rng.js', 'mapgen.js', 'sim/items.js', 'sim/economy.js', 'sim/abilities.js', 'sim/core.js', 'sim/effects.js', 'sim/combat.js', 'sim/fissures.js', 'sim/boss.js', 'sim/daily.js', 'qa/bot.js', 'save.js', 'backup.js'];
+const SIM = ['balance.js', 'lore.js', 'rng.js', 'mapgen.js', 'sim/items.js', 'sim/economy.js', 'sim/abilities.js', 'sim/core.js', 'sim/effects.js', 'sim/combat.js', 'sim/fissures.js', 'sim/tutorial.js', 'sim/boss.js', 'sim/daily.js', 'qa/bot.js', 'save.js', 'backup.js'];
 function load(store) {
   const ctx = { Math, console, Uint8Array, Int16Array, Object, JSON, Array };
   if (store) ctx.localStorage = store;
@@ -527,6 +527,32 @@ const ids = o => Object.keys(o).map(k => o[k] && o[k].id).join(',');
   const r1 = new G.Sim({ seed: 4, gear: G.newGear(), cls: 'warrior' }), r2 = new G.Sim({ seed: 4, gear: G.newGear(), cls: 'warrior' });
   for (let i = 0; i < 600; i++) { r1.step ? r1.step() : r1.update(); r2.step ? r2.step() : r2.update(); }
   check('ux: a gentle run is deterministic (same seed, same state)', r1.tick === r2.tick && r1.monsters.length === r2.monsters.length && r1.player.hp === r2.player.hp);
+})();
+
+// the interactive tutorial's flags in the save: a fresh save has it pending, a save with progress skips the forced room, replay resets it
+(function tutorialFlags() {
+  const G = load(), KEY = 'riftscar.save.v2';
+  const fresh = G.newSave();
+  check('tutorial: a fresh save has the tutorial pending, no weapon given, no gate done', fresh.hints.tut.state === 'pending' && fresh.hints.tut.got === false && Object.keys(fresh.hints.tut.steps).length === 0 && fresh.hints.off === false);
+  const store = { data: {}, getItem(k) { return this.data[k] === undefined ? null : this.data[k]; }, setItem(k, v) { this.data[k] = v; } }, L = load(store);
+  store.data[KEY] = JSON.stringify({ v: 8, gears: { mage: { equipped: {}, bag: [], nextId: 1 }, warrior: { equipped: {}, bag: [], nextId: 1, gold: 30 } }, hints: { off: false, seen: { move: true } } });
+  let sv = L.loadSave();
+  check('tutorial: an old save with progress (gold) does not get the forced tutorial; every gate counts as done; the weapon counts as given', sv.hints.tut.state === 'done' && sv.hints.tut.got === true && L.TUT_GATES.every(k => sv.hints.tut.steps[k] === true));
+  store.data[KEY] = JSON.stringify({ v: 8, gears: { mage: { equipped: {}, bag: [], nextId: 1 } }, stats: { runs: 4, wins: 0, best: 3 } });
+  check('tutorial: progress that shows only in the run counter also counts as a veteran', L.loadSave().hints.tut.state === 'done');
+  store.data[KEY] = JSON.stringify({ v: 8, gears: { mage: { equipped: {}, bag: [], nextId: 1 } } });
+  sv = L.loadSave();
+  check('tutorial: an old save with nothing in it is a new player: the tutorial is pending', sv.hints.tut.state === 'pending' && sv.hints.tut.got === false && Object.keys(sv.hints.tut.steps).length === 0);
+  const t = L.cleanHints({ off: false, seen: {}, tut: { state: 'skipped', got: true, steps: { city: true, card: 1, junk: true, cage: true } } }).tut;
+  check('tutorial: a stored state round-trips; unknown or non-true gate flags are dropped', t.state === 'skipped' && t.got === true && t.steps.city === true && t.steps.cage === true && t.steps.card === undefined && t.steps.junk === undefined);
+  check('tutorial: a damaged state falls back to pending', L.cleanHints({ tut: { state: 'weird', steps: 'x' } }).tut.state === 'pending' && L.cleanHints({ tut: 5 }).tut.state === 'pending');
+  const s2 = L.newSave(); s2.hints.tut = L.newTut(true); s2.hints.off = true; s2.hints.seen = { unid: true };
+  L.resetTut(s2);
+  check('tutorial: replay resets it (pending, gates cleared, hints on and unseen) but keeps the weapon as given', s2.hints.tut.state === 'pending' && Object.keys(s2.hints.tut.steps).length === 0 && s2.hints.tut.got === true && s2.hints.off === false && Object.keys(s2.hints.seen).length === 0);
+  const rt = L.parseSave(JSON.stringify(s2));
+  check('tutorial: the flags survive a save and load (and the backup code)', rt.hints.tut.state === 'pending' && rt.hints.tut.got === true && L.decodeSave(L.encodeSave(s2)).save.hints.tut.state === 'pending');
+  const g = L.newGear(), sim = new L.Sim({ seed: 1, gear: g, cls: 'mage', tutorial: { reward: true } });
+  check('tutorial: its room does not touch the first-run flag or count as a run', g.ux.runs === 0 && sim.tut && sim.gentle === false);
 })();
 
 // save backup (step UX): export -> import round trip, corrupt / foreign / future codes refused, an old version migrates

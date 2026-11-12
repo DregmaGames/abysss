@@ -429,9 +429,12 @@
   // two rows under the sliders: [HINTS: ON] [RESET HINTS] and [EXPORT SAVE] [IMPORT SAVE]
   function settingsExtra(L, scene, x0, y, pw, more) {
     var reopen = function () { (more ? P.openSettingsMore : P.openSettings)(scene, P.back); };
-    var bw = Math.floor((pw - 22) / 2), H = G.Hints, off = G.save.hints && G.save.hints.off;
-    L.button(x0 + 8, y, bw, 16, G.t(off ? 'set.hintsOff' : 'set.hintsOn'), function () { H.setOff(!off); reopen(); }, { name: 'set_hints', color: off ? 'ui_dim' : 'ui_good' });
-    L.button(x0 + 14 + bw, y, bw, 16, G.t('set.hintsReset'), function () { H.reset(); reopen(); }, { name: 'set_hints_reset' });
+    var bw = Math.floor((pw - 22) / 2), off = G.save.hints && G.save.hints.off, s0 = sim(), canReplay = !s0 || !!s0.tut;      // not in the middle of a normal run
+    // tutorial pop-ups on / off (also silences the passive hints) and the tutorial again, from the start
+    var lt = G.t(off ? 'set.tutOff' : 'set.tutOn'), pr = UI.text(scene, 0, 0, lt), lw = canReplay ? Math.min(pw - 16 - 6 - 60, pr.width + 14) : pw - 16;
+    pr.destroy();
+    L.button(x0 + 8, y, lw, 16, lt, function () { G.Tut.setOff(!off); reopen(); }, { name: 'set_hints', color: off ? 'ui_dim' : 'ui_good' });
+    if (canReplay) L.button(x0 + 8 + lw + 6, y, pw - 16 - 6 - lw, 16, G.t('set.tutReplay'), function () { P.close(true); G.Tut.replay(); }, { name: 'set_tutorial' });
     // save backup: export is always there; import replaces the save, so not in the middle of a run
     if (sim()) L.button(x0 + 8, y + 20, pw - 16, 16, G.t('set.export'), function () { P.openBackup(scene, 'export'); }, { name: 'set_export' });
     else {
@@ -442,7 +445,7 @@
   // the second settings page of a very small screen: hints and save backup
   P.openSettingsMore = function (scene, back) {
     if (P.L) P.L.destroy();
-    var V = G.view, pw = Math.min(V.W - 8, 200), ph = 96;
+    var V = G.view, pw = Math.min(V.W - 8, 208), ph = 96;
     P.current = 'settings'; P.scene = scene; P.back = back || null; G.paused = true;
     var L = P.L = UI.modal(scene, pw, ph, G.t('set.title')), x0 = L.x, y0 = L.y;
     L.button(x0 + pw - 22, y0 + 3, 18, 16, '', function () { P.openSettings(scene, back); }, { icon: 'i_close', name: 'set_close' });
@@ -454,7 +457,7 @@
     var V = G.view, set = G.save.settings, inRun = !!sim();
     P.current = 'settings'; P.scene = scene; P.back = back || null; G.paused = true;
     if (G.screen !== 'title' && G.screen !== 'city') G.screen = 'settings';
-    var compact = V.H < 222, pw = Math.min(V.W - 8, 200), ph = compact ? 166 : 214 + 40, t = G.t;      // compact: hints and save backup move to a MORE page
+    var compact = V.H < 222, pw = Math.min(V.W - 8, 208), ph = compact ? 166 : 214 + 40, t = G.t;      // compact: hints and save backup move to a MORE page
     var L = P.L = UI.modal(scene, pw, ph, t('set.title')), x0 = L.x, y0 = L.y, tw = pw - 16 - 36;
     L.button(x0 + pw - 22, y0 + 3, 18, 16, '', function () { leave(); }, { icon: 'i_close', name: 'set_close' });
     function leave() { if (P.back === 'inventory') P.openInventory(scene); else P.close(); }
