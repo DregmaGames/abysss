@@ -88,6 +88,7 @@
 
   // the active skill button; skill kinds: 'pulse' (a new kind adds a branch and a cast function)
   S.castSkill = function () {
+    if (this.tut) this.tut.act.skill = true;
     if (this.cls.skill.kind === 'pulse') this.castPulse();
     else if (this.cls.skill.kind === 'volley') this.castVolley();
   };
@@ -161,6 +162,7 @@
     this.networkKill(m);
     this.emit({ t: 'die', id: m.id, x: m.x, y: m.y, type: m.type });
     if (def.ai === 'caster') this.fizzle(m);
+    if (this.tut) return;      // the tutorial's monsters leave nothing: no exp, drops or gold
     var parts = def.boss ? 8 : (def.elite ? 3 : 1);
     for (i = 0; i < parts; i++) this.spawnOrb('exp', m.x, m.y, def.exp / parts);
     if (rng.chance(L.healOrb) || def.elite || def.boss) this.spawnOrb('heal', m.x, m.y, L.healOrbPct * (def.boss ? 3 : 1));
@@ -316,7 +318,7 @@
           }
         }
       }
-      if (d < m.r + p.r + 0.5 && m.hitCd <= 0) {
+      if (d < m.r + p.r + 0.5 && m.hitCd <= 0 && def.dmg > 0) {      // (the training dummy has no damage)
         if (this.hurtPlayer(m.st === 'charge' ? def.chargeDmg * m.mul : m.dmg, m.x, m.y)) m.hitCd = B.contactCd;
       }
     }

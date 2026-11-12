@@ -15,7 +15,7 @@ const DATE = opt('date') || '2026-11-12', SPEED = +(opt('speed') || 12);
 
 // the same day in the Node sim
 function nodeDaily(date) {
-  const SIM = ['balance.js', 'lore.js', 'rng.js', 'mapgen.js', 'sim/items.js', 'sim/economy.js', 'sim/abilities.js', 'sim/core.js', 'sim/effects.js', 'sim/combat.js', 'sim/fissures.js', 'sim/boss.js', 'sim/daily.js', 'qa/bot.js', 'save.js'];
+  const SIM = ['balance.js', 'lore.js', 'rng.js', 'mapgen.js', 'sim/items.js', 'sim/economy.js', 'sim/abilities.js', 'sim/core.js', 'sim/effects.js', 'sim/combat.js', 'sim/fissures.js', 'sim/tutorial.js', 'sim/boss.js', 'sim/daily.js', 'qa/bot.js', 'save.js'];
   const ctx = { Math, console, Uint8Array, Int16Array, Object, JSON, Array };
   ctx.globalThis = ctx; vm.createContext(ctx);
   for (const f of SIM) vm.runInContext(fs.readFileSync(path.join(Q.ROOT, 'src', f), 'utf8'), ctx, { filename: f });

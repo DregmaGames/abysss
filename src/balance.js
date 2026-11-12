@@ -101,6 +101,8 @@
 
     // ai: chase | weave | ranged | lunge | caster | elite | boss. threat: fissure spawn budget cost. exp: orb value.
     monsters: {
+      // dummy: the tutorial's training dummy (never in a fissure pool): stands still, never hurts (src/sim/tutorial.js)
+      dummy:    { ai: 'dummy', r: 7, hp: 55, speed: 0, dmg: 0, exp: 0, threat: 0, shadow: 's' },
       imp:      { ai: 'chase', r: 5, hp: 18, speed: 84, dmg: 9, exp: 2, threat: 1, shadow: 's' },
       bat:      { ai: 'weave', r: 4.5, hp: 10, speed: 104, dmg: 6, exp: 2, threat: 1, shadow: 's', weave: 0.9, fly: 5 },
       skeleton: { ai: 'ranged', r: 5, hp: 26, speed: 36, dmg: 5, exp: 4, threat: 2, shadow: 's',
@@ -125,6 +127,21 @@
                   chargeWindup: 0.75, chargeSpeed: 180, chargeTime: 0.6, chargeDmg: 18 }
     },
     contactCd: 0.6,
+
+    // The interactive tutorial (src/sim/tutorial.js, src/view/tutorial.js): a small fixed room, weak monsters, a hero that cannot die.
+    // Nothing in it is banked: no exp, gold, drops or progress. The tutorial's one item (own-class weapon) is the only thing it leaves on the character.
+    tutorial: {
+      w: 24, h: 26,                   // room size in tiles
+      crackRow: 14, pitRow: 8,        // the crack runs wall to wall on this tile row; the super fissure is on that row, in the middle
+      moveDist: 60,                   // step 1: px the hero must move
+      hpMult: 0.8, dmgMult: 0.25,     // monster hp and damage (x the base numbers; the room multipliers are not used)
+      skillWave: ['imp', 'imp', 'bat'],                                  // step 5
+      crackWave: ['imp', 'bat', 'imp', 'imp', 'bat', 'imp'], crackAlive: 3, crackEvery: 1.2,      // step 6: the crack's monsters, at most crackAlive at once
+      superWave: ['imp', 'imp', 'bat', 'imp'],                           // step 7
+      itemRarity: 1, itemIlvl: 2,     // the chest's item: magic, so it drops unidentified
+      healBelow: 0.5, healRate: 0.2,  // under this share of max HP the hero heals this share of max HP per second
+      crossMargin: 13                 // px from the crack's centre line the hero must be past to have crossed (and the line it cannot be pushed back over)
+    },
 
     fissure: {
       count:  [2, 3, 3, 3, 4, 4, 4, 4, 5, 2],             // normal fissures per room

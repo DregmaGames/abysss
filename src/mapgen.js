@@ -78,6 +78,8 @@
     return cells;
   }
 
+  G.genFissure = genFissure;      // the tutorial room (src/sim/tutorial.js) draws its super fissure with it
+
   // `mod`: optional door modifier id (BAL.doors.mods): crackLen and extraCracks change the cracks only; the walls are the same
   G.genRoom = function (runSeed, index, B, mod) {
     var seed = G.hash32(runSeed >>> 0, index * 7919 + 13);

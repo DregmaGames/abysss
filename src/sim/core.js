@@ -39,7 +39,10 @@
     this.fxPre = []; this.boltMods = { bounce: null }; this.leechLeft = 0;
     this.recalc();
     this.player.hp = this.stats.maxHp;
-    this.testRoom = opts.testRoom ? B.run.testRoom : -1;   // test room: one room, restarted on clear
+    // the tutorial (src/sim/tutorial.js; opts.tutorial = { reward }): a fixed room, weak monsters, nothing banked. It counts as a "test room" for every rule that skips banking,
+    // gold, merchants and the cage; its own director (sim.tut) replaces the room flow
+    this.tut = opts.tutorial ? { step: 0, act: {}, sub: 0, t: 0, done: false, reward: !!opts.tutorial.reward, prevWeapon: this.gear && this.gear.equipped ? this.gear.equipped.weapon : null, item: null, dummy: null, wave: [] } : null;
+    this.testRoom = this.tut ? 0 : (opts.testRoom ? B.run.testRoom : -1);   // test room: one room, restarted on clear
     this.loops = 0;
     // gentler first run (step UX): a fresh character's first run has softer monsters in the first rooms; the flag is part of the run's inputs (opts.gentle, else gear.ux.runs === 0)
     var ux = this.gear && this.gear.ux;
@@ -116,7 +119,7 @@
 
   // `mod`: the door modifier of this room (an id of BAL.doors.mods, or none)
   S.loadRoom = function (index, mod) {
-    var B = this.B, room = this.room = G.genRoom(this.seed, index, B, mod), F = B.fissure, self = this, dm = G.doorMod(B, mod) || {};
+    var B = this.B, room = this.room = this.tut ? G.tutorialRoom(B) : G.genRoom(this.seed, index, B, mod), F = B.fissure, self = this, dm = G.doorMod(B, mod) || {};
     this.roomIndex = index;
     this.mod = mod && B.doors.mods[mod] ? mod : null;
     this.modDef = dm; this.lootBonus = dm.loot || 0;
@@ -136,6 +139,7 @@
     var cs = this.cageAt === index && !this.rescued ? G.cageSpot(room, B, this.merchant) : null;
     this.cage = cs ? { x: cs.x, y: cs.y } : null;
     this.setupFissures(room);           // src/sim/fissures.js
+    if (this.tut) this.tutSetup();      // src/sim/tutorial.js
     this.phase = 'fissures';             // fissures | super | chest | exit
     this.roomTick = this.tick; this.spawnCd = F.firstDelay;
     this.chest = { x: room.chest.x, y: room.chest.y, state: 'hidden' };
@@ -282,6 +286,7 @@
       p.dashT = D.time; p.dashX = p.fx; p.dashY = p.fy;
       p.iframes = Math.max(p.iframes, D.iframes);
       p.dodgeCd = s.dodgeCd;
+      if (this.tut) this.tut.act.dodge = true;
       p.dashOver = false; p.dashHit = {};
       // cross: the dash line runs over an open crack (the view draws the hop arc)
       var cross = this.crackLit > 0 && this.crackOnLine(p.x, p.y, p.x + p.dashX * D.dist, p.y + p.dashY * D.dist, p.r);
@@ -317,7 +322,7 @@
     p.hp -= dmg;
     p.iframes = this.B.player.hurtIframes;
     this.emit({ t: 'phit', x: p.x, y: p.y, dmg: dmg });
-    if (p.hp <= 0) { p.hp = 0; this.finishRun('dead'); }
+    if (p.hp <= 0) { if (this.tut) p.hp = 1; else { p.hp = 0; this.finishRun('dead'); } }      // the tutorial's hero cannot die
     return true;
   };
   S.heal = function (amount) {
@@ -329,6 +334,7 @@
   // -------------------------------------------------------------- progression
   S.gainExp = function (v) {
     var p = this.player;
+    if (this.tut) return;      // no exp, no level-ups in the tutorial
     p.exp += v * this.stats.expMult;
     while (p.exp >= p.expNext) { p.exp -= p.expNext; p.level++; p.expNext = this.expFor(p.level); p.pending++; }
     if (p.pending > 0 && this.state === 'play') this.openLevelUp(false);
@@ -562,7 +568,7 @@
 
   // -------------------------------------------------------------------- step
   S.step = function () {
-    if (this.state !== 'play') return;
+    if (this.state !== 'play' || (this.tut && this.tut.done)) return;
     var dt = this.B.DT;
     this.tick++;
     this.updatePlayer(dt);
@@ -573,6 +579,7 @@
     this.updateProjectiles(dt);
     this.updatePickups(dt);
     this.updateRoomGoals();
+    if (this.tut) this.tutUpdate(dt);
   };
 
   S.updateFlow = function () {

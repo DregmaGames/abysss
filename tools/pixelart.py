@@ -333,6 +333,27 @@ ahH...
 ..a..a
 ''', L, mirror=True)))
 
+    # --- training dummy (tutorial): a post with a sack head, a crossbar and a straw body with a target; it only sways
+    L = 'w=wood W=wood_d g=gold G=gold_d r=ir2 R=ir1 K=outline'
+    dm = parse('''
+....gg
+...gGg
+...gKg
+....Gg
+.....w
+wwwwww
+WWWWWw
+..gGrr
+..gGRr
+..gGrr
+..gGgg
+.....w
+.....w
+..WWWw
+.WWWWW
+''', L, mirror=True)
+    add('dummy_0', outline(dm)); add('dummy_1', outline(dm)); add('dummy_2', outline(dm))
+
     # --- bat: quick, erratic flyer (two explicit wing frames)
     L = 'a=bt0 b=bt1 c=bt2 d=bt3 R=eye_r K=outline T=tooth'
     add('bat_0', outline(parse('''

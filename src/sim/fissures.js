@@ -219,6 +219,12 @@
 
   // closing a fissure pays out: EXP, a heal, a gear roll; the super fissure also reveals the chest
   S.closeReward = function (f) {
+    if (this.tut) {      // the tutorial pays nothing but the way on
+      this.progress(); f.scarTick = this.tick;
+      this.emit({ t: 'fissure', id: f.id, state: 'scar', big: f.big, x: f.x, y: f.y });
+      if (f.big) { this.phase = 'chest'; this.chest.state = 'closed'; this.emit({ t: 'phase', phase: 'chest' }); }
+      return;
+    }
     var F = this.B.fissure, L = this.B.loot, rng = this.rngRoom, i, n = f.big ? 6 : 3;
     this.progress();
     f.scarTick = this.tick;
@@ -284,17 +290,22 @@
       var dx = p.x - c.x, dy = p.y - c.y;
       if (dx * dx + dy * dy < 16 * 16) {
         c.state = 'open';
-        var n = L.chestItems[this.roomIndex];
-        for (i = 0; i < n; i++) this.spawnItem(c.x + (i - (n - 1) / 2) * 12, c.y + 14, this.room.boss ? L.luck.boss : L.luck.chest);
-        if (this.rngRoom.chance(L.chestScroll)) this.spawnDrop('scroll', c.x, c.y + 24, null);
-        this.addGold(this.B.economy.gold.chest, 'chest', c.x, c.y);
+        if (this.tut) this.tutChest(c.x, c.y);
+        else {
+          var n = L.chestItems[this.roomIndex];
+          for (i = 0; i < n; i++) this.spawnItem(c.x + (i - (n - 1) / 2) * 12, c.y + 14, this.room.boss ? L.luck.boss : L.luck.chest);
+          if (this.rngRoom.chance(L.chestScroll)) this.spawnDrop('scroll', c.x, c.y + 24, null);
+          this.addGold(this.B.economy.gold.chest, 'chest', c.x, c.y);
+        }
         this.phase = 'exit'; e.open = true;
         this.progress();
         this.emit({ t: 'chest', x: c.x, y: c.y });
         this.emit({ t: 'phase', phase: 'exit' });
       }
     } else if (this.phase === 'exit') {
-      if (Math.abs(p.x - e.x) < 9 && p.y < e.y + 9) {
+      if (this.tut) {      // the tutorial ends when the hero walks into the gate at its last step
+        if (Math.abs(p.x - e.x) < 9 && p.y < e.y + 9 && this.tutId() === 'exit') this.tutAdvance();
+      } else if (Math.abs(p.x - e.x) < 9 && p.y < e.y + 9) {
         this.roomsCleared++;
         this.progress();
         if (this.testRoom >= 0) this.restartTestRoom();
