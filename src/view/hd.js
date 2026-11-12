@@ -11,14 +11,22 @@
 
   var HD = G.HD = {
     density: D,
-    // the session's mode: ?hd=0|1 wins, then the saved setting (default on)
+    // the session's mode: ?hd=0|1|2 wins, then the saved setting (false / true / 'lo'), then the art test in hand ('lo').
+    // G.hdMode: new art on / off. G.hdStyle: 'hd' = double density; 'lo' = the "27 px" test (tools/lo_sprite.py): the
+    // same sheets reduced to the game's art pixel grid, frames lo_<name> (an entity without them keeps its HD frames),
+    // the chunky floor, and motion in whole art pixels with no tilt.
     init: function () {
-      var p = G.params.get('hd');
-      G.hdMode = p === '0' ? false : p === '1' ? true : !(G.save && G.save.settings && G.save.settings.hd === false);
+      var p = G.params.get('hd'), sv = G.save && G.save.settings ? G.save.settings.hd : undefined;
+      var m = p === '0' ? false : p === '1' ? true : p === '2' ? 'lo' : sv === false ? false : sv === true ? true : 'lo';
+      G.hdMode = m !== false; G.hdStyle = m === 'lo' ? 'lo' : 'hd';
     },
-    set: function (on) {
-      G.hdMode = !!on;
-      if (G.save) { G.save.settings.hd = !!on; G.storeSave(G.save); }
+    mode: function () { return !G.hdMode ? false : G.hdStyle === 'lo' ? 'lo' : true; },
+    next: function () { var m = HD.mode(); return m === false ? 'lo' : m === 'lo' ? true : false; },     // off -> 27 px -> HD -> off
+    // the frame to show for an HD frame name: its lo_ version in the '27 px' mode, when the atlas has one
+    pick: function (t, name) { return G.hdStyle === 'lo' && t.has('lo_' + name) ? 'lo_' + name : name; },
+    set: function (m) {
+      G.hdMode = m !== false && !!m; G.hdStyle = m === 'lo' ? 'lo' : 'hd';
+      if (G.save) { G.save.settings.hd = HD.mode(); G.storeSave(G.save); }
       if (G.gameScene && G.gameScene.sys.isActive()) G.gameScene.rebuildArt();
       if (G.city && G.city.sys.isActive()) G.city.scene.restart();
     },
@@ -27,9 +35,9 @@
     frame: function (scene, name) {
       if (!G.hdMode || !name || !scene.textures.exists('hd')) return null;
       var t = scene.textures.get('hd');
-      if (t.has(name)) return name;
+      if (t.has(name)) return HD.pick(t, name);
       var m = G.ANIM.map[name];
-      return m && t.has(m) ? m : null;
+      return m && t.has(m) ? HD.pick(t, m) : null;
     },
     // a static image (cage, prop): the HD frame at half scale if there is one, else the chunky frame. Origin as given.
     show: function (img, name, ox, oy) {
@@ -62,7 +70,7 @@
       while (state && seen++ < 5) {
         var st = E[state];
         if (st && st.frames) {
-          var fr = st.frames.filter(function (f) { return t.has(f); });
+          var fr = st.frames.filter(function (f) { return t.has(f); }).map(function (f) { return HD.pick(t, f); });
           if (fr.length) return { state: state, list: fr, def: st };
         }
         state = (E.fallback && E.fallback[state]) || A.fallback[state];
@@ -175,9 +183,10 @@
       ox += this.hitDir * (M.recoil || 0) * kh; sy -= 0.09 * kh; sx += 0.07 * kh;
       this.hit -= dt;
     }
-    // whole HD pixels: size, offsets; three tilt steps at most
-    var ws = Math.max(1, Math.round(W * sx)), hs = Math.max(1, Math.round(H * sy)), sxq = ws / W, syq = hs / H;
-    var oxq = Math.round(ox), oyq = Math.round(oy), rq = q(rot, 0.035);
+    // whole HD pixels: size, offsets; three tilt steps at most. A lo_ frame (2x2 HD px per art px): whole art pixels, no tilt.
+    var P = fname.indexOf('lo_') === 0 ? D : 1;
+    var ws = Math.max(P, Math.round(W * sx / P) * P), hs = Math.max(P, Math.round(H * sy / P) * P), sxq = ws / W, syq = hs / H;
+    var oxq = Math.round(ox / P) * P, oyq = Math.round(oy / P) * P, rq = P > 1 ? 0 : q(rot, 0.035);
     var flip = (this.face * faces) < 0, ax = meta.anchor ? meta.anchor.x : 0.5;
     img.setFlipX(flip).setScale(sxq / D, syq / D).setRotation(rq)
       .setOrigin((flip ? 1 - ax : ax) - oxq / ws, 1 - oyq / hs)

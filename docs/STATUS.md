@@ -105,6 +105,15 @@ Design decisions live in the plan doc (the user has it); this file is what an ag
   Mage imported (Grok 4x2 sheet, 8 frames, idle 28x54 HD px): walk x4 (row redrawn by Grok: stride, feet together, stride, feet together; both strides still show the same leg in front),
   idle x1, attack x2, hurt x1; `G.ANIM.ent.mage`. Checked: build, `qa/hd.js` (0 console errors), determinism. Rough: no screenshot check of the mage's own
   walk / attack frames (`qa/hd.js` captures the skeleton), warrior and archer still chunky.
+  ART TEST "27 PX" (2026-11-12, the user's pick after seeing the HD mage: "the resolution of Hammerwatch 2"; A TEST, NOT to be applied to everything yet).
+  Measured on the user's 1920x1080 screenshot of that game: 3x3 screen px per game px (640x360), hero about 14x27 px, soft shading, no hard outline; so its
+  sprite resolution is this game's own art pixel grid. `tools/lo_sprite.py` reduces a generated sheet to that grid (area average in linear light, shared
+  small palette, a little brighter, 1 px dark rim) and saves `assets/hd/lo_<name>.png` at 2x, so the HD atlas, anchors and rig serve it unchanged.
+  Done for the mage (8 frames, idle 15x29 art px with the rim) and the skeleton (from its HD frame); tyrant and Don Montoto keep their HD frames in this mode.
+  Art mode is now three-way: `?hd=0|1|2` / `save.settings.hd` false | true | 'lo' / Settings title button ART: OLD -> 27 PX -> HD (`G.HD.mode / next / set`,
+  `G.hdStyle`); default without a saved choice = 'lo'. In 'lo': `lo_` frames when the atlas has them, chunky floor, rig sizes and offsets in whole art px, no tilt.
+  Checked: build, check_i18n, `qa/lo.js` (both sizes, hero walk frames cycle, 0 console errors). Rough: faces and hands are an automatic reduction (no hand
+  clean-up yet), the hero's attack frames were not captured (they show while standing), the reduced skeleton is mushy, breathing / bob round to zero at this size.
 - `main` is the working base. One branch per step: `step-N-<slug>`.
 
 ## Last measured (2026-11-12, HD art pilot)

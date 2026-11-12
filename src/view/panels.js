@@ -444,9 +444,9 @@
   }
   // HD art pilot (src/view/hd.js): double-density sprites and floor on / off, to compare; applies at once. Title row, left of the close button.
   function hdToggle(L, x0, y0, reopen) {
-    var lt = G.t(G.hdMode ? 'set.hdOn' : 'set.hdOff'), pr = UI.text(L.scene || P.scene, 0, 0, lt), w = pr.width + 10;
+    var lt = G.t(!G.hdMode ? 'set.hdOff' : G.hdStyle === 'lo' ? 'set.hdLo' : 'set.hdOn'), pr = UI.text(L.scene || P.scene, 0, 0, lt), w = pr.width + 10;
     pr.destroy();
-    L.button(x0 + L.w - 26 - w, y0 + 3, w, 16, lt, function () { G.HD.set(!G.hdMode); reopen(); }, { name: 'set_hd', color: G.hdMode ? 'ui_good' : 'ui_dim' });
+    L.button(x0 + L.w - 26 - w, y0 + 3, w, 16, lt, function () { G.HD.set(G.HD.next()); reopen(); }, { name: 'set_hd', color: G.hdMode ? 'ui_good' : 'ui_dim' });
   }
   // the second settings page of a very small screen: hints and save backup
   P.openSettingsMore = function (scene, back) {

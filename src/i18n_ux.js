@@ -2,7 +2,7 @@
 // Kept in their own file so the big tables stay easy to merge. Same rules: every key in both languages, same {placeholders}.
 (function (G) {
   Object.assign(G.LANG.en, {
-    'set.hdOn': 'HD TEST: ON', 'set.hdOff': 'HD TEST: OFF', 'dbg.spawnBoss': 'BOSS HERE', 'dbg.spawnSkel': 'SKELETONS',
+    'set.hdOn': 'ART: HD', 'set.hdOff': 'ART: OLD', 'set.hdLo': 'ART: 27 PX', 'dbg.spawnBoss': 'BOSS HERE', 'dbg.spawnSkel': 'SKELETONS',
     'bak.label': 'Save code',
     'set.export': 'EXPORT SAVE', 'set.import': 'IMPORT SAVE',
     'bak.exportHint': 'Copy this code and keep it safe. It holds all your characters, gold and items.',
@@ -24,7 +24,7 @@
     'hint.montotoEmpty': 'An empty stall. Free Don Montoto from his cage in room 5 of a run.'
   });
   Object.assign(G.LANG.es, {
-    'set.hdOn': 'HD PRUEBA: SÍ', 'set.hdOff': 'HD PRUEBA: NO', 'dbg.spawnBoss': 'JEFE AQUÍ', 'dbg.spawnSkel': 'ESQUELETOS',
+    'set.hdOn': 'ARTE: HD', 'set.hdOff': 'ARTE: VIEJO', 'set.hdLo': 'ARTE: 27 PX', 'dbg.spawnBoss': 'JEFE AQUÍ', 'dbg.spawnSkel': 'ESQUELETOS',
     'bak.label': 'Código de partida',
     'set.export': 'EXPORTAR', 'set.import': 'IMPORTAR',
     'bak.exportHint': 'Copia este código y guárdalo bien. Incluye todos tus personajes, oro y objetos.',

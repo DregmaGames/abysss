@@ -8,7 +8,7 @@
     var W = room.w, H = room.h, ground = [], shade = [], x, y, i;
     // HD art pilot: the floor is one tiled texture at double density (assets/hd_floor.png, tools/hd_atlas.py floor) under
     // the tile layer, whose floor cells are left empty; walls, wall faces and the shadow overlays stay chunky
-    var hdFloor = G.hdMode && scene.textures.exists('hd_floor');
+    var hdFloor = G.hdMode && G.hdStyle !== 'lo' && scene.textures.exists('hd_floor');
     function wall(tx, ty) { return tx < 0 || ty < 0 || tx >= W || ty >= H ? 1 : room.tiles[ty * W + tx]; }
     for (y = 0; y < H; y++) {
       var row = [], srow = [];
