@@ -301,7 +301,7 @@ const ids = o => Object.keys(o).map(k => o[k] && o[k].id).join(',');
   const rc = B.economy.rankCost, rcSum = rc.reduce((t, v) => t + v, 0);
   check('ranks: cost curve ' + rc.join(' ') + ', then max (refused)', costs.slice(0, 5).join() === rc.join() && costs[5] === null && rg.ranks.might === 5 && rg.gold === 10000 - rcSum);
   const sA = G.computeStats(B, G.newGear(), {}, 'mage'), sB = G.computeStats(B, rg, {}, 'mage');
-  check('ranks: stats in computeStats (Might 5 = +15 % damage), not in the gear score', near(sB.dmg / sA.dmg, 1.15) && G.gearScore(rg) === 0);
+  check('ranks: stats in computeStats (Might 5 = +' + 5 * B.economy.ranks.might.per + ' % damage), not in the gear score', near(sB.dmg / sA.dmg, 1 + 0.05 * B.economy.ranks.might.per) && G.gearScore(rg) === 0);
   const poor = G.newGear(); poor.gold = rc[0] - 1;
   check('ranks: refused without gold', !G.buyRank(poor, 'vitality', B) && !poor.ranks.vitality);
   check('ranks: not abilities (no family counts)', JSON.stringify(G.familyCounts({}, B)) === JSON.stringify(G.familyCounts({}, B)) && !G.abilityPool(B, 'mage').some(x => /^(vitality|might|haste|guard|insight)$/.test(x.id || x)));

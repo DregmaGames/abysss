@@ -577,6 +577,26 @@
       else legacy();
     } catch (e) { legacy(); }
   };
+  // the manual-copy fallback (an iframe without clipboard access, an old browser): the share text in a selected text box over the game,
+  // to copy by hand (Ctrl+C, long press). Closed by its button, by Escape, or when the scene changes (G.closeManualCopy).
+  G.showManualCopy = function (text) {
+    G.closeManualCopy();
+    var pal = G_ASSETS.palette, box = document.createElement('div'), lab = document.createElement('div'), ta = document.createElement('textarea'), btn = document.createElement('button');
+    box.id = 'manual_copy';
+    box.style.cssText = 'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:20;width:min(92vw,440px);box-sizing:border-box;padding:12px;' +
+      'background:' + pal.ui_bg + ';border:3px solid ' + pal.ui_dim + ';color:' + pal.ui_text + ';font:14px monospace;text-align:center';
+    lab.textContent = G.t('daily.manual');
+    ta.value = text; ta.readOnly = true; ta.rows = 3;
+    ta.style.cssText = 'display:block;width:100%;box-sizing:border-box;margin:8px 0;font:14px monospace;resize:none;background:' + pal.ui_bg2 + ';color:' + pal.ui_text + ';border:1px solid ' + pal.ui_dim;
+    btn.textContent = G.t('set.close');
+    btn.style.cssText = 'font:bold 14px monospace;min-height:44px;padding:0 18px;background:' + pal.ui_bg2 + ';color:' + pal.ui_text + ';border:2px solid ' + pal.ui_dim + ';cursor:pointer';
+    btn.onclick = function () { G.closeManualCopy(); };
+    box.onkeydown = function (e) { if (e.key === 'Escape') G.closeManualCopy(); e.stopPropagation(); };
+    box.appendChild(lab); box.appendChild(ta); box.appendChild(btn); document.body.appendChild(box);
+    ta.focus(); ta.select();
+    G.manualCopy = box;
+  };
+  G.closeManualCopy = function () { if (G.manualCopy && G.manualCopy.parentNode) G.manualCopy.parentNode.removeChild(G.manualCopy); G.manualCopy = null; };
   G.startDaily = function () {
     var g = G.game.scene;
     G.daily = G.dailyToday(); G.testRoom = false; G.paused = false;
@@ -624,26 +644,30 @@
     var st = L.text(0, ly + 2, '', 'ui_good'); UI.centerX(st, cx);
     var bw = Math.floor((pw - 24) / 2);
     L.button(x0 + 8, y0 + ph - 50, pw - 16, 20, t('daily.copy'), function () {
-      G.copyText(share, function (ok) { if (P.L !== L) return; st.setText(t(ok ? 'daily.copied' : 'daily.copyFail')).setTint(UI.hex(ok ? 'ui_good' : 'ui_bad')); UI.centerX(st, cx); });
+      G.copyText(share, function (ok) {
+        if (!ok) G.showManualCopy(share);      // no clipboard here (e.g. an iframe): show the text to copy by hand
+        if (P.L !== L) return;
+        st.setText(t(ok ? 'daily.copied' : 'daily.copyFail')).setTint(UI.hex(ok ? 'ui_good' : 'ui_warn')); UI.centerX(st, cx);
+      });
     }, { name: 'daily_copy', color: 'gold' });
     L.button(x0 + 8, y0 + ph - 26, bw, 20, t('daily.again'), function () { P.close(true); G.restartRun(); }, { name: 'res_again', color: 'ui_good' });
     L.button(x0 + 16 + bw, y0 + ph - 26, bw, 20, t('res.city'), function () { P.close(true); G.toCity(); }, { name: 'res_city', color: 'gold' });
   };
 
   G.restartRun = function () {
-    var g = G.game.scene;
+    var g = G.game.scene; G.closeManualCopy();
     if (!G.daily) G.runSeed = (G.runSeed + 1) >>> 0;      // a daily run restarts the same day's run
     G.paused = false;
     g.stop('hud'); g.stop('game'); g.start('game');
   };
   G.toCity = function () {
-    var g = G.game.scene;
+    var g = G.game.scene; G.closeManualCopy();
     G.paused = false; if (!G.daily) G.runSeed = (G.runSeed + 1) >>> 0;      // a new seed for the next run from the portal (a daily run did not use it)
     G.daily = null;
     g.stop('hud'); g.stop('game'); g.start('city');
   };
   G.toTitle = function (openGear) {
-    var g = G.game.scene;
+    var g = G.game.scene; G.closeManualCopy();
     G.paused = false; G.openGearOnTitle = !!openGear; G.daily = null;
     g.stop('hud'); g.stop('game'); g.stop('cityhud'); g.stop('city'); g.start('title');
   };

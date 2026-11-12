@@ -24,6 +24,22 @@ Read `CLAUDE.md` and `docs/STATUS.md` first. Do only this step. Do not read the 
   sign in the city. All text through `G.t` in English and Spanish.
 - Work in rounds; stop at the first round that meets all targets, or after 10 rounds with the best.
 
+## Round log
+
+Per class: fresh = wins over seeds 1-100 (`--brief`); careers = 10 careers x 10 runs over seeds 1-100 (`--career 10 --careers 10`):
+first-win run averaged over the careers that won (n won / 10), post = win share of the runs after the first win, time = average win
+time in game seconds (fresh / careers), deaths per room (fresh). All with the career bot step 2 of the WIP.
+
+- Round 0 (the WIP as committed in fa93dbe, gearK 0.0045 of the start gear): mage fresh 15 %, first win 7.0 (10/10), post 37 %, time 566 / 478 s,
+  deaths 0,0,3,3,12,16,5,21,20,5. warrior fresh 22 %, first 6.8 (9/10), post 55 %, time 538 / 455 s, deaths 0,0,0,0,5,9,9,15,25,15.
+  archer fresh 7 %, first 7.5 (10/10), post 52 %, time 482 / 449 s, deaths 0,6,4,3,14,20,11,13,13,9. 0 softlocks, bestFromDrops 10/10 x3.
+- Round 1 (gearK 0.0045 -> 0.006, warrior dmg 28 -> 26, archer dmg 20 -> 21): mage 15 %, first 6.2 (5/10), post 47 %, time 566 / 515 s.
+  warrior 9 %, first 6.4 (7/10), post 24 %, time 561 / 481 s, deaths 0,0,0,0,3,13,19,16,26,14. archer 11 %, first 7.1 (7/10), post 65 %, time 493 / 432 s.
+  Too many careers never win: gearK 0.006 is too steep; warrior -7 % damage halved its fresh rate.
+- Round 2 (gearK 0.005, warrior dmg 27, archer dmg 21): mage 15 %, first 8.2 (9/10), post 25 %, time 566 / 492 s, deaths 0,0,3,3,12,16,5,21,20,5.
+  warrior 11 %, first 6.3 (7/10), post 62 %, time 542 / 477 s, deaths 0,0,0,0,5,9,14,24,20,17. archer 11 %, first 6.1 (10/10), post 67 %, time 493 / 440 s,
+  deaths 0,4,1,6,15,12,17,13,15,6. Careers swing a lot between rounds with small changes (10 careers is noisy: mage 21 -> 14 -> 13 wins).
+
 ## Task
 
 TASK: Tune src/balance.js until the bot win rate is between 25 and 40 percent for each class on
