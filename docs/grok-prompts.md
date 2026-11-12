@@ -113,6 +113,20 @@ python3 -I tools/hd_atlas.py import /path/mage_sheet.png --name mage --grid 4x3 
 python3 tools/build.py
 ```
 
+**The mage sheet as imported (2026-11-12)**: Grok gave a 4x2 sheet (walk x4, idle, staff raised, staff thrust, hurt)
+whose rows are not on the cell lines (the raised staff of row 2 reaches into row 1's cells), so a plain `--grid` cut
+bleeds. What worked: cut the image at the gap between the rows, paste the two rows side by side into one strip on the
+backdrop colour, then take the figures as columns with one scale and Grok's own outline:
+
+```
+python3 -I tools/hd_atlas.py import /path/mage_strip.png --name mage --split cols --cells 0-7 --own-box --ref 4 \
+        --height 54 --outline no \
+        --names mage_walk_0,mage_walk_1,mage_walk_2,mage_walk_3,mage_idle_0,mage_attack_0,mage_attack_1,mage_hurt
+```
+
+Prompt lessons: do not attach another character as a style reference (Grok copies the character: the first try was a
+skeleton in mage clothes); describe each walk cell's legs, and still expect the same leg in front in every cell.
+
 The names are the ones `src/view/anim.js` (`G.ANIM.ent.mage`) expects; once they exist the hero is drawn from them
 (walk 9 fps at base speed, tied to the distance walked; attack frames on the sim's `cast`; hurt on damage). Figures in one
 row with uneven spacing: `--split cols --cells 0-9` instead of `--grid`. Another class: the same with its id, and an
