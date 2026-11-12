@@ -263,6 +263,7 @@
       if (!leave && !sim.doors[i]) return;
       this.choiceL.destroy(); this.choiceL = null;
       G.screen = 'game'; G.paused = false;
+      G.audio.play(leave ? 'leave' : 'door');
       if (leave) sim.leave(); else sim.takeDoor(i);
     },
 
@@ -289,7 +290,7 @@
       var sim = this.game_.sim;
       if (!this.level || sim.state !== 'levelup' || !sim.choices[i]) return;
       this.level.destroy(); this.level = null; this.pickCard = -1;
-      G.screen = 'game';
+      G.screen = 'game'; G.audio.play('card');
       sim.chooseAbility(i, slot);      // may emit another 'levelup', handled next frame
     },
 

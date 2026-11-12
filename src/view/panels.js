@@ -382,6 +382,7 @@
     if (P.L) P.L.destroy();
     var V = G.view, g = G.gearOf(G.save, G.cls), st = P.monto;
     P.current = 'montoto'; P.scene = scene; G.paused = true;
+    if (!keep) G.audio.play('montoto');
     if (!keep) { st.queue = []; st.reveal = null; st.n = 0; st.idx = (g.city.story | 0) % G.MONTOTO_STORIES.length; G.montotoStory(g); G.storeSave(G.save); }
     var pw = Math.min(V.W - 8, 260), ph = Math.min(V.H - 8, 200);
     var L = P.L = UI.modal(scene, pw, ph, G.t('mon.name')), x0 = L.x, y0 = L.y;
@@ -426,7 +427,7 @@
     var V = G.view, set = G.save.settings, inRun = !!sim();
     P.current = 'settings'; P.scene = scene; P.back = back || null; G.paused = true;
     if (G.screen !== 'title' && G.screen !== 'city') G.screen = 'settings';
-    var pw = Math.min(V.W - 8, 200), ph = 152, t = G.t;
+    var compact = V.H < 222, pw = Math.min(V.W - 8, 200), ph = compact ? 166 : 214, t = G.t;
     var L = P.L = UI.modal(scene, pw, ph, t('set.title')), x0 = L.x, y0 = L.y, tw = pw - 16 - 36;
     L.button(x0 + pw - 22, y0 + 3, 18, 16, '', function () { leave(); }, { icon: 'i_close', name: 'set_close' });
     function leave() { if (P.back === 'inventory') P.openInventory(scene); else P.close(); }
@@ -452,19 +453,34 @@
       return sl;
     }
     // zoom: integer pixel scale for the whole game (art and UI together); the knob, the label and V.S always agree
-    row(y0 + 44, t('set.zoom'), V.S + 'x', V.steps, V.S - V.lo, function (k) { return (V.lo + k) + 'x'; }, function (k) {
+    // compact (a very small screen): no hint lines, tighter rows
+    var ry = compact ? 42 : 44, rs = compact ? 24 : 28;
+    row(y0 + ry, t('set.zoom'), V.S + 'x', V.steps, V.S - V.lo, function (k) { return (V.lo + k) + 'x'; }, function (k) {
       set.zoom = V.lo + k - V.base; G.storeSave(G.save);
       scene.time.delayedCall(1, function () { G.applyView(); });       // rebuilds this panel at the new scale
     }, 'zoom');
-    L.text(x0 + 8, y0 + 72, V.steps === 1 ? t('set.zoomNone') : t('set.zoomHint'), 'ui_dim').setMaxWidth(pw - 16);
+    if (!compact) { L.text(x0 + 8, y0 + 72, V.steps === 1 ? t('set.zoomNone') : t('set.zoomHint'), 'ui_dim').setMaxWidth(pw - 16); ry = 88; } else ry += rs;
 
     // screen shake: 0..100 % of a capped amplitude
-    row(y0 + 88, t('set.shake'), set.shake + '%', 11, Math.round(set.shake / 10), function (k) {
+    row(y0 + ry, t('set.shake'), set.shake + '%', 11, Math.round(set.shake / 10), function (k) {
       set.shake = k * 10; G.storeSave(G.save);
       if (G.gameScene && inRun) G.gameScene.fx.shake(0.6);
       return set.shake + '%';
     }, null, 'shake');
-    L.text(x0 + 8, y0 + 116, t('set.shakeHint'), 'ui_dim').setMaxWidth(pw - 16);
+    if (!compact) { L.text(x0 + 8, y0 + 116, t('set.shakeHint'), 'ui_dim').setMaxWidth(pw - 16); ry = 132; } else ry += rs;
+
+    // music and effects volume: 0..100 % in steps of 10 (defaults 50 and 70)
+    function vrow(key, label, name) {
+      var cur = isFinite(set[key]) ? set[key] : (key === 'music' ? 50 : 70);
+      row(y0 + ry, label, cur + '%', 11, Math.round(cur / 10), function (k) {
+        set[key] = k * 10; G.storeSave(G.save); G.audio.applyVolumes();
+        if (key === 'sfx') G.audio.preview();
+        return set[key] + '%';
+      }, null, name);
+      ry += compact ? rs : 26;
+    }
+    vrow('music', t('set.music'), 'music');
+    vrow('sfx', t('set.sfx'), 'sfx');
 
     var bw = Math.floor((pw - 22) / 2);
     L.button(x0 + 8, y0 + ph - 26, bw, 18, inRun ? t('set.resume') : t('set.close'), leave, { name: 'set_resume' });
