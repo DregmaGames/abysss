@@ -7,10 +7,10 @@
   G.newGear = function () {
     var eq = {};
     SLOTS.forEach(function (s) { eq[s] = null; });
-    return { equipped: eq, bag: [], nextId: 1, scrolls: 0, gold: 0, ranks: {}, shop: null, city: { montoto: false, story: 0 } };
+    return { equipped: eq, bag: [], nextId: 1, scrolls: 0, gold: 0, ranks: {}, shop: null, city: { montoto: false, story: 0 }, ux: { runs: 0 } };
   };
   G.newSave = function () {
-    return { v: 8, gears: {}, settings: { zoom: 0, shake: 100, lang: null }, stats: { runs: 0, wins: 0, best: 0 } };
+    return { v: 8, gears: {}, settings: { zoom: 0, shake: 100, lang: null }, stats: { runs: 0, wins: 0, best: 0 }, hints: { off: false, seen: {} } };
   };
   // the gear (worn items and kept bag) of a class; the sim takes this object as its `gear` option
   G.gearOf = function (save, clsId) {
@@ -18,9 +18,10 @@
     if (!save.gears[id]) save.gears[id] = G.newGear();
     return save.gears[id];
   };
-  G.loadSave = function () {
+  G.loadSave = function () { return G.parseSave(globalThis.localStorage && localStorage.getItem(KEY)); };
+  // text (JSON) -> a current save: validates, sanitizes and migrates older versions; anything unusable gives a fresh save. Also used by the backup import.
+  G.parseSave = function (raw) {
     try {
-      var raw = globalThis.localStorage && localStorage.getItem(KEY);
       if (raw) {
         var s = JSON.parse(raw), d = G.newSave(), B = G.BAL;
         var ok = function (it) { return it && typeof it === 'object' && SLOTS.indexOf(it.slot) >= 0 && it.stats && typeof it.rarity === 'number'; };
@@ -44,12 +45,14 @@
             var ct = g.city && typeof g.city === 'object' ? g.city : {};      // v7: city state per character; v8: the Appraiser became Don Montoto (flag `appraiser` -> `montoto`, plus the story index)
             n.city.montoto = ct.montoto === true || ct.appraiser === true;      // older than v7: not rescued yet; nothing else changes
             n.city.story = ct.story >= 0 && isFinite(ct.story) ? Math.floor(ct.story) % G.MONTOTO_STORIES.length : 0;
+            n.ux = G.cleanUx(g, n);      // first-run flag (step UX)
             s.gears[id] = n;
           });
           s.v = 8;
           s.settings = Object.assign(d.settings, s.settings || {});
           if (s.settings.lang !== 'en' && s.settings.lang !== 'es') s.settings.lang = null;      // null: follow the browser language
           s.stats = Object.assign(d.stats, s.stats || {});
+          s.hints = G.cleanHints(s.hints);
           return s;
         }
         // v2 / v3 -> v4 (per-class gear): the one shared gear set (worn items + kept bag) goes whole to the class that was selected
@@ -77,5 +80,20 @@
   };
   G.storeSave = function (save) {
     try { if (globalThis.localStorage) localStorage.setItem(KEY, JSON.stringify(save)); } catch (e) { /* storage full or blocked */ }
+  };
+  // ---- first-time guidance state (hints seen / switched off; per-character first-run flag)
+  G.cleanHints = function (h) {
+    var out = { off: false, seen: {} };
+    if (h && typeof h === 'object') {
+      out.off = h.off === true;
+      if (h.seen && typeof h.seen === 'object') Object.keys(h.seen).forEach(function (k) { if (h.seen[k] === true || h.seen[k] === 1) out.seen[k] = true; });
+    }
+    return out;
+  };
+  // runs: how many runs this character has started. A save from before this flag existed with any progress counts as 1 (no softened run for veterans).
+  G.cleanUx = function (g, n) {
+    if (g.ux && typeof g.ux === 'object' && g.ux.runs >= 0 && isFinite(g.ux.runs)) return { runs: Math.min(1000, Math.floor(g.ux.runs)) };
+    var used = n.bag.length || n.gold || n.scrolls || Object.keys(n.ranks).length || n.city.montoto || SLOTS.some(function (k) { return n.equipped[k]; });
+    return { runs: used ? 1 : 0 };
   };
 })(globalThis.G = globalThis.G || {});

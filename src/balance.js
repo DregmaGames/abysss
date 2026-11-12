@@ -8,6 +8,7 @@
     run: {
       rooms: 10,                      // the last room is the boss room
       roomMult: [1.05, 1.3, 1.55, 1.8, 2.1, 2.4, 2.75, 3.1, 3.5, 3.0],   // monster hp/dmg multiplier per room
+      gentle: { rooms: 3, mult: 0.8 },   // the first run of a fresh character: monsters in rooms 1-3 have this share of hp and damage (src/sim/core.js loadRoom; gear.ux.runs === 0)
       gearK: 0.005,                   // +0.5 % monster hp/dmg per point of gear score ("gear level scales the room")
       ilvlRooms: 3,                   // item level of drops = 1 + floor(room / ilvlRooms)
       testRoom: 1,                    // ?room=test / TEST ROOM button: this room, restarted on every clear

@@ -420,12 +420,18 @@
   };
 
   // -------------------------------------------------------------- settings
+  // two rows under the sliders: [HINTS: ON] [RESET HINTS] and [EXPORT SAVE] [IMPORT SAVE]
+  function settingsExtra(L, scene, x0, y, pw) {
+    var bw = Math.floor((pw - 22) / 2), H = G.Hints, off = G.save.hints && G.save.hints.off;
+    L.button(x0 + 8, y, bw, 16, G.t(off ? 'set.hintsOff' : 'set.hintsOn'), function () { H.setOff(!off); P.openSettings(scene, P.back); }, { name: 'set_hints', color: off ? 'ui_dim' : 'ui_good' });
+    L.button(x0 + 14 + bw, y, bw, 16, G.t('set.hintsReset'), function () { H.reset(); P.openSettings(scene, P.back); }, { name: 'set_hints_reset' });
+  }
   P.openSettings = function (scene, back) {
     if (P.L) P.L.destroy();
     var V = G.view, set = G.save.settings, inRun = !!sim();
     P.current = 'settings'; P.scene = scene; P.back = back || null; G.paused = true;
     if (G.screen !== 'title' && G.screen !== 'city') G.screen = 'settings';
-    var pw = Math.min(V.W - 8, 200), ph = 152, t = G.t;
+    var pw = Math.min(V.W - 8, 200), cmp = V.H < 212, ph = cmp ? 168 : 204, t = G.t;      // cmp: a short screen drops the two grey hint lines
     var L = P.L = UI.modal(scene, pw, ph, t('set.title')), x0 = L.x, y0 = L.y, tw = pw - 16 - 36;
     L.button(x0 + pw - 22, y0 + 3, 18, 16, '', function () { leave(); }, { icon: 'i_close', name: 'set_close' });
     function leave() { if (P.back === 'inventory') P.openInventory(scene); else P.close(); }
@@ -455,15 +461,16 @@
       set.zoom = V.lo + k - V.base; G.storeSave(G.save);
       scene.time.delayedCall(1, function () { G.applyView(); });       // rebuilds this panel at the new scale
     }, 'zoom');
-    L.text(x0 + 8, y0 + 72, V.steps === 1 ? t('set.zoomNone') : t('set.zoomHint'), 'ui_dim').setMaxWidth(pw - 16);
+    if (!cmp) L.text(x0 + 8, y0 + 72, V.steps === 1 ? t('set.zoomNone') : t('set.zoomHint'), 'ui_dim').setMaxWidth(pw - 16);
 
     // screen shake: 0..100 % of a capped amplitude
-    row(y0 + 88, t('set.shake'), set.shake + '%', 11, Math.round(set.shake / 10), function (k) {
+    row(y0 + (cmp ? 72 : 88), t('set.shake'), set.shake + '%', 11, Math.round(set.shake / 10), function (k) {
       set.shake = k * 10; G.storeSave(G.save);
       if (G.gameScene && inRun) G.gameScene.fx.shake(0.6);
       return set.shake + '%';
     }, null, 'shake');
-    L.text(x0 + 8, y0 + 116, t('set.shakeHint'), 'ui_dim').setMaxWidth(pw - 16);
+    if (!cmp) L.text(x0 + 8, y0 + 116, t('set.shakeHint'), 'ui_dim').setMaxWidth(pw - 16);
+    settingsExtra(L, scene, x0, y0 + (cmp ? 102 : 138), pw);      // hints on/off, reset hints, save backup
 
     var bw = Math.floor((pw - 22) / 2);
     L.button(x0 + 8, y0 + ph - 26, bw, 18, inRun ? t('set.resume') : t('set.close'), leave, { name: 'set_resume' });

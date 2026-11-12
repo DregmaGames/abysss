@@ -257,6 +257,8 @@
           if (mx) this.face = mx > 0 ? 1 : -1;
         }
         this.near = this.nearest();
+        if (this.near && this.near.s.id !== 'plot') G.Hints.on('city.near.' + this.near.s.id, !!this.near.empty);
+        if (Math.abs(this.px - this.lay.portal.x) <= 36 && Math.abs(this.py - this.lay.portal.y) <= 40) G.Hints.on('city.near.portal');
         if ((o.dodge || o.pulse || enter) && this.near) this.talk(this.near);
         // the portal: walking into it starts a run
         var P = this.lay.portal;
@@ -381,6 +383,7 @@
       this.stickKnob = L.image(0, 0, 'stick_knob', 3).setVisible(false);
       this.stickId = null; this.shown = {};
       this.refresh(g);
+      G.Hints.attach(this); G.Hints.on('city.enter');
     },
     refresh: function (g) {
       this.goldText.setText('' + (g.gold | 0)); this.scrollText.setText('x' + (g.scrolls | 0));
@@ -390,6 +393,7 @@
       if (this.shown.k !== k) { this.shown.k = k; this.refresh(g); }
       var c = G.city, nl = c && !G.paused && !c.entering ? c.nearLabel(c.near) : null;
       if (nl !== this.shown.nl) { this.shown.nl = nl; if (nl) this.talkBtn.setLabel(nl); this.talkBtn.setVisible(!!nl); }
+      G.Hints.tick(this);
       if (this.toastT > 0 && --this.toastT <= 0) this.toast.setVisible(false);
       else if (this.toastT > 0 && this.toastT < 30) this.toast.setAlpha(this.toastT / 30);
     }

@@ -15,6 +15,8 @@
       this.L = null; this.level = null; this.toastT = 0; this.toastMsg = null; this.pickCard = -1; this.SL = null;
       this.botWait = 0; this.endT = -1; this.stickId = null; this.choiceL = null; this.merchL = null;
       this.build();
+      if (this.game_.sim.roomIndex === 0) { G.Hints.on('run.start'); G.Hints.on('run.crack'); }      // the first room's event came before this scene existed
+      if (this.game_.sim.cage) G.Hints.on('run.cage');
       this.game.events.on('viewchange', this.onView, this);
 
       var kb = this.input.keyboard;
@@ -134,6 +136,7 @@
         this.tDodge = mk(V.W - 58, V.H - 26, 't_dodge', function () { if (!G.paused) self.game_.controls.dodge(); }, 'tdodge');
       }
       this.refresh();
+      G.Hints.attach(this);
     },
 
     toggleDebug: function () {
@@ -200,6 +203,7 @@
     },
 
     onEvent: function (e) {
+      this.hintEvent(e);
       if (e.t === 'pickup') {
         if (e.kind === 'scroll') this.say(G.t('toast.scroll'), 'gold');
         else if (!e.item) this.say(G.t('toast.tome'), 'tome2');      // gear goes into the sealed bag: the counter shows it
@@ -210,6 +214,20 @@
       else if (e.t === 'dead' || e.t === 'won' || e.t === 'left') { this.endT = 50; var sm = this.game_.sim; if (sm.testRoom < 0) G.restockShop(sm.gear, sm.B, sm.clsId); G.storeSave(G.save); }      // the bag was banked (or, on death, the worn gear kept): save it now
       else if (e.t === 'equip' || e.t === 'identify') G.storeSave(G.save);
       else if (e.t === 'room') { this.last = {}; G.storeSave(G.save); }
+    },
+
+    // first-time hints (src/view/hints.js): which game events fire which trigger
+    hintEvent: function (e) {
+      var H = G.Hints, sim = this.game_.sim;
+      if (e.t === 'room') { if (e.index === 0) H.on('run.start'); if (sim.cage) H.on('run.cage'); }
+      else if (e.t === 'blocked') H.on('run.blocked');
+      else if (e.t === 'fissure' && e.state === 'opening') H.on('run.crack');
+      else if (e.t === 'die') H.on('run.kill');
+      else if (e.t === 'phase') H.on('run.' + e.phase);
+      else if (e.t === 'levelup') H.on('run.levelup');
+      else if (e.t === 'choice') H.on('run.choice');
+      else if (e.t === 'gold') H.on('run.gold');
+      else if (e.t === 'pickup') { if (e.kind === 'scroll') H.on('run.scroll'); else if (e.item && e.item.unid) H.on('run.unid'); }
     },
 
     // ------------------------------------------------- after a room: leave or a door
@@ -534,6 +552,8 @@
     update: function () {
       var gs = this.game_, sim = gs.sim;
       this.refresh();
+      if (sim.merchant && sim.state === 'play' && Math.abs(sim.merchant.x - sim.player.x) < 70 && Math.abs(sim.merchant.y - sim.player.y) < 70) G.Hints.on('run.merchant');
+      G.Hints.tick(this);
       if (this.toastT > 0) {
         this.toastT--;
         if (this.toastT < 30) this.toast.setAlpha(this.toastT < 15 ? 0.4 : 0.7);

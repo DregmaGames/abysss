@@ -62,7 +62,18 @@ Design decisions live in the plan doc (the user has it); this file is what an ag
   **Touch** (`node qa/touch.js`, hasTouch context, taps and CDP touch events): everything worked by tap; fixed: (1) once a finger has been seen (`G.finger`, set by a capturing `touchstart` listener) `UI.button` gives every button a hit box of at least 44 CSS px (`UI.FINGER`); before: settings [-] / [+] 28 px, close buttons 36 x 32, city END 52 x 28;
   the city overlay is rebuilt at the first touch; city settings / END buttons are 20 px tall; (2) a level-up or door choice that has just opened ignores taps and clicks for 400 ms (`GUARD`, `HudScene.tooSoon`): a finger on its way to the stick or DODGE picked a card; keys 1-3 and the bot are not held back;
   (3) narrow inventory in a run: the bag title ran into the scroll count (it now takes its short form); (4) result screen: a wrapped line (Spanish, portrait) was overprinted by the next one (lines now flow).
+- Step UX (first-time guidance and save backup) on branch `step-ux`.
+  **A, hints**: `src/view/hints.js` (`G.HINTS` table: id, trigger, text key, optional touch / alt key, position, seconds; `G.Hints.on(trigger)`, `tick`, `attach`), texts in `src/i18n_ux.js` (`hint.*`, `set.hints*`, added to the tables of `i18n.js`).
+  Run hints (14): move (+ attacks are automatic), crack (seen), blocked, darken, super, chest, exit, levelup, choice, unid, scroll, gold, merchant (near), cage. City (5): city, smith, trainer, montoto (empty / rescued text), portal.
+  Each shows once per save (`save.hints = { off, seen }`, shared by characters), 6.5 s or a tap, one at a time (queue of 4), never pauses; top of the screen under the HUD (bottom for level-up and door choice, and in the portrait city); not in the test room or under the QA bot. Settings: HINTS: ON/OFF and RESET HINTS (a short screen, V.H < 212, drops the two grey hint lines to fit).
+  **Gentler first run**: `BAL.run.gentle = { rooms: 3, mult: 0.8 }` (hp and damage of monsters in rooms 1-3), applies when `gear.ux.runs === 0` (per character; `save.gears[c].ux.runs` counts runs started; an old save with progress counts as 1). The flag is `sim.gentle` (`opts.gentle` overrides it). `G.parseSave(text)` is the old `loadSave` body (also used by the backup import).
 - `main` is the working base. One branch per step: `step-N-<slug>`.
+
+## Last measured (2026-11-12, step UX A: hints and gentler first run)
+
+- `sim_bot --seeds 1-10` (fresh gear = first run, so every run is gentle now), before -> after: mage 1 (10) -> 2 (2, 10), warrior 2 (3, 8) -> 0, archer 0 -> 1 (6); 0 softlocks, 0 timeouts. Noise: the softer rooms 1-3 change every later roll; a fresh character's first run is the only case that changes (careers: runs 2+ are identical to before).
+- `determinism.js`, `check_bag.js` (new `ux` group), `check_i18n.js`, `contrast.js` (0 failing, lowest 5.65:1) pass; `qa/bot.js --seeds 3,4,5` 0 errors, matches Node.
+- Browser, fresh save, 960x540 and 540x960, en and es: every run hint fires once and does not return, the city hints fire per stall, HINTS toggle and RESET work, 0 console errors.
 
 ## Last measured (2026-11-11, step 9b: city portrait, prompt, tyrant claws, burst lanes, cultist, touch)
 
