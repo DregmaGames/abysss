@@ -561,6 +561,15 @@
     this.cageAt = this.roomIndex; this.rescued = false;
     this.cage = G.cageSpot(this.room, this.B, this.merchant) || { x: this.player.x + 20, y: this.player.y + 8 };
   };
+  // debug (test room): n monsters of a type round the hero, `dist` px away, on open floor; they belong to the super fissure
+  S.cheatSpawn = function (type, n, dist) {
+    var p = this.player, fid = this.fissures.length - 1, def = this.B.monsters[type];
+    for (var i = 0, a = 0; i < n && a < 32; a++) {
+      var ang = a * 2.39996, x = p.x + G.M.cos(ang) * dist, y = p.y + G.M.sin(ang) * dist;
+      if (this.boxHits(x, y, def.r + 2)) continue;
+      var m = this.spawnMonster(type, x, y, fid); m.emerge = 0; i++;
+    }
+  };
   S.cheatLoot = function () {
     var p = this.player;
     for (var i = -1; i <= 1; i++) this.spawnItem(p.x + i * 14, p.y + 12, this.B.loot.luck.boss);

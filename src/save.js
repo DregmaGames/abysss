@@ -10,7 +10,7 @@
     return { equipped: eq, bag: [], nextId: 1, scrolls: 0, gold: 0, ranks: {}, shop: null, city: { montoto: false, story: 0 }, ux: { runs: 0 } };
   };
   G.newSave = function () {
-    return { v: 8, gears: {}, settings: { zoom: 0, shake: 100, lang: null, music: 50, sfx: 70 }, stats: { runs: 0, wins: 0, best: 0 }, hints: G.cleanHints(null) };
+    return { v: 8, gears: {}, settings: { zoom: 0, shake: 100, lang: null, music: 50, sfx: 70, hd: true }, stats: { runs: 0, wins: 0, best: 0 }, hints: G.cleanHints(null) };
   };
   // the gear (worn items and kept bag) of a class; the sim takes this object as its `gear` option
   G.gearOf = function (save, clsId) {

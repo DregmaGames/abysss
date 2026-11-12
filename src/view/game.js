@@ -5,6 +5,7 @@
   var SHADOW = { s: 'shadow_s', m: 'shadow_m', l: 'shadow_l' };
   var DIE_COLOR = { imp: 'ir2', bat: 'bt2', skeleton: 'sk2', hound: 'hd2', cultist: 'cu2', warden: 'wd2', tyrant: 'ty2' };
   var SHOT_FRAME = { bone: 'shot_bone', big: 'shot_big', orb: 'shot' };
+  var POSE_STATE = { 2: 'slam', 3: 'charge', 4: 'burst' };     // boss attack pose frame -> animation state (src/view/anim.js)
   var HOP_H = 12, ARC_LIFE = 30;          // dodge across a crack: hop height (px), trail fade (frames)
 
   G.GameScene = new Phaser.Class({
@@ -41,6 +42,7 @@
       this.hop = null; this.arc = []; this.bumpT = 0; this.bumpX = 0; this.bumpY = 0; this.blockN = 0;
       this.player = this.add.image(0, 0, 'atlas', C.sprite.frames + '_0').setOrigin(0.42, 1);
       this.playerShadow = this.add.image(0, 0, 'atlas', 'shadow_s').setDepth(-100);
+      this.prig = new G.Rig(this, this.player, C.id);      // HD hero (when a sheet for the class is imported): frame animation + motion
       // a class with weapon types holds its weapon as its own sprite (frame w_<type>), swung on the 'swing' event
       this.weaponImg = C.weapons ? this.add.image(0, 0, 'atlas', 'w_' + G.weaponOf(C, this.sim.gear).id).setOrigin(0.5, 0.9) : null;
       this.swingT = 0;
@@ -75,11 +77,18 @@
     },
 
     applyView: function () { this.cameras.main.setZoom(G.view.S); },
+    // HD switched on or off in the settings: the room (floor) and every sprite are made again; the rigs pick the atlas per frame
+    rebuildArt: function () {
+      var keep = this.cam.x, keepY = this.cam.y;
+      this.buildRoom();
+      this.cam.x = keep; this.cam.y = keepY;
+    },
 
     buildRoom: function () {
       var sim = this.sim, room = sim.room, k;
       if (this.roomView) this.roomView.destroy();
-      for (k in this.maps) { this.maps[k].forEach(function (s) { if (s.sh) s.sh.destroy(); if (s.gl) s.gl.destroy(); s.destroy(); }); this.maps[k].clear(); }
+      for (k in this.maps) { this.maps[k].forEach(function (s) { if (s.sh) s.sh.destroy(); if (s.gl) s.gl.destroy(); if (s.rig) s.rig.destroy(); s.destroy(); }); this.maps[k].clear(); }
+      G.Rig.clearCorpses(this);
       this.fx.clear();
       this.hop = null; this.arc.length = 0; this.blockN = 0;
       this.roomView = new G.RoomView(this, room);
@@ -109,8 +118,10 @@
       } else {
         this.controls._dodge = false; this.controls._pulse = false;
       }
+      this.rdt = !G.paused && !this.ended ? Math.min(delta, 100) / 1000 * this.speed : 0;      // animation time (HD rigs)
       this.playEvents();
       this.sync();
+      G.Rig.corpses(this, this.rdt);
       this.fx.update(Math.min(delta, 100) / 1000);
       this.updateCamera();
       this.roomView.tick(this.frame, sim.fissures, sim.tick);
@@ -139,11 +150,13 @@
             if (e.src === 'dot') { s = this.maps.monsters.get(e.id); if (s) fx.spark(e.x, e.y + 2, 'em3', 0.2); break; }   // dot ticks: no number, no flash
             s = this.maps.monsters.get(e.id);
             if (s && !(s.flashCd > 0)) { s.flash = s.big ? 2 : 3; s.flashCd = s.big ? 16 : 7; }
-            fx.number(e.x, e.y - (s ? s.height - 8 : 0), (e.crit ? e.dmg + '!' : '' + e.dmg), e.crit ? 'ui_warn' : 'ui_text');
+            if (s && s.rig) s.rig.hurt(this.sim.player.x);
+            fx.number(e.x, e.y - (s ? (s.artH || s.height) - 8 : 0), (e.crit ? e.dmg + '!' : '' + e.dmg), e.crit ? 'ui_warn' : 'ui_text');
             fx.burst(e.x, e.y, 'orb', e.crit ? 6 : 3, 60, 0.25);
             if (e.crit) fx.shake(0.12);
             break;
           case 'phit':
+            this.prig.hurt(this.sim.player.x - this.sim.player.face);
             fx.number(e.x, e.y - 22, '-' + e.dmg, 'ui_bad');
             fx.burst(e.x, e.y, 'blood', 10, 80, 0.35);
             fx.shake(0.45);
@@ -153,6 +166,8 @@
           case 'heal': fx.number(e.x, e.y - 22, '+' + e.v, 'ui_good'); break;
           case 'die':
             var bossy = e.type === 'tyrant';
+            s = this.maps.monsters.get(e.id);
+            if (s && s.rig && s.rig.hdOn) { s.rig.die(this.sim.player.x, DIE_COLOR[e.type], bossy); s.setVisible(false); }
             fx.burst(e.x, e.y, DIE_COLOR[e.type] || 'ir2', bossy ? 70 : 12, bossy ? 150 : 80, bossy ? 0.9 : 0.4);
             fx.burst(e.x, e.y, 'rg3', 5, 50, 0.5);
             if (bossy || e.type === 'warden') { fx.shake(0.8); fx.ring(e.x, e.y, 4, 48, 0.4, 'em2'); }
@@ -179,8 +194,9 @@
             for (var va = 0; va < 14; va++) fx.spark(e.x + Math.cos(va / 14 * 6.2832) * 10, e.y - 4 + Math.sin(va / 14 * 6.2832) * 10, vf[2], 0.25);
             fx.shake(0.25);
             break;
+          case 'cast': this.prig.attack(0.22); break;
           case 'swing':
-            this.swingT = 9;
+            this.swingT = 9; this.prig.attack(0.22);
             // melee: a crescent of sparks swept along the arc (leading edge bright), a nick of shake on a crit
             var sc = e.whirl ? 'white' : (this.cls.sprite.slash || 'ui_text');
             for (var sr = 0; sr < 2; sr++) for (var sa = -5; sa <= 5; sa++) {
@@ -207,7 +223,8 @@
             this.bumpT = 6; this.bumpX = -e.dx; this.bumpY = -e.dy;
             if (this.blockN++ % 4 === 0) fx.number(this.sim.player.x, this.sim.player.y - 22, G.t('game.dodgeToCross'), 'ui_warn');
             break;
-          case 'windup': s = this.maps.monsters.get(e.id); if (s) s.wind = Math.round(e.dur * 60); break;
+          case 'windup': s = this.maps.monsters.get(e.id); if (s) { s.wind = Math.round(e.dur * 60); s.rig.windup(e.dur); } break;
+          case 'shoot': s = this.maps.monsters.get(e.id); if (s && s.rig.wind > 0) s.rig.release(); break;
           case 'puff': fx.burst(e.x, e.y, 'ui_dim', 3, 30, 0.2); break;
           case 'hex': fx.burst(e.x, e.y - 14, 'shot1', 6, 50, 0.3); break;
           case 'erupt': fx.ring(e.x, e.y, 4, e.r, 0.3, 'shot1'); fx.burst(e.x, e.y, 'shot2', 16, 90, 0.45); fx.shake(0.35); break;
@@ -235,10 +252,14 @@
 
     // ------------------------------------------------------------------ sync
     sync: function () {
-      var sim = this.sim, tick = sim.tick, self = this, p = sim.player;
+      var sim = this.sim, tick = sim.tick, self = this, p = sim.player, rdt = this.rdt || 0;
       // player
-      var walk = p.moving ? [1, 0, 2, 0][(tick >> 3) & 3] : 0;
-      this.player.setFrame(this.cls.sprite.frames + '_' + walk).setFlipX(p.face < 0).setOrigin(p.face < 0 ? 0.58 : 0.42, 1);
+      var walk = p.moving ? [1, 0, 2, 0][(tick >> 3) & 3] : 0, prig = this.prig;
+      var hdHero = !!G.HD.frames(this, this.cls.id, 'idle');       // the class has HD frames (a sheet imported for it)
+      if (!hdHero) {
+        if (this.player.isHD || this.player.texture.key !== 'atlas') G.HD.chunky(this.player, this.cls.sprite.frames + '_0');
+        this.player.setFrame(this.cls.sprite.frames + '_' + walk).setFlipX(p.face < 0).setOrigin(p.face < 0 ? 0.58 : 0.42, 1);
+      }
       // hop: height of the dodge arc over a crack (0 outside it); bump: a 1 px recoil off the edge
       var lift = 0, bx = 0, by = 0;
       if (this.hop) {
@@ -248,7 +269,10 @@
       }
       if (this.bumpT > 0) { this.bumpT--; bx = Math.round(this.bumpX); by = Math.round(this.bumpY); }
       this.player.setPosition(p.x + bx, p.y + p.r + 1 - lift + by).setDepth(p.y + p.r + (lift ? 400 : 0));
-      this.playerShadow.setPosition(p.x, p.y + p.r).setScale(1 - lift / (HOP_H * 2.5));
+      this.playerShadow.setPosition(p.x, p.y + p.r).setScale(1 - lift / (HOP_H * 2.5)).setVisible(!hdHero);
+      if (hdHero) prig.update(rdt, { x: p.x + bx, y: p.y + p.r + 1 - lift + by, ground: p.y + p.r, face: p.face, tx: null, state: 'walk',
+        speed: this.cls.base.speed, depth: p.y + p.r + (lift ? 400 : 0), shadowAlpha: 0.85 * (1 - lift / (HOP_H * 1.5)) });
+      else prig.shadow.setVisible(false);
       if (this.weaponImg) {
         var wi = this.weaponImg, wd = G.weaponOf(this.cls, sim.gear).id;
         if (this.swingT > 0) this.swingT--;
@@ -269,12 +293,22 @@
         var s = self.add.image(m.x, m.y, 'atlas', m.type + '_0').setOrigin(0.5, 1);
         s.sh = self.add.image(m.x, m.y, 'atlas', SHADOW[m.def.shadow]).setDepth(-100);
         s.flash = 0; s.wind = 0; s.flashCd = 0; s.big = !!(m.def.boss || m.def.elite);
+        s.rig = new G.Rig(self, s, m.type);       // HD art: motion and soft shadow (src/view/hd.js); unused for chunky monsters
         return s;
       }, function (s, m) {
-        var fly = m.def.fly || 0, rate = m.def.ai === 'weave' ? 2 : 3;
-        s.setPosition(m.x, m.y + m.r + 1 - fly).setDepth(m.y + m.r).setFlipX(m.face < 0);
-        s.setFrame(m.type + '_' + (G.attackPose(m, p) || (((tick >> rate) + m.id) & 1)));
-        s.sh.setPosition(m.x, m.y + m.r);
+        var fly = m.def.fly || 0, rate = m.def.ai === 'weave' ? 2 : 3, pose = G.attackPose(m, p);
+        var state = pose ? (m.def.boss ? POSE_STATE[pose] : 'attack') : 'walk';
+        if (s.rig.update(rdt, { x: m.x, y: m.y + m.r + 1 - fly, ground: m.y + m.r, face: m.face, tx: p.x, state: state, speed: m.def.speed,
+          depth: m.y + m.r, alpha: m.emerge > 0 ? 0.6 : 1 })) {
+          s.sh.setVisible(false);
+          s.artH = s.rig.artH;
+        } else {
+          if (s.isHD || s.texture.key !== 'atlas') G.HD.chunky(s, m.type + '_0');
+          s.setPosition(m.x, m.y + m.r + 1 - fly).setDepth(m.y + m.r).setFlipX(m.face < 0).setOrigin(0.5, 1);
+          s.setFrame(m.type + '_' + (pose || (((tick >> rate) + m.id) & 1)));
+          s.sh.setVisible(true).setPosition(m.x, m.y + m.r);
+          s.artH = s.height;
+        }
         s.setAlpha(m.emerge > 0 ? 0.6 : 1);
         if (s.flashCd > 0) s.flashCd--;
         if (s.flash > 0) { s.flash--; s.setTintFill(0xffffff); }
@@ -327,7 +361,7 @@
       var cg = sim.cage;
       this.cageImg.setVisible(!!cg);
       if (cg) {
-        this.cageImg.setPosition(cg.x, cg.y + 8).setDepth(cg.y + 8).setFrame('cage_' + ((tick >> 5) & 1));
+        G.HD.show(this.cageImg.setPosition(cg.x, cg.y + 8).setDepth(cg.y + 8), 'cage_' + ((tick >> 5) & 1), 0.5, 1);
         this.cageTag.setText(sim.roomClear() ? G.t('mon.freeHim') : G.t('mon.locked')).setVisible(sim.cageNear()).setPosition(Math.round(cg.x - this.cageTag.width / 2), Math.round(cg.y - 22 - ((tick >> 4) & 1)));
       } else this.cageTag.setVisible(false);
       // gold: one floating label per 0.2 s (the rest is summed)
@@ -388,7 +422,7 @@
         var m = ms[i], s = this.maps.monsters.get(m.id);
         if (m.dead || !s || (m.hp >= m.maxHp && !m.def.boss)) continue;   // only once hurt (the boss always)
         var w = m.def.boss ? 34 : Math.max(10, Math.round(m.r * 2) + 2);
-        var x = Math.round(m.x - w / 2), y = Math.round(m.y + m.r + 1 - (m.def.fly || 0) - s.height) - 5;
+        var x = Math.round(m.x - w / 2), y = Math.round(m.y + m.r + 1 - (m.def.fly || 0) - (s.artH || s.height)) - 5;
         var fill = Math.max(m.hp > 0 ? 1 : 0, Math.round(w * Math.max(0, m.hp) / m.maxHp));
         g.fillStyle(UI.hex('outline'), 1); g.fillRect(x - 1, y - 1, w + 2, 4);
         g.fillStyle(UI.hex('hp_d'), 1); g.fillRect(x, y, w, 2);
@@ -433,7 +467,7 @@
         update(s, arr[i]);
       }
       if (map.size !== arr.length) {
-        map.forEach(function (sp, id) { if (sp.seen !== seen) { if (sp.sh) sp.sh.destroy(); if (sp.gl) sp.gl.destroy(); sp.destroy(); map.delete(id); } });
+        map.forEach(function (sp, id) { if (sp.seen !== seen) { if (sp.sh) sp.sh.destroy(); if (sp.gl) sp.gl.destroy(); if (sp.rig) sp.rig.destroy(); sp.destroy(); map.delete(id); } });
       }
     },
 

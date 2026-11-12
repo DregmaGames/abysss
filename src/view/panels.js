@@ -442,6 +442,12 @@
       L.button(x0 + 14 + bw, y + 20, bw, 16, G.t('set.import'), function () { P.openBackup(scene, 'import'); }, { name: 'set_import' });
     }
   }
+  // HD art pilot (src/view/hd.js): double-density sprites and floor on / off, to compare; applies at once. Title row, left of the close button.
+  function hdToggle(L, x0, y0, reopen) {
+    var lt = G.t(G.hdMode ? 'set.hdOn' : 'set.hdOff'), pr = UI.text(L.scene || P.scene, 0, 0, lt), w = pr.width + 10;
+    pr.destroy();
+    L.button(x0 + L.w - 26 - w, y0 + 3, w, 16, lt, function () { G.HD.set(!G.hdMode); reopen(); }, { name: 'set_hd', color: G.hdMode ? 'ui_good' : 'ui_dim' });
+  }
   // the second settings page of a very small screen: hints and save backup
   P.openSettingsMore = function (scene, back) {
     if (P.L) P.L.destroy();
@@ -449,6 +455,7 @@
     P.current = 'settings'; P.scene = scene; P.back = back || null; G.paused = true;
     var L = P.L = UI.modal(scene, pw, ph, G.t('set.title')), x0 = L.x, y0 = L.y;
     L.button(x0 + pw - 22, y0 + 3, 18, 16, '', function () { P.openSettings(scene, back); }, { icon: 'i_close', name: 'set_close' });
+    hdToggle(L, x0, y0, function () { P.openSettingsMore(scene, back); });
     settingsExtra(L, scene, x0, y0 + 26, pw, true);
     L.button(x0 + 8, y0 + ph - 26, pw - 16, 18, G.t('set.close'), function () { P.openSettings(scene, back); }, { name: 'set_resume' });
   };
@@ -460,6 +467,7 @@
     var compact = V.H < 222, pw = Math.min(V.W - 8, 208), ph = compact ? 166 : 214 + 40, t = G.t;      // compact: hints and save backup move to a MORE page
     var L = P.L = UI.modal(scene, pw, ph, t('set.title')), x0 = L.x, y0 = L.y, tw = pw - 16 - 36;
     L.button(x0 + pw - 22, y0 + 3, 18, 16, '', function () { leave(); }, { icon: 'i_close', name: 'set_close' });
+    hdToggle(L, x0, y0, function () { P.openSettings(scene, P.back); });
     function leave() { if (P.back === 'inventory') P.openInventory(scene); else P.close(); }
 
     // language: applies at once (every open screen is rebuilt), saved in the shared settings
@@ -552,9 +560,11 @@
       [G.t('dbg.level'), act(function () { s.cheatLevel(); }), 'dbg_level'],
       s.testRoom >= 0 ? [G.t('dbg.restart'), act(function () { s.restartTestRoom(); }), 'dbg_next']
         : [G.t('dbg.next'), act(function () { s.cheatRoom(s.roomIndex + 1); }), 'dbg_next'],
-      [G.t('dbg.boss'), act(function () { s.cheatRoom(s.B.run.rooms - 1); }), 'dbg_boss'],
+      s.testRoom >= 0 ? [G.t('dbg.spawnBoss'), act(function () { s.cheatSpawn('tyrant', 1, 70); }), 'dbg_spawn_boss']
+        : [G.t('dbg.boss'), act(function () { s.cheatRoom(s.B.run.rooms - 1); }), 'dbg_boss'],
       [G.t('dbg.loot'), act(function () { s.cheatLoot(); }), 'dbg_loot'],
-      [G.t('dbg.doors'), act(function () { s.cheatChoice(); }), 'dbg_doors'],
+      s.testRoom >= 0 ? [G.t('dbg.spawnSkel'), act(function () { s.cheatSpawn('skeleton', 3, 44); }), 'dbg_spawn_skel']
+        : [G.t('dbg.doors'), act(function () { s.cheatChoice(); }), 'dbg_doors'],
       [G.t('dbg.merchant'), act(function () { s.cheatMerchant(); }), 'dbg_merchant'],
       [G.t('dbg.cage'), act(function () { s.cheatCage(); }), 'dbg_cage'],
       [G.t('dbg.abilities'), act(function () { s.cheatAbilities(s.defaultActives()); }), 'dbg_abil'],

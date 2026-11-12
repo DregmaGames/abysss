@@ -129,6 +129,7 @@
         if (!empty) {
           o.npc = put(s.x, s.y + 12, s.npc + '_0').setOrigin(0.5, 1).setDepth(s.y + 12);
           o.shadow = put(s.x, s.y + 11, 'shadow_s').setDepth(-100);
+          if (G.ANIM.ent[s.npc]) { o.rig = new G.Rig(self, o.npc, s.npc); W.push(o.rig.shadow); }     // HD art (Don Montoto): breathing, soft shadow
         }
         o.stall.setInteractive({ useHandCursor: true });
         if (o.npc) o.npc.setInteractive({ useHandCursor: true });
@@ -279,7 +280,12 @@
       var self = this;
       Object.keys(this.spots).forEach(function (k) {
         var s = self.spots[k];
-        if (s.npc) s.npc.setFrame(s.s.npc + '_' + (((self.frame >> 4) + s.s.x) & 1));
+        if (s.rig && s.rig.update(G.paused ? 0 : dt, { x: s.s.x, y: s.s.y + 12, ground: s.s.y + 11, face: 1, tx: null, state: 'idle', depth: s.s.y + 12 })) s.shadow.setVisible(false);
+        else if (s.npc) {
+          if (s.npc.isHD || s.npc.texture.key !== 'atlas') { G.HD.chunky(s.npc, s.s.npc + '_0'); s.npc.setOrigin(0.5, 1).setPosition(s.s.x, s.s.y + 12); }
+          s.npc.setFrame(s.s.npc + '_' + (((self.frame >> 4) + s.s.x) & 1));
+          s.shadow.setVisible(true);
+        }
       });
       this.portal.setFrame('portal_' + ((this.frame >> 3) % 3));
       var nl = this.nearLabel(this.near);

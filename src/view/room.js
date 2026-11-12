@@ -6,6 +6,9 @@
 
   G.RoomView = function (scene, room) {
     var W = room.w, H = room.h, ground = [], shade = [], x, y, i;
+    // HD art pilot: the floor is one tiled texture at double density (assets/hd_floor.png, tools/hd_atlas.py floor) under
+    // the tile layer, whose floor cells are left empty; walls, wall faces and the shadow overlays stay chunky
+    var hdFloor = G.hdMode && scene.textures.exists('hd_floor');
     function wall(tx, ty) { return tx < 0 || ty < 0 || tx >= W || ty >= H ? 1 : room.tiles[ty * W + tx]; }
     for (y = 0; y < H; y++) {
       var row = [], srow = [];
@@ -16,7 +19,7 @@
           if (!s && y + 1 < H) idx = 80 + (e ? 1 : 0) + (w ? 2 : 0) + (n ? 4 : 0) + (((x * 7 + y * 13) >> 1) & 1) * 8;
           else idx = 64 + (n ? 1 : 0) + (e ? 2 : 0) + (s ? 4 : 0) + (w ? 8 : 0);
         } else {
-          idx = (y % 8) * 8 + (x % 8);
+          idx = hdFloor ? -1 : (y % 8) * 8 + (x % 8);
           if (wall(x, y - 1)) sh = !wall(x - 1, y - 1) ? 97 : (!wall(x + 1, y - 1) ? 98 : 96);
           else if (wall(x - 1, y)) sh = 99;
         }
@@ -27,6 +30,7 @@
     this.scene = scene;
     this.map = scene.make.tilemap({ data: ground, tileWidth: T, tileHeight: T });
     this.layer = this.map.createLayer(0, this.map.addTilesetImage('tiles', 'tiles', T, T, 0, 0), 0, 0).setDepth(-1000);
+    this.floor = hdFloor ? scene.add.tileSprite(0, 0, W * T * G.HD.density, H * T * G.HD.density, 'hd_floor').setOrigin(0, 0).setScale(1 / G.HD.density).setDepth(-1001) : null;
     this.map2 = scene.make.tilemap({ data: shade, tileWidth: T, tileHeight: T });
     this.layer2 = this.map2.createLayer(0, this.map2.addTilesetImage('tiles', 'tiles', T, T, 0, 0), 0, 0).setDepth(-990);
     this.items = [];
@@ -99,6 +103,7 @@
   G.RoomView.prototype.destroy = function () {
     this.items.forEach(function (o) { o.destroy(); });
     this.fissures.forEach(function (f) { f.destroy(); });
+    if (this.floor) this.floor.destroy();
     this.layer.destroy(); this.map.destroy(); this.layer2.destroy(); this.map2.destroy();
   };
 
