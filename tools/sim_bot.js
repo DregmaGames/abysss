@@ -62,8 +62,8 @@ function main() {
   let gear = null;
   const t0 = Date.now();
   function career(startIdx) {      // one career of args.career consecutive runs on seeds[startIdx ..]; returns { runs, gear }
-    const g = G.newGear(), out = [];
-    const cp = G.BAL.bot.career, cls = G.classDef(G.BAL, args.cls).id;
+    const cls = G.classDef(G.BAL, args.cls).id, g = G.newChar(cls, cls), out = [];      // a career is one character
+    const cp = G.BAL.bot.career;
     let target = cp.startRoom;
     G.Bot.shopVisit(g, G.BAL, cls);      // between runs, as a player on the title screen: identify, equip, sell, buy
     for (let i = 0; i < args.career; i++) {

@@ -13,6 +13,10 @@ function load(store) {
   for (const f of SIM) vm.runInContext(fs.readFileSync(path.join(ROOT, 'src', f), 'utf8'), ctx, { filename: f });
   return ctx.G;
 }
+// v9 keeps a list of characters; the older checks speak of "the gear of a class": findChar = the first character of that class (undefined if none), charOf = the same, created if missing
+const G0 = load();
+const findChar = (save, cls) => (save.chars || []).find(c => c.cls === cls);
+const charOf = (save, cls) => findChar(save, cls) || G0.addChar(save, cls, cls).char;
 let fails = 0;
 function check(name, ok, extra) { if (!ok) fails++; console.log((ok ? 'ok   ' : 'FAIL ') + name + (extra ? '  ' + extra : '')); }
 
@@ -132,41 +136,41 @@ const ids = o => Object.keys(o).map(k => o[k] && o[k].id).join(',');
   const total = g => g.bag.length + Object.values(g.equipped).filter(Boolean).length;
   store.data[KEY] = old(2);
   let s = G.loadSave();
-  check('save: v2 loads as v8, gear goes to mage (default), 24 items + 1 worn, junk dropped', s.v === 8 && total(s.gears.mage) === 25 && s.gears.mage.bag[0].name === 'Old helmet' && !s.gear);
-  check('save: other classes start empty (none stored, gearOf makes empty)', !s.gears.warrior && total(G.gearOf(s, 'warrior')) === 0 && total(G.gearOf(s, 'archer')) === 0);
-  check('save: worn gear, settings and stats survive', s.gears.mage.equipped.helmet.id === 40 && s.settings.zoom === 1 && s.stats.runs === 7);
-  check('save: item ids cannot collide with new drops (nextId raised)', s.gears.mage.nextId >= 41, 'nextId ' + s.gears.mage.nextId);
+  check('save: v2 loads as v9, gear goes to mage (default), 24 items + 1 worn, junk dropped', s.v === 9 && total(charOf(s, 'mage')) === 25 && charOf(s, 'mage').bag[0].name === 'Old helmet' && !s.gear);
+  check('save: other classes start empty (none stored, gearOf makes empty)', !findChar(s, 'warrior') && total(charOf(s, 'warrior')) === 0 && total(charOf(s, 'archer')) === 0);
+  check('save: worn gear, settings and stats survive', charOf(s, 'mage').equipped.helmet.id === 40 && s.settings.zoom === 1 && s.stats.runs === 7);
+  check('save: item ids cannot collide with new drops (nextId raised)', charOf(s, 'mage').nextId >= 41, 'nextId ' + charOf(s, 'mage').nextId);
   store.data[KEY] = old(3, { settings: { zoom: 0, shake: 100, cls: 'warrior' } });
   s = G.loadSave();
-  check('save: a v3 save goes to the class selected in it (warrior)', total(s.gears.warrior) === 25 && !s.gears.mage);
+  check('save: a v3 save goes to the class selected in it (warrior)', total(charOf(s, 'warrior')) === 25 && !findChar(s, 'mage'));
   const big = []; for (let i = 0; i < 50; i++) big.push(item(i + 1, 'armor'));
   store.data[KEY] = JSON.stringify({ v: 3, gear: { equipped: eq, bag: big, nextId: 51 } });
-  check('save: an oversized old bag is kept whole (no item lost)', G.loadSave().gears.mage.bag.length === 50);
+  check('save: an oversized old bag is kept whole (no item lost)', charOf(G.loadSave(), 'mage').bag.length === 50);
   const foreign = Object.assign(item(77, 'weapon'), { wtype: G.BAL.weaponTypes ? Object.keys(G.BAL.weaponTypes).find(k => G.weaponClass(G.BAL, k) === 'warrior') : null });
   if (foreign.wtype) {
     const eq2 = Object.assign({}, eq, { weapon: foreign });
     store.data[KEY] = JSON.stringify({ v: 3, gear: { equipped: eq2, bag: [], nextId: 5 }, settings: { cls: 'mage' } });
     s = G.loadSave();
-    check('save: a warrior weapon worn in a mage-selected save is moved to its bag, not lost', s.gears.mage.equipped.weapon === null && s.gears.mage.bag.some(i => i.id === 77));
+    check('save: a warrior weapon worn in a mage-selected save is moved to its bag, not lost', charOf(s, 'mage').equipped.weapon === null && charOf(s, 'mage').bag.some(i => i.id === 77));
   }
   store.data[KEY] = JSON.stringify({ v: 2, gear: { equipped: {} } });
-  check('save: a v2 save with no bag field loads', Array.isArray(G.loadSave().gears.mage.bag));
+  check('save: a v2 save with no bag field loads (an untouched class becomes no character)', G.loadSave().chars.length === 0 && G.loadSave().sel === null);
   store.data[KEY] = '{not json';
-  check('save: corrupt data gives a fresh save', G.loadSave().v === 8);
+  check('save: corrupt data gives a fresh save', G.loadSave().v === 9);
   // a full round trip: a run that leaves writes the bag to the save of the class that played
   store.data[KEY] = old(2);
-  const sv = G.loadSave(), g = G.gearOf(sv, 'warrior'), sim = new G.Sim({ seed: 2, gear: g, cls: 'warrior' });
+  const sv = G.loadSave(), g = charOf(sv, 'warrior'), sim = new G.Sim({ seed: 2, gear: g, cls: 'warrior' });
   sim.bag.push(G.rollItem(sim.rngRoom, 1, 0, sim.B, g, sim.cls)); sim.cheatChoice(); sim.leave(); G.storeSave(sv);
   const st = JSON.parse(store.data[KEY]);
-  check('save: banking goes to the playing class (warrior 1 item, mage still 25)', st.v === 8 && total(st.gears.warrior) === 1 && total(st.gears.mage) === 25);
+  check('save: banking goes to the playing class (warrior 1 item, mage still 25)', st.v === 9 && total(charOf(st, 'warrior')) === 1 && total(charOf(st, 'mage')) === 25);
   const sv2 = G.loadSave();
-  check('save: v4 round trips; switching class shows the other stash', total(G.gearOf(sv2, 'warrior')) === 1 && total(G.gearOf(sv2, 'mage')) === 25 && total(G.gearOf(sv2, 'archer')) === 0);
+  check('save: v4 round trips; switching class shows the other stash', total(charOf(sv2, 'warrior')) === 1 && total(charOf(sv2, 'mage')) === 25 && total(charOf(sv2, 'archer')) === 0);
   // equipping in one class does not touch another
-  const mg = G.gearOf(sv2, 'mage'), before = total(G.gearOf(sv2, 'warrior'));
+  const mg = charOf(sv2, 'mage'), before = total(charOf(sv2, 'warrior'));
   G.equipFromBag(mg, 0, G.BAL, 'mage'); G.dropFromBag(mg, 0);
-  check('save: equip and discard on one class leave the other untouched', total(G.gearOf(sv2, 'warrior')) === before && G.gearScore(G.gearOf(sv2, 'warrior')) === 0);
+  check('save: equip and discard on one class leave the other untouched', total(charOf(sv2, 'warrior')) === before && G.gearScore(charOf(sv2, 'warrior')) === 0);
   // the sim of one class uses only that class's gear score
-  check('sim: gear score of the played class only', G.gearScore(mg) > 0 && G.gearScore(G.gearOf(sv2, 'archer')) === 0);
+  check('sim: gear score of the played class only', G.gearScore(mg) > 0 && G.gearScore(charOf(sv2, 'archer')) === 0);
 })();
 
 (function identification() {
@@ -213,14 +217,14 @@ const ids = o => Object.keys(o).map(k => o[k] && o[k].id).join(',');
   // saves: old items count as identified; scrolls are per class and survive the round trip
   const it = { id: 3, slot: 'armor', rarity: 3, ilvl: 4, name: 'Old armor', stats: { armor: 9, hp: 4 }, power: 20 };
   store.data[KEY] = JSON.stringify({ v: 3, gear: { equipped: { armor: it }, bag: [Object.assign({}, it, { id: 4 })], nextId: 5 }, settings: { cls: 'archer' } });
-  let sv = G.loadSave(), ag = G.gearOf(sv, 'archer');
+  let sv = G.loadSave(), ag = charOf(sv, 'archer');
   check('save: items of an old save are identified (rare, no unid flag), scrolls 0, all on the archer', ag.equipped.armor.rarity === 3 && !ag.equipped.armor.unid && !ag.bag[0].unid && ag.scrolls === 0 && G.canEquipNow(ag.bag[0], B, 'archer'));
   store.data[KEY] = JSON.stringify({ v: 4, gears: { mage: { equipped: {}, bag: [it], nextId: 9 } }, settings: {} });
   sv = G.loadSave();
-  check('save: a v4 save loads as v8, its items identified, scrolls 0', sv.v === 8 && sv.gears.mage.scrolls === 0 && !sv.gears.mage.bag[0].unid);
-  G.gearOf(sv, 'warrior').scrolls = 4; sv.gears.mage.bag.push(Object.assign({}, it, { id: 10, unid: true })); G.storeSave(sv);
+  check('save: a v4 save loads as v9, its items identified, scrolls 0', sv.v === 9 && charOf(sv, 'mage').scrolls === 0 && !findChar(sv, 'mage').bag[0].unid);
+  charOf(sv, 'warrior').scrolls = 4; charOf(sv, 'mage').bag.push(Object.assign({}, it, { id: 10, unid: true })); G.storeSave(sv);
   const sv3 = G.loadSave();
-  check('save: scrolls and unidentified items round trip, per class', G.gearOf(sv3, 'warrior').scrolls === 4 && G.gearOf(sv3, 'mage').scrolls === 0 && sv3.gears.mage.bag[1].unid === true);
+  check('save: scrolls and unidentified items round trip, per class', charOf(sv3, 'warrior').scrolls === 4 && charOf(sv3, 'mage').scrolls === 0 && charOf(sv3, 'mage').bag[1].unid === true);
   // the bot: identifies the best usable unidentified item first, equips only identified own-class items
   const bg = G.newGear(); bg.scrolls = 1;
   const mk2 = (id, rarity, slot) => ({ id, slot, rarity, ilvl: 2, name: 'x', stats: { hp: 30 }, power: 5, unid: true });
@@ -318,7 +322,7 @@ const ids = o => Object.keys(o).map(k => o[k] && o[k].id).join(',');
   const t = new G.Sim({ seed: 5, gear: G.newGear(), testRoom: true }); t.gold = 50; t.addGold(10, 'kill', 0, 0); t.state = 'choice'; t.leave();
   check('gold: the test room earns and banks nothing', t.gear.gold === 0 && t.goldEarned === 0);
   const pw = run('left', 'warrior'), pm = run('left', 'mage'); pw.gear.gold += 0;
-  const save = G.newSave(); G.gearOf(save, 'warrior').gold = 77; check('gold: per class (the mage wallet is separate)', G.gearOf(save, 'mage').gold === 0 && G.gearOf(save, 'warrior').gold === 77);
+  const save = G.newSave(); charOf(save, 'warrior').gold = 77; check('gold: per class (the mage wallet is separate)', charOf(save, 'mage').gold === 0 && charOf(save, 'warrior').gold === 77);
   // earning: kill, close, chest, boss, door bonus, no rng
   const q = new G.Sim({ seed: 5, gear: G.newGear() }); q.loadRoom(2);
   q.addGold(10, 'kill', 0, 0); const g10 = q.gold + q.goldFrac;
@@ -372,16 +376,16 @@ const ids = o => Object.keys(o).map(k => o[k] && o[k].id).join(',');
   const L = load(store), KEY = 'riftscar.save.v2', item = { id: 3, slot: 'armor', rarity: 3, ilvl: 4, name: 'Old armor', stats: { armor: 9, hp: 4 }, power: 20 };
   store.data[KEY] = JSON.stringify({ v: 5, gears: { mage: { equipped: {}, bag: [item], nextId: 9, scrolls: 2 } }, settings: {} });
   let sv = L.loadSave();
-  check('save: v5 loads as v8 with 0 gold, no ranks, no stock, nothing lost', sv.v === 8 && sv.gears.mage.gold === 0 && Object.keys(sv.gears.mage.ranks).length === 0 && sv.gears.mage.shop === null && sv.gears.mage.bag.length === 1 && sv.gears.mage.scrolls === 2);
+  check('save: v5 loads as v9 with 0 gold, no ranks, no stock, nothing lost', sv.v === 9 && charOf(sv, 'mage').gold === 0 && Object.keys(charOf(sv, 'mage').ranks).length === 0 && charOf(sv, 'mage').shop === null && charOf(sv, 'mage').bag.length === 1 && charOf(sv, 'mage').scrolls === 2);
   const shopOk = L.newGear(); L.restockShop(shopOk, L.BAL, 'mage');
   store.data[KEY] = JSON.stringify({ v: 6, gears: { mage: { equipped: {}, bag: [item], nextId: 9, scrolls: 0, gold: 321.9, ranks: { might: 9, bogus: 2, guard: 2, haste: -1, vitality: 'x' }, shop: shopOk.shop }, warrior: { equipped: {}, bag: [], nextId: 1, gold: -5, ranks: [], shop: { rolls: 1, stock: [1, 2] } } }, settings: {} });
   sv = L.loadSave();
-  check('save: v6 keeps gold (whole), ranks (known ids, clamped 0-5), a valid stock', sv.gears.mage.gold === 321 && sv.gears.mage.ranks.might === 5 && sv.gears.mage.ranks.guard === 2 && !('bogus' in sv.gears.mage.ranks) && !sv.gears.mage.ranks.haste && !sv.gears.mage.ranks.vitality && sv.gears.mage.shop && sv.gears.mage.shop.stock.length === 7);
-  check('save: a malformed v6 save gets gold 0, no ranks, no stock', sv.gears.warrior.gold === 0 && Object.keys(sv.gears.warrior.ranks).length === 0 && sv.gears.warrior.shop === null);
-  sv.gears.mage.gold = 40; L.storeSave(sv); const sv2 = L.loadSave();
-  check('save: gold and stock round trip', sv2.gears.mage.gold === 40 && sv2.gears.mage.shop.stock.length === 7);
+  check('save: v6 keeps gold (whole), ranks (known ids, clamped 0-5), a valid stock', charOf(sv, 'mage').gold === 321 && charOf(sv, 'mage').ranks.might === 5 && charOf(sv, 'mage').ranks.guard === 2 && !('bogus' in charOf(sv, 'mage').ranks) && !findChar(sv, 'mage').ranks.haste && !findChar(sv, 'mage').ranks.vitality && charOf(sv, 'mage').shop && charOf(sv, 'mage').shop.stock.length === 7);
+  check('save: a malformed v6 save gets gold 0, no ranks, no stock', charOf(sv, 'warrior').gold === 0 && Object.keys(charOf(sv, 'warrior').ranks).length === 0 && charOf(sv, 'warrior').shop === null);
+  charOf(sv, 'mage').gold = 40; L.storeSave(sv); const sv2 = L.loadSave();
+  check('save: gold and stock round trip', charOf(sv2, 'mage').gold === 40 && charOf(sv2, 'mage').shop.stock.length === 7);
   store.data[KEY] = JSON.stringify({ v: 3, gear: { equipped: { armor: item }, bag: [item], nextId: 5 }, settings: {} });
-  sv = L.loadSave(); check('save: a v3 save gets the economy defaults, items kept', sv.v === 8 && sv.gears.mage.gold === 0 && sv.gears.mage.shop === null && sv.gears.mage.bag.length === 1);
+  sv = L.loadSave(); check('save: a v3 save gets the economy defaults, items kept', sv.v === 9 && charOf(sv, 'mage').gold === 0 && charOf(sv, 'mage').shop === null && charOf(sv, 'mage').bag.length === 1);
   // the bot's visit
   const vg = L.newGear(); vg.gold = 400; vg.bag.push(it(1, 3, { unid: true, stats: { armor: 30 } }), it(0, 1));
   const log = L.Bot.shopVisit(vg, L.BAL, 'mage');
@@ -413,24 +417,24 @@ const ids = o => Object.keys(o).map(k => o[k] && o[k].id).join(',');
   const fresh = G.newGear(); let bad = 0;
   for (let seed = 1; seed <= 200; seed++) { if (G.cageRoom(seed, B, fresh) !== 4 || G.cageRoom(seed, B, g) !== -1) bad++; }
   check('cage: always room 5 (index 4) for 200 seeds, none when rescued', bad === 0 && M.room === 4);
-  const seed = 7, cg = G.newGear(), sim = new G.Sim({ seed, gear: cg, events: true });
+  const seed = 7, cgear = G.newGear(), sim = new G.Sim({ seed, gear: cgear, events: true });
   check('cage: none before room 5', sim.cage === null && sim.cageAt === 4);
   sim.cheatRoom(3); check('cage: none in room 4', sim.cage === null);
   sim.cheatRoom(4);
-  check('cage: present from the start of room 5, not rescued', !!sim.cage && !sim.rescued && !cg.city.montoto && sim.phase === 'fissures' && !sim.roomClear());
+  check('cage: present from the start of room 5, not rescued', !!sim.cage && !sim.rescued && !cgear.city.montoto && sim.phase === 'fissures' && !sim.roomClear());
   const spot = sim.cage; sim.player.x = spot.x + 10; sim.player.y = spot.y;
   const ev0 = sim.events.length;
-  check('cage: in reach but the room is not clear -> refused, says so, stays closed', !sim.canFree() && sim.cageNear() && sim.freeCaged() === false && !cg.city.montoto && !!sim.cage && sim.events.slice(ev0).some(e => e.t === 'cagelocked'));
+  check('cage: in reach but the room is not clear -> refused, says so, stays closed', !sim.canFree() && sim.cageNear() && sim.freeCaged() === false && !cgear.city.montoto && !!sim.cage && sim.events.slice(ev0).some(e => e.t === 'cagelocked'));
   sim.cheatSkipPhase(); for (let k = 0; k < 60; k++) sim.step(); sim.player.x = spot.x + 10; sim.player.y = spot.y;
-  check('cage: network dark (phase super): still locked', sim.phase === 'super' && !sim.freeCaged() && !cg.city.montoto);
+  check('cage: network dark (phase super): still locked', sim.phase === 'super' && !sim.freeCaged() && !cgear.city.montoto);
   clearRoom(sim);
   sim.player.x = spot.x + 60; sim.player.y = spot.y;
-  check('cage: room clear (super fissure closed) but far away: cannot be freed', sim.roomClear() && sim.phase === 'chest' && !sim.canFree() && !sim.freeCaged() && !cg.city.montoto);
+  check('cage: room clear (super fissure closed) but far away: cannot be freed', sim.roomClear() && sim.phase === 'chest' && !sim.canFree() && !sim.freeCaged() && !cgear.city.montoto);
   sim.player.x = spot.x + 10; sim.player.y = spot.y;
-  check('cage: clear and in reach: freed at once, saved on the character, event, cage gone', sim.canFree() && sim.freeCaged() && cg.city.montoto === true && sim.cage === null && sim.events.some(e => e.t === 'rescue'));
+  check('cage: clear and in reach: freed at once, saved on the character, event, cage gone', sim.canFree() && sim.freeCaged() && cgear.city.montoto === true && sim.cage === null && sim.events.some(e => e.t === 'rescue'));
   sim.cheatRoom(5); sim.cheatRoom(4);
   check('cage: does not come back in this run once freed', sim.cage === null);
-  check('cage: later runs of the same character have none', G.cageRoom(seed, B, cg) === -1 && new G.Sim({ seed, gear: cg }).cageAt === -1);
+  check('cage: later runs of the same character have none', G.cageRoom(seed, B, cgear) === -1 && new G.Sim({ seed, gear: cgear }).cageAt === -1);
   // dying after freeing him keeps him
   const dg = G.newGear(), ds = new G.Sim({ seed, gear: dg }); ds.cheatRoom(4); clearRoom(ds); if (ds.state === 'levelup') ds.chooseAbility(0, 0);
   ds.player.x = ds.cage.x; ds.player.y = ds.cage.y; ds.freeCaged(); while (ds.state === 'play') ds.hurtPlayer(9999);
@@ -456,20 +460,22 @@ const ids = o => Object.keys(o).map(k => o[k] && o[k].id).join(',');
   const L = load(store), KEY = 'riftscar.save.v2', item = { id: 3, slot: 'armor', rarity: 3, ilvl: 4, name: 'Old armor', stats: { armor: 9, hp: 4 }, power: 20, unid: true };
   store.data[KEY] = JSON.stringify({ v: 6, gears: { mage: { equipped: {}, bag: [item], nextId: 9, scrolls: 1, gold: 50, ranks: { might: 2 } }, warrior: { equipped: {}, bag: [], nextId: 1 } }, settings: {} });
   let sv = L.loadSave();
-  check('city save: v6 loads as v8, Don Montoto not rescued, items / gold / ranks untouched (an unidentified item stays unidentified)', sv.v === 8 && sv.gears.mage.city.montoto === false && sv.gears.warrior.city.montoto === false && sv.gears.mage.city.story === 0 && sv.gears.mage.bag.length === 1 && sv.gears.mage.bag[0].unid === true && sv.gears.mage.gold === 50 && sv.gears.mage.ranks.might === 2 && sv.gears.mage.scrolls === 1);
+  check('city save: v6 loads as v9, Don Montoto not rescued, items / gold / ranks untouched (an unidentified item stays unidentified)', sv.v === 9 && charOf(sv, 'mage').city.montoto === false && charOf(sv, 'warrior').city.montoto === false && charOf(sv, 'mage').city.story === 0 && charOf(sv, 'mage').bag.length === 1 && charOf(sv, 'mage').bag[0].unid === true && charOf(sv, 'mage').gold === 50 && charOf(sv, 'mage').ranks.might === 2 && charOf(sv, 'mage').scrolls === 1);
   // v7 -> v8: the old Appraiser flag becomes Don Montoto, per character
   store.data[KEY] = JSON.stringify({ v: 7, gears: { mage: { equipped: {}, bag: [item], nextId: 9, gold: 50, city: { appraiser: true } }, warrior: { equipped: {}, bag: [], nextId: 1, city: { appraiser: false } }, archer: { equipped: {}, bag: [], nextId: 1 } }, settings: {} });
   sv = L.loadSave();
-  check('city save: v7 -> v8: a character that rescued the Appraiser keeps Don Montoto rescued; the others do not; nothing else lost', sv.v === 8 && sv.gears.mage.city.montoto === true && sv.gears.warrior.city.montoto === false && sv.gears.archer.city.montoto === false && sv.gears.mage.city.story === 0 && sv.gears.mage.bag.length === 1 && sv.gears.mage.gold === 50 && sv.gears.mage.city.appraiser === undefined);
-  L.storeSave(sv); sv.gears.mage.city.story = 5; L.storeSave(sv);
+  check('city save: v7 -> v8: a character that rescued the Appraiser keeps Don Montoto rescued; the others do not; nothing else lost', sv.v === 9 && charOf(sv, 'mage').city.montoto === true && charOf(sv, 'warrior').city.montoto === false && charOf(sv, 'archer').city.montoto === false && charOf(sv, 'mage').city.story === 0 && charOf(sv, 'mage').bag.length === 1 && charOf(sv, 'mage').gold === 50 && charOf(sv, 'mage').city.appraiser === undefined);
+  L.storeSave(sv); charOf(sv, 'mage').city.story = 5; L.storeSave(sv);
   const sv3 = L.loadSave();
-  check('city save: the rescue and the story index are per character and round trip', sv3.v === 8 && sv3.gears.mage.city.montoto === true && sv3.gears.mage.city.story === 5 && sv3.gears.warrior.city.montoto === false && sv3.gears.warrior.city.story === 0);
+  check('city save: the rescue and the story index are per character and round trip', sv3.v === 9 && charOf(sv3, 'mage').city.montoto === true && charOf(sv3, 'mage').city.story === 5 && charOf(sv3, 'warrior').city.montoto === false && charOf(sv3, 'warrior').city.story === 0);
   store.data[KEY] = JSON.stringify({ v: 8, gears: { mage: { equipped: {}, bag: [], nextId: 1, city: { montoto: 'yes', story: -3 } }, warrior: { equipped: {}, bag: [], nextId: 1, city: 5 }, archer: { equipped: {}, bag: [], nextId: 1, city: { story: 9999 } } }, settings: {} });
   sv = L.loadSave();
-  check('city save: a malformed city state counts as not rescued, story 0 (index wraps)', sv.gears.mage.city.montoto === false && sv.gears.mage.city.story === 0 && sv.gears.warrior.city.montoto === false && sv.gears.archer.city.montoto === false && sv.gears.archer.city.story === 9999 % n);
+  check('city save: a malformed city state counts as not rescued, story 0 (index wraps)', charOf(sv, 'mage').city.montoto === false && charOf(sv, 'mage').city.story === 0 && charOf(sv, 'warrior').city.montoto === false && !findChar(sv, 'archer'));      // the archer set holds nothing: it is not a character
+  store.data[KEY] = JSON.stringify({ v: 8, gears: { archer: { equipped: {}, bag: [], nextId: 1, city: { montoto: true, story: 9999 } } }, settings: {} });
+  check('city save: the story index wraps to the number of lines', findChar(L.loadSave(), 'archer').city.story === 9999 % n);
   store.data[KEY] = JSON.stringify({ v: 3, gear: { equipped: { armor: item }, bag: [item], nextId: 5 }, settings: {} });
-  sv = L.loadSave(); check('city save: a v3 save gets the city state and keeps all items', sv.v === 8 && sv.gears.mage.city.montoto === false && sv.gears.mage.bag.length === 1 && sv.gears.mage.equipped.armor);
-  check('city save: a fresh save is v8', L.newSave().v === 8 && L.newGear().city.montoto === false && L.newGear().city.story === 0);
+  sv = L.loadSave(); check('city save: a v3 save gets the city state and keeps all items', sv.v === 9 && charOf(sv, 'mage').city.montoto === false && charOf(sv, 'mage').bag.length === 1 && charOf(sv, 'mage').equipped.armor);
+  check('city save: a fresh save is v8', L.newSave().v === 9 && L.newGear().city.montoto === false && L.newGear().city.story === 0);
 })();
 
 // step 10: the daily challenge. The date alone gives the run; the kit is its own gear set; nothing reaches a save.
@@ -491,7 +497,7 @@ const ids = o => Object.keys(o).map(k => o[k] && o[k].id).join(',');
   check('daily: one door offered, the day\'s one (leave still allowed)', sim.doors.length === 1 && sim.doors[0] === all[a.doors[0]], sim.doors.join(','));
   // a whole daily run by the bot: the save is never touched
   const store = { data: {}, getItem(k) { return this.data[k] === undefined ? null : this.data[k]; }, setItem(k, v) { this.data[k] = v; } };
-  const L = load(store), save = L.newSave(), mine = L.gearOf(save, 'mage');
+  const L = load(store), save = L.newSave(), mine = charOf(save, 'mage');
   mine.gold = 77; mine.bag.push(L.rollItem(new L.RNG(5), 2, 0, L.BAL, mine, 'mage'));
   L.storeSave(save);
   const before = store.data['riftscar.save.v2'], info = L.dailyInfo('2026-11-12', L.BAL), kit = L.dailyGear(info, L.BAL);
@@ -514,7 +520,7 @@ const ids = o => Object.keys(o).map(k => o[k] && o[k].id).join(',');
   const store = { data: {}, getItem(k) { return this.data[k] === undefined ? null : this.data[k]; }, setItem(k, v) { this.data[k] = v; } }, L = load(store), KEY = 'riftscar.save.v2';
   store.data[KEY] = JSON.stringify({ v: 8, gears: { mage: { equipped: {}, bag: [], nextId: 1 }, warrior: { equipped: {}, bag: [], nextId: 1, gold: 30 }, archer: { equipped: {}, bag: [], nextId: 1, ux: { runs: 3 } } } });
   let sv = L.loadSave();
-  check('ux: a save from before the flag: an untouched character is fresh (runs 0), one with progress counts as veteran (1), an explicit count is kept', sv.gears.mage.ux.runs === 0 && sv.gears.warrior.ux.runs === 1 && sv.gears.archer.ux.runs === 3 && sv.hints.off === false);
+  check('ux: a save from before the flag: an untouched character is fresh (runs 0), one with progress counts as veteran (1), an explicit count is kept', charOf(sv, 'mage').ux.runs === 0 && charOf(sv, 'warrior').ux.runs === 1 && charOf(sv, 'archer').ux.runs === 3 && sv.hints.off === false);
   const g = G.newGear(), a = new G.Sim({ seed: 4, gear: g, cls: 'warrior' });
   check('ux: the first run is gentle and counts as started (runs 1); the next is not', a.gentle === true && g.ux.runs === 1 && new G.Sim({ seed: 4, gear: g, cls: 'warrior' }).gentle === false);
   const gm = G.BAL.run.gentle, hp = s => Math.round(s.B.monsters.imp.hp * s.threat);
@@ -560,7 +566,7 @@ const ids = o => Object.keys(o).map(k => o[k] && o[k].id).join(',');
   const G = load();
   const sv = G.newSave(), rng = new G.RNG(77);
   ['mage', 'warrior', 'archer'].forEach((c, i) => {
-    const g = G.gearOf(sv, c), sim = new G.Sim({ seed: 3 + i, gear: g, cls: c });
+    const g = charOf(sv, c), sim = new G.Sim({ seed: 3 + i, gear: g, cls: c });
     for (let k = 0; k < 6; k++) g.bag.push(G.rollItem(sim.rngRoom, 3, k % 5, sim.B, g, sim.cls));
     g.equipped[G.ITEM_SLOTS[0]] = G.rollItem(sim.rngRoom, 2, 1, sim.B, g, sim.cls);
     g.gold = 120 + i; g.scrolls = i; g.ranks = i ? { might: 2 } : {}; g.ux.runs = 2;
@@ -569,7 +575,7 @@ const ids = o => Object.keys(o).map(k => o[k] && o[k].id).join(',');
   const code = G.encodeSave(sv), res = G.decodeSave(code);
   check('backup: the code is one line of text with the RS1 header and a checksum', /^RS1\.[A-Za-z0-9+\/=]+\.[0-9a-f]{8}$/.test(code), code.length + ' chars for ' + JSON.stringify(sv).length + ' of JSON');
   check('backup: compressed (smaller than the JSON)', code.length < JSON.stringify(sv).length);
-  check('backup: export -> import round trip equals the original', res.ok && JSON.stringify(res.save) === JSON.stringify(G.parseSave(JSON.stringify(sv))) && res.save.v === 8 && res.from === 8);
+  check('backup: export -> import round trip equals the original', res.ok && JSON.stringify(res.save) === JSON.stringify(G.parseSave(JSON.stringify(sv))) && res.save.v === 9 && res.from === 9);
   check('backup: the summary says what the code holds (characters, items, gold)', res.info.chars.length === 3 && res.info.items === 21 && res.info.gold === 120 + 121 + 122 && res.info.runs === 7);
   check('backup: whitespace and line breaks in a pasted code are ignored', G.decodeSave('  ' + code.replace(/(.{40})/g, '$1\n') + '\n ').ok);
   const flip = (s, at) => s.slice(0, at) + (s[at] === 'A' ? 'B' : 'A') + s.slice(at + 1);
@@ -579,11 +585,11 @@ const ids = o => Object.keys(o).map(k => o[k] && o[k].id).join(',');
   // a code whose checksum is right but whose content is not a save: build one through the same encoder with other JSON
   const enc = obj => { const old = JSON.stringify; return G.encodeSave(obj); };
   check('backup: a valid code that holds something else (no gears) is refused', G.decodeSave(enc({ hello: 1 })).err === 'shape');
-  check('backup: a save from a newer version is refused', G.decodeSave(enc({ v: 9, gears: {} })).err === 'version');
+  check('backup: a save from a newer version is refused', G.decodeSave(enc({ v: 10, chars: [] })).err === 'version');
   check('backup: an old save (v6) in a code migrates to v8 with its items and gold', (() => {
     const item = { id: 3, slot: 'armor', rarity: 3, ilvl: 4, name: 'Old armor', stats: { armor: 9, hp: 4 }, power: 20, unid: true };
     const r = G.decodeSave(enc({ v: 6, gears: { mage: { equipped: {}, bag: [item], nextId: 9, scrolls: 1, gold: 50, ranks: { might: 2 } } }, settings: {}, stats: { runs: 2, wins: 0, best: 3 } }));
-    return r.ok && r.from === 6 && r.save.v === 8 && r.save.gears.mage.gold === 50 && r.save.gears.mage.bag.length === 1 && r.save.gears.mage.bag[0].unid === true && r.save.gears.mage.city.montoto === false && r.save.hints.off === false;
+    return r.ok && r.from === 6 && r.save.v === 9 && charOf(r.save, 'mage').gold === 50 && charOf(r.save, 'mage').bag.length === 1 && charOf(r.save, 'mage').bag[0].unid === true && charOf(r.save, 'mage').city.montoto === false && r.save.hints.off === false;
   })());
   check('backup: non-ASCII text survives (escaped in the code)', G.decodeSave(enc({ v: 8, gears: {}, note: 'Capucha Salvaje ñ á €' })).ok);
   // the importing side keeps nothing of the code until it is confirmed: decodeSave never touches the current save
@@ -591,9 +597,109 @@ const ids = o => Object.keys(o).map(k => o[k] && o[k].id).join(',');
   G.decodeSave(code); G.decodeSave('garbage');
   check('backup: checking a code changes nothing', JSON.stringify(cur) === before);
   // a full-size save: 3 characters with full bags and a shop
-  const big = G.newSave(); ['mage', 'warrior', 'archer'].forEach(c => { const g = G.gearOf(big, c), sim = new G.Sim({ seed: 9, gear: g, cls: c }); for (let k = 0; k < 50; k++) g.bag.push(G.rollItem(sim.rngRoom, 5, k % 5, sim.B, g, sim.cls)); });
+  const big = G.newSave(); ['mage', 'warrior', 'archer'].forEach(c => { const g = charOf(big, c), sim = new G.Sim({ seed: 9, gear: g, cls: c }); for (let k = 0; k < 50; k++) g.bag.push(G.rollItem(sim.rngRoom, 5, k % 5, sim.B, g, sim.cls)); });
   const bc = G.encodeSave(big), br = G.decodeSave(bc);
   check('backup: a save with three full bags round trips', br.ok && br.info.items === 150, bc.length + ' chars');
+})();
+
+// named characters (v9): create, select, delete, limit, name rules, migration from the older versions, backup round trip
+(function characters() {
+  const store = { data: {}, getItem(k) { return k in this.data ? this.data[k] : null; }, setItem(k, v) { this.data[k] = v; } }, KEY = 'riftscar.save.v2';
+  const files = SIM.slice(); files.splice(files.indexOf('lore.js') + 1, 0, 'i18n.js', 'i18n_ux.js', 'i18n_tut.js');
+  const G = (() => { const ctx = { Math, console, Uint8Array, Int16Array, Object, JSON, Array, localStorage: store }; ctx.globalThis = ctx; vm.createContext(ctx);
+    for (const f of files) vm.runInContext(fs.readFileSync(path.join(ROOT, 'src', f), 'utf8'), ctx, { filename: f }); return ctx.G; })();
+  const MAX = G.BAL.characters.max, N = G.BAL.characters.nameMax;
+  // create / select
+  let sv = G.newSave();
+  check('chars: a new save has no characters and nothing selected', sv.v === 9 && sv.chars.length === 0 && sv.sel === null && G.curChar(sv) === null);
+  let r = G.addChar(sv, 'warrior', '  Brakka  ');
+  check('chars: create -> trimmed name, class, own id, selected, starts with nothing', r.ok && r.char.name === 'Brakka' && r.char.cls === 'warrior' && sv.sel === r.char.id && G.curChar(sv) === r.char &&
+    G.gearScore(r.char) === 0 && r.char.gold === 0 && r.char.bag.length === 0 && r.char.ux.runs === 0 && r.char.city.montoto === false);
+  const a = r.char, b = G.addChar(sv, 'warrior', 'Gunnar').char;
+  check('chars: two characters of the same class have different ids and separate gear', a.id !== b.id && a.equipped !== b.equipped && a.bag !== b.bag && sv.sel === b.id);
+  b.gold = 99; b.bag.push({ id: 1, slot: 'helmet', rarity: 1, stats: { hp: 1 } });
+  check('chars: changing one leaves the other alone', a.gold === 0 && a.bag.length === 0);
+  check('chars: select another one (and refuse an unknown id)', G.selectChar(sv, a.id) && sv.sel === a.id && !G.selectChar(sv, 'nope') && sv.sel === a.id && (G.syncCls(), true));
+  // name rules
+  const cn = G.cleanName;
+  check('names: trimmed, spaces collapsed, at most ' + N, cn('  a   b  ') === 'a b' && cn('abcdefghijklmnopqrstuvwxyz').length === N && cn('abcdefghijk  mno') === 'abcdefghijk');
+  check('names: letters with á é í ó ú ñ ü (both cases), digits, spaces and hyphens are kept', cn('Ánge Ñu-Üña') === 'Ánge Ñu-Üña' && cn('Zed 7-b') === 'Zed 7-b' && cn('ÁÉÍÓÚ ÑÜ áéíóú ñü') === 'ÁÉÍÓÚ ÑÜ áéí');
+  check('names: everything else is dropped (markup, symbols, emoji, underscores)', cn('<b>Zed</b>') === 'bZedb' && cn('a_b!c?@d') === 'abcd' && cn('Zed \u{1F600}') === 'Zed' && cn('x\ty\nz') === 'x y z' && cn('Ça va') === 'a va');
+  check('names: empty or only unusable characters is refused, no character is made', cn('   ') === '' && cn('!!!') === '' && !G.addChar(sv, 'mage', '  ').ok && G.addChar(sv, 'mage', '###').err === 'name' && !G.addChar(sv, 'dragon', 'Zed').ok && sv.chars.length === 2);
+  check('names: a nameChars filter for typing keeps spaces and cuts at the limit', G.nameChars('ab  c!') === 'ab  c' && G.nameChars('x'.repeat(30)).length === N);
+  // duplicates: suffixed
+  const d = G.newSave(); const n1 = G.addChar(d, 'mage', 'Zed').char, n2 = G.addChar(d, 'archer', 'zed').char, n3 = G.addChar(d, 'mage', 'Zed').char, n4 = G.addChar(d, 'mage', 'Abcdefghijkl').char, n5 = G.addChar(d, 'mage', 'Abcdefghijkl').char;
+  check('names: a repeated name (any case) gets a number: Zed, Zed 2, Zed 3; a 12-letter name is cut to fit', n1.name === 'Zed' && n2.name === 'zed 2' && n3.name === 'Zed 3' && n4.name === 'Abcdefghijkl' && n5.name === 'Abcdefghij 2' && n5.name.length <= N);
+  // limit
+  const lim = G.newSave(); for (let i = 0; i < MAX; i++) G.addChar(lim, 'mage', 'Hero' + i);
+  check('limit: ' + MAX + ' characters fit, the next one is refused, the list is untouched', lim.chars.length === MAX && G.charLimit(lim) && G.addChar(lim, 'mage', 'One more').err === 'limit' && lim.chars.length === MAX);
+  // delete
+  const del = lim.chars[3], keep = JSON.stringify(lim.chars.filter(c => c !== del)), selBefore = lim.sel;
+  check('delete: removes only that character (the others are byte for byte the same), frees a slot', G.deleteChar(lim, del.id) && lim.chars.length === MAX - 1 && JSON.stringify(lim.chars) === keep && !G.charLimit(lim) && lim.sel === selBefore);
+  check('delete: an unknown id changes nothing', !G.deleteChar(lim, 'zzz') && lim.chars.length === MAX - 1);
+  lim.sel = lim.chars[0].id; const first = lim.chars[0].id; G.deleteChar(lim, first);
+  check('delete: deleting the selected one moves the selection to a neighbour', lim.sel !== first && !!G.charById(lim, lim.sel));
+  const nid = G.addChar(lim, 'mage', 'Fresh').char.id;
+  check('delete: ids are not reused', nid !== del.id && nid !== first);
+  const one = G.newSave(); const only = G.addChar(one, 'archer', 'Solo').char; G.deleteChar(one, only.id);
+  check('delete: the last character leaves an empty list, nothing selected, ready to create', one.chars.length === 0 && one.sel === null && G.curChar(one) === null && G.addChar(one, 'mage', 'Again').ok);
+  // persistence
+  store.data[KEY] = JSON.stringify(sv); G.storeSave(sv);
+  const back = G.loadSave();
+  check('persistence: store -> load gives the same characters (two of one class), same selection', JSON.stringify(back.chars) === JSON.stringify(sv.chars) && back.sel === sv.sel && back.nextChar === sv.nextChar);
+  // v9 cleaning
+  store.data[KEY] = JSON.stringify({ v: 9, chars: [{ id: 'c4', name: 'Ok', cls: 'mage' }, { id: 'c4', name: '', cls: 'archer' }, { id: 'x', name: 'Bad class', cls: 'dragon' }, null, { id: 'c9', name: 'Zed', cls: 'warrior', gold: 5.7 }, { id: 'c10', name: 'zed', cls: 'warrior' }], sel: 'gone', nextChar: 2 });
+  let c9 = G.loadSave();
+  check('v9 load: bad entries dropped, ids made unique, an empty name gets the class name, duplicate names numbered, bad selection -> first', c9.chars.length === 4 && new Set(c9.chars.map(c => c.id)).size === 4 && c9.chars[1].name === 'Archer' &&
+    c9.chars[3].name === 'zed 2' && c9.sel === c9.chars[0].id && c9.chars[2].gold === 5 && c9.nextChar > Math.max(...c9.chars.map(c => +c.id.slice(1))));
+  // migration
+  const item = (id, slot) => ({ id, slot, rarity: 1, ilvl: 2, name: 'Old ' + slot, stats: { hp: 9 }, power: 6 });
+  const emp = () => ({ equipped: {}, bag: [], nextId: 1 });
+  const eqH = { helmet: item(40, 'helmet') };
+  const v8 = lang => JSON.stringify({ v: 8, gears: { mage: Object.assign(emp(), { equipped: eqH, bag: [item(1, 'armor'), item(2, 'boots')], nextId: 41, gold: 77, ux: { runs: 3 } }), warrior: emp(), archer: Object.assign(emp(), { ranks: { might: 2 } }) },
+    settings: { zoom: 1, cls: 'archer', lang }, stats: { runs: 5, wins: 1, best: 6 } });
+  store.data[KEY] = v8('en'); let m = G.loadSave();
+  check('migrate v8: classes with progress become characters named after the class, untouched ones are dropped', m.v === 9 && m.chars.length === 2 && m.chars[0].cls === 'mage' && m.chars[0].name === 'Mage' && m.chars[1].cls === 'archer' && m.chars[1].name === 'Archer' && !m.gears);
+  check('migrate v8: the previously selected class is the selected character; settings.cls is gone, the rest of the settings stay', m.sel === m.chars[1].id && G.curChar(m).cls === 'archer' && !('cls' in m.settings) && m.settings.zoom === 1 && m.stats.runs === 5);
+  check('migrate v8: nothing is lost (items, worn, gold, ranks, runs)', m.chars[0].bag.length === 2 && m.chars[0].equipped.helmet.id === 40 && m.chars[0].gold === 77 && m.chars[0].ux.runs === 3 && m.chars[1].ranks.might === 2);
+  store.data[KEY] = v8('es'); m = G.loadSave();
+  check('migrate v8: names are in the language of the save (Spanish: ' + G.LANG.es['cls.mage'] + ', ' + G.LANG.es['cls.archer'] + ')', m.chars[0].name === G.LANG.es['cls.mage'] && m.chars[1].name === G.LANG.es['cls.archer']);
+  store.data[KEY] = JSON.stringify({ v: 8, gears: { mage: emp(), warrior: Object.assign(emp(), { city: { montoto: true, story: 2 } }), archer: emp() }, settings: { cls: 'mage' } }); m = G.loadSave();
+  check('migrate v8: Don Montoto rescued counts as progress; the selected class had none, so the first character is selected', m.chars.length === 1 && m.chars[0].cls === 'warrior' && m.chars[0].city.montoto === true && m.chars[0].city.story === 2 && m.sel === m.chars[0].id);
+  store.data[KEY] = JSON.stringify({ v: 8, gears: { mage: emp(), warrior: emp(), archer: emp() }, settings: { cls: 'mage' } }); m = G.loadSave();
+  check('migrate v8: a save with no progress at all has no characters', m.v === 9 && m.chars.length === 0 && m.sel === null);
+  store.data[KEY] = JSON.stringify({ v: 8, gears: { mage: Object.assign(emp(), { scrolls: 2 }), warrior: Object.assign(emp(), { ux: { runs: 1 } }), archer: Object.assign(emp(), { bag: [item(3, 'gloves')] }) } }); m = G.loadSave();
+  check('migrate v8: scrolls, a started run and a bag item each count as progress', m.chars.map(c => c.cls).join() === 'mage,warrior,archer' && m.chars[0].scrolls === 2);
+  store.data[KEY] = JSON.stringify({ v: 6, gears: { mage: Object.assign(emp(), { gold: 50, ranks: { might: 1 } }) }, settings: {} }); m = G.loadSave();
+  check('migrate v6: gold and ranks survive in the character', m.chars.length === 1 && m.chars[0].gold === 50 && m.chars[0].ranks.might === 1 && m.chars[0].city.montoto === false);
+  store.data[KEY] = JSON.stringify({ v: 7, gears: { archer: Object.assign(emp(), { gold: 9, city: { appraiser: true } }) }, settings: {} }); m = G.loadSave();
+  check('migrate v7: the Appraiser flag becomes a rescued Don Montoto in the character', m.chars.length === 1 && m.chars[0].city.montoto === true);
+  store.data[KEY] = JSON.stringify({ v: 3, gear: { equipped: eqH, bag: [item(1, 'armor')], nextId: 5 }, settings: { cls: 'warrior' }, stats: { runs: 2, wins: 0, best: 3 } }); m = G.loadSave();
+  check('migrate v3: the one shared gear set becomes one character of the selected class', m.chars.length === 1 && m.chars[0].cls === 'warrior' && m.chars[0].name === 'Warrior' && m.chars[0].bag.length + Object.values(m.chars[0].equipped).filter(Boolean).length === 2);
+  // the migration is stable: loading its own output again changes nothing
+  store.data[KEY] = v8('en'); m = G.loadSave(); store.data[KEY] = JSON.stringify(m);
+  check('migrate: a migrated save loads again unchanged', JSON.stringify(G.loadSave()) === JSON.stringify(m));
+  // backups: old codes import through the migration; several characters round trip
+  const enc = o => G.encodeSave(o);
+  const old = G.decodeSave(enc(JSON.parse(v8('en'))));
+  check('backup: an old (v8) code imports through the migration -> 2 characters named after their classes', old.ok && old.from === 8 && old.save.v === 9 && old.save.chars.length === 2 && old.save.chars[0].name === 'Mage' && old.info.chars.length === 2 && old.info.items === 3);
+  const old6 = G.decodeSave(enc({ v: 6, gears: { mage: Object.assign(emp(), { gold: 50 }) }, settings: {} }));
+  check('backup: a v6 code still imports', old6.ok && old6.from === 6 && old6.save.chars.length === 1);
+  const multi = G.newSave(); G.addChar(multi, 'mage', 'Elowen'); G.addChar(multi, 'mage', 'Mirael'); G.addChar(multi, 'archer', 'Wren'); multi.chars[1].gold = 31; multi.chars[1].bag.push(item(5, 'belt')); G.selectChar(multi, multi.chars[1].id);
+  const mc = G.decodeSave(G.encodeSave(multi));
+  check('backup: several characters (two of one class) round trip, selection included, the summary lists them by name', mc.ok && mc.from === 9 && JSON.stringify(mc.save.chars) === JSON.stringify(multi.chars) && mc.save.sel === multi.sel &&
+    mc.info.chars.map(c => c.name).join() === 'Elowen,Mirael,Wren' && mc.info.gold === 31 && mc.info.items === 1);
+  check('backup: a code from a newer version (v10) is still refused', G.decodeSave(enc({ v: 10, chars: [] })).err === 'version');
+  // QA entry (ensureChar) and the daily kit
+  const q = G.newSave(); G.setLang('es');
+  const qc = G.ensureChar(q, 'archer'); G.setLang('en');
+  check('ensureChar: makes one named after the class when the save has none, keeps the selected one otherwise, switches to a character of the asked class', qc.cls === 'archer' && qc.name === G.LANG.es['cls.archer'] && G.ensureChar(q) === qc &&
+    (G.addChar(q, 'mage', 'M'), G.ensureChar(q, 'archer') === qc && q.sel === qc.id));
+  const dk = G.dailyGear(G.dailyInfo('2026-11-12', G.BAL), G.BAL);
+  check('daily: the fixed kit is not a character (no id, no name)', dk.id === undefined && dk.name === undefined);
+  // the sim and the bot do not care about the identity fields
+  const plain = G.botRun(4, { cls: 'mage', gear: G.newGear(), leave: 2 }), named = G.botRun(4, { cls: 'mage', gear: G.newChar('mage', 'Mage'), leave: 2 });
+  check('bot: a run with a character object equals a run with a plain gear set', JSON.stringify(plain) === JSON.stringify(named), plain.result + ' ' + plain.rooms);
 })();
 
 console.log(fails ? fails + ' check(s) FAILED' : 'all checks passed');

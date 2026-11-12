@@ -81,18 +81,18 @@
     json = unlzw(codes);
     if (json === null) return { ok: false, err: 'data' };
     try { s = JSON.parse(json); } catch (e) { return { ok: false, err: 'data' }; }
-    if (!s || typeof s !== 'object' || typeof s.v !== 'number' || !s.gears || typeof s.gears !== 'object') return { ok: false, err: 'shape' };
-    if (s.v > 8 || s.v < 2 || s.v !== Math.floor(s.v)) return { ok: false, err: 'version' };
+    if (!s || typeof s !== 'object' || typeof s.v !== 'number' || !((s.gears && typeof s.gears === 'object') || Array.isArray(s.chars))) return { ok: false, err: 'shape' };
+    if (s.v > 9 || s.v < 2 || s.v !== Math.floor(s.v)) return { ok: false, err: 'version' };
     var save = G.parseSave(json);      // the normal migration and sanitizing
     return { ok: true, save: save, from: s.v, info: G.saveSummary(save) };
   };
 
-  // what a save holds, for the confirmation: { chars: [{ id, items, gold, scrolls }], gold, items, scrolls, runs }
+  // what a save holds, for the confirmation: { chars: [{ id, name, cls, items, gold, scrolls }], gold, items, scrolls, runs }
   G.saveSummary = function (save) {
     var out = { chars: [], gold: 0, items: 0, scrolls: 0, runs: save.stats ? save.stats.runs | 0 : 0 };
-    Object.keys(save.gears).forEach(function (id) {
-      var g = save.gears[id], n = g.bag.length + G.SLOTS.filter(function (k) { return g.equipped[k]; }).length;
-      out.chars.push({ id: id, items: n, gold: g.gold | 0, scrolls: g.scrolls | 0 });
+    save.chars.forEach(function (g) {
+      var n = g.bag.length + G.SLOTS.filter(function (k) { return g.equipped[k]; }).length;
+      out.chars.push({ id: g.id, name: g.name, cls: g.cls, items: n, gold: g.gold | 0, scrolls: g.scrolls | 0 });
       out.gold += g.gold | 0; out.items += n; out.scrolls += g.scrolls | 0;
     });
     return out;

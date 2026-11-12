@@ -18,4 +18,10 @@
     { en: 'The Rift Tyrant is not a king. It is the last scar the rift could not close, and it learned to walk.', es: 'El Tirano de la Brecha no es un rey. Es la última cicatriz que la brecha no pudo cerrar, y aprendió a caminar.' },
     { en: 'Come back alive and tell me what you saw. A story told is a scar that finally closes.', es: 'Vuelve con vida y cuéntame lo que viste. Una historia contada es una cicatriz que por fin se cierra.' }
   ];
+  // Fantasy names for the RANDOM button of the new-character screen, per class (proper names: the same in both languages; letters from the name rules only, 12 at most).
+  G.CHAR_NAMES = {
+    mage: ['Elowen', 'Mirael', 'Zephyra', 'Orlen', 'Isolde', 'Veyra', 'Caldris', 'Sylvane', 'Merrow', 'Thaleia', 'Ilmar', 'Quillon'],
+    warrior: ['Brakka', 'Torvald', 'Hrolf', 'Gunnar', 'Ragna', 'Dunmar', 'Korvan', 'Aldric', 'Brunhild', 'Garrick', 'Ulfric', 'Marda'],
+    archer: ['Sylas', 'Tamsin', 'Fenwick', 'Lirael', 'Wren', 'Kestrel', 'Rowan', 'Alder', 'Nyx', 'Perrin', 'Ysolde', 'Halvard']
+  };
 })(globalThis.G = globalThis.G || {});

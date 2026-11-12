@@ -96,6 +96,7 @@
       }
     },
     defaultClass: 'mage',
+    characters: { max: 12, nameMax: 12 },      // the save keeps up to `max` named characters (each with its own gear, bag, gold, ranks and city state); a name has at most `nameMax` characters
 
     exp: { base: 9, grow: 5, pow: 1.22 },   // exp to next = base + grow * (level-1)^pow
 
