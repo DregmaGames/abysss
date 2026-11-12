@@ -39,6 +39,15 @@ time in game seconds (fresh / careers), deaths per room (fresh). All with the ca
 - Round 2 (gearK 0.005, warrior dmg 27, archer dmg 21): mage 15 %, first 8.2 (9/10), post 25 %, time 566 / 492 s, deaths 0,0,3,3,12,16,5,21,20,5.
   warrior 11 %, first 6.3 (7/10), post 62 %, time 542 / 477 s, deaths 0,0,0,0,5,9,14,24,20,17. archer 11 %, first 6.1 (10/10), post 67 %, time 493 / 440 s,
   deaths 0,4,1,6,15,12,17,13,15,6. Careers swing a lot between rounds with small changes (10 careers is noisy: mage 21 -> 14 -> 13 wins).
+- Round 3 (gearK 0.0045, warrior dmg 27, archer dmg 20.5; mage = round 0): mage = round 0. warrior 11 %, first 6.6 (8/10), post 56 %, time 542 / 479 s.
+  archer 17 %, first 6.9 (10/10), post 55 %, time 492 / 431 s, deaths 0,2,1,2,13,14,12,17,18,4. Archer fresh 20 -> 20.5 -> 21 gave 7 -> 17 -> 11 %: below
+  one damage point the seeds decide, not the number. Post-first-win stays above 50 % for warrior and archer whatever gearK does.
+- Round 4 (round 3 with archer dmg 21, and the WIP rank buff undone: Vitality 8 -> 6 HP, Might 4 -> 3 %; ranks are permanent and outside the gear score,
+  so they fed the late-career snowball): mage 15 %, first 7.0 (10/10), post 47 %, time 566 / 499 s, deaths 0,0,3,3,12,16,5,21,20,5.
+  warrior 11 %, first 6.9 (7/10), post 36 %, time 542 / 494 s, deaths 0,0,0,0,5,9,14,24,20,17. archer 11 %, first 6.2 (9/10), post 50 %, time 493 / 442 s,
+  deaths 0,4,1,6,15,12,17,13,15,6. Best so far; misses: archer career wins in 7.4 min, 3 warrior careers never win.
+- Round 5 (round 4 with warrior hp 235 -> 245, archer dmg 21 -> 20 and hp 100 -> 110): mage = round 4. warrior 15 %, first 6.9 (9/10), post 39 %,
+  time 538 / 503 s, deaths 0,0,0,0,5,8,17,20,19,16: all warrior targets met. archer 8 %, first 7.8 (9/10), post 70 %, time 486 / 446 s: worse, back to round 4's archer.
 
 ## Task
 
