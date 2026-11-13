@@ -618,3 +618,14 @@ the save-code box sits inside its panel, normal and turned. The sim is untouched
 Not tested: a real phone (iOS Safari and Android Chrome, the Claude app's artifact viewer), the browser bars changing the
 window height, typing into the turned import box (the keyboard opens upright), tablets (a tablet held upright is turned too).
 
+## Cracks: the look they had before the big rooms (same branch, 2026-11-13)
+The user, on his phone: the fissures lost quality. Cause: the big-rooms step halved the fork chance (`fissure.fork` 0.07 -> 0.035 per px)
+while the arms got 65 % longer, and a fork ran 0.6 x the rest of its arm, so cracks became long bare lines; the tutorial crack was a
+smooth even band, now 38 tiles wide. Changed: `fissure.fork` back to 0.07 and new `fissure.forkLen` [14, 46] px (a fork off an arm is a
+twig, not one more long arm; forks of forks as before); the tutorial crack (`src/sim/tutorial.js`) is a jagged band (path within 5 px
+of its row, half width 2-4 px in runs) with side twigs up to 22 px, from its own fixed seed, still wall to wall.
+Checked: build; `tools/determinism.js` (with the 500-room sanity block) pass; `tools/check_tutorial.js` pass; `qa/tutorial.js land_en`
+all passed; `node tools/sim_bot.js --seeds 1-10` (mage): 5 wins, no softlocks or timeouts, 626 s average (10 seeds: noise; the
+before/after table of the big-rooms step was not rerun); screenshots of two rooms and the tutorial at 1640x922 looked at.
+Rough: more twigs = a little more barrier around each crack (not measured); the 27 px / old art modes were not looked at.
+

@@ -195,7 +195,8 @@
       // the crack network: all cracks open when the room starts and go dark segment by segment as
       // their monsters die. An open crack is a wall for walkers; the player crosses it with the dodge.
       crackLen: [150, 215],           // px per arm (two arms per crack; a branch has one). Step big rooms: was 90-130; the network spans the room
-      fork: 0.035,                    // chance per px of arm that a side crack forks off (was 0.07 on the shorter arms)
+      fork: 0.07,                     // chance per px of arm that a side crack forks off: the twig density of the short cracks (0.035 left the long arms bare)
+      forkLen: [14, 46],              // px a side crack may run (it was 0.6 x the rest of the arm, which on the long arms made more long bare lines instead of twigs)
       bend: 3,                        // times an arm may turn to run past a pillar, a wall or a reserved zone instead of ending there
       minCells: 260,                  // a crack with fewer px than this (rim included) is a stub: the generator tries again (was 12)
       aim: 6,                         // headings tried for a new crack: it takes the one with the most free floor along both arms

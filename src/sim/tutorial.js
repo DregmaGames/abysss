@@ -22,14 +22,40 @@
     });
     function at(tx, ty) { return tx < 0 || ty < 0 || tx >= W || ty >= H ? 1 : tiles[ty * W + tx]; }
     var sx = W >> 1, sy = H - 3, ex = W >> 1, cx = sx * T + 8, yc = TB.crackRow * T + 8;
-    // the crack: a wobbling band from wall to wall; o = distance from the middle, so the tips go dark first (like any crack)
-    function lineY(px) { return Math.round(yc + G.M.sin(px / 11) * 3 + G.M.sin(px / 4.3) * 1.2); }
-    var core = {}, x0 = 12, x1 = W * T - 12, half = Math.max(cx - x0, x1 - cx);
+    // the crack: a jagged band from wall to wall with side twigs, like the cracks of a run (it was a smooth, even band, which
+    // read as a ribbon once the room got wider); o = distance from the middle, so the tips go dark first (like any crack).
+    // Its own fixed seed: the same crack every time.
+    var crng = new G.RNG(0x7076), x0 = 12, x1 = W * T - 12, half = Math.max(cx - x0, x1 - cx), line = [], hw = [], ly = 0, dir = 0, wv = 3, twigs = [];
     for (x = x0; x <= x1; x++) {
-      var ly = lineY(x), o = Math.abs(x - cx) / half;
-      for (y = -3; y <= 3; y++) {
-        if (Math.abs(y) === 3 && ((x * 7) % 5 === 0)) continue;      // a ragged lip
-        core[(x - cx) + ',' + (ly + y - yc)] = o;
+      if (crng.chance(0.3)) dir = crng.int(-1, 1);                    // the path: short runs up, level or down, within 5 px of the row
+      if (crng.chance(0.55)) ly += dir;
+      if (ly > 5) { ly = 5; dir = -1; }
+      if (ly < -5) { ly = -5; dir = 1; }
+      if (crng.chance(0.12)) wv = crng.int(2, 4);                     // the half width: 2 to 4 px, in runs
+      line.push(ly); hw.push(wv);
+      if (x > x0 + 6 && x < x1 - 6 && crng.chance(0.07)) twigs.push([x, crng.chance(0.5) ? 1 : -1, crng.range(0.55, 1.25) * (crng.chance(0.5) ? 1 : -1), crng.int(8, 22)]);
+    }
+    function lineY(px) { var i2 = Math.round(px) - x0; return yc + line[i2 < 0 ? 0 : i2 >= line.length ? line.length - 1 : i2]; }
+    var core = {};
+    function put(px, py, o) { var kc = (px - cx) + ',' + (py - yc); if (!(kc in core) || core[kc] > o) core[kc] = o; }
+    for (x = x0; x <= x1; x++) {
+      var o = Math.abs(x - cx) / half, h2 = hw[x - x0];
+      for (y = -h2; y <= h2; y++) {
+        if (Math.abs(y) === h2 && ((x * 7) % 5 === 0)) continue;      // a ragged lip
+        put(x, lineY(x) + y, o);
+      }
+    }
+    for (i = 0; i < twigs.length; i++) {                              // side twigs: off one lip, tapering to a point, at most 20 px from the row
+      var tw = twigs[i], tx = tw[0], ty = lineY(tw[0]) + tw[1] * hw[tw[0] - x0], ta = Math.abs(tw[2]), sdx = tw[2] < 0 ? -1 : 1, n2 = tw[3], to = Math.abs(tw[0] - cx) / half;
+      for (k = 0; k < n2; k++) {
+        ta += crng.range(-0.35, 0.35);
+        if (ta < 0.3) ta = 0.3;
+        if (ta > 1.4) ta = 1.4;
+        tx += sdx * G.M.cos(ta); ty += tw[1] * G.M.sin(ta) * 0.8;
+        if (Math.abs(ty - yc) > 20 || tx < x0 || tx > x1) break;
+        var rx = Math.round(tx), ry = Math.round(ty);
+        put(rx, ry, to);
+        if (k < n2 * 0.5) { put(rx + 1, ry, to); put(rx, ry + tw[1], to); }      // 2 px thick for its first half
       }
     }
     var cells = [];

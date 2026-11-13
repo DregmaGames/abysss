@@ -10,7 +10,7 @@
   // `ok(x, y)` (optional, crack-local px): false where no crack may run. An arm that reaches such a
   // place ends there and tapers to a point, instead of being cut off along the zone's edge.
   // `P` (optional): { r, arms: [lo, hi], armLen: [lo, hi] } sizes the super fissure's pit (default: the small pit of the
-  // tutorial room); { fork, third: [chance, lo, hi] } for a normal crack: fork chance per px of arm, and a third arm at about
+  // tutorial room); { fork, forkLen: [lo, hi], third: [chance, lo, hi] } for a normal crack: fork chance per px of arm, px a fork off an arm may run, and a third arm at about
   // a right angle, `lo`..`hi` x the arm length (BAL.fissure).
   var KO = 2048, KW = 4096;      // a crack px (x, y) relative to its centre is the number (y + KO) * KW + x + KO
   var LOOK = 9, TURNS = [0.6, 1.0, 1.4], MAXTURN = 1.5;      // px an arm looks ahead; the turns it tries (rad, either side); how far it may end up from its first heading
@@ -55,7 +55,9 @@
         var w = Math.max(1, Math.round(w0 * (1 - q / n * 0.9)));
         stamp(pts[q * 2], pts[q * 2 + 1], w, o0 + q);
         for (; f < forks.length && forks[f][0] === q; f++) {
-          walk(forks[f][1], forks[f][2], forks[f][3], Math.round((n - q) * 0.6), Math.max(1, w - 1), o0 + q, depth + 1);
+          var fl = Math.round((n - q) * 0.6);
+          if (P.forkLen && !depth) fl = Math.min(fl, rng.int(P.forkLen[0], P.forkLen[1]));      // twigs, not more long arms
+          walk(forks[f][1], forks[f][2], forks[f][3], fl, Math.max(1, w - 1), o0 + q, depth + 1);
         }
       }
     }
@@ -263,7 +265,7 @@
       return !keepOut(px, py);
     }
     var SECT = [0, 5, 2, 3, 1, 4], flipX = rng.chance(0.5), flipY = rng.chance(0.5), nSite = 0;
-    var gap = F.siteGap, ci = 0, tries = 0, CP = { fork: F.fork, third: F.thirdArm, bend: F.bend, aim: F.aim };
+    var gap = F.siteGap, ci = 0, tries = 0, CP = { fork: F.fork, forkLen: F.forkLen, third: F.thirdArm, bend: F.bend, aim: F.aim };
     while (fissures.length < want && tries++ < 200) {
       var made = null, k2;
       if (fissures.length >= Math.ceil(want * F.siteShare) && rng.chance(F.joinChance)) {      // the first cracks are always separate centres
