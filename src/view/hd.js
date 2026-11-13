@@ -38,12 +38,22 @@
       if (c) return c === 'none' ? null : c;
       return item ? G.ANIM.glowByRarity[item.rarity] || null : null;
     },
-    // Visible equipment (test). The hero's art by what is equipped: with no body armour on, the class's `<id>_bare` sheet
-    // when there is one (?look=bare / ?look=full forces one); else the class's own sheet (armour drawn in).
+    // Visible equipment. The hero's body sheet by the body armour worn: none -> `<id>_bare`, else `<id>_<look>` by the
+    // item's material (G.ANIM.armorLook), when the class has those sheets; else the class's own sheet (armour drawn in).
+    // ?look=bare|leather|chain|plate|full forces one.
     heroEnt: function (id, eq) {
-      var bare = id + '_bare', look = G.params.get('look');
+      var bare = id + '_bare', look = G.params.get('look'), A = eq && eq.armor;
       if (!G.ANIM.ent[bare]) return id;
-      return look === 'bare' ? bare : look === 'full' ? id : (eq && eq.armor ? id : bare);
+      if (look === 'full') return id;
+      if (look && G.ANIM.ent[id + '_' + look]) return id + '_' + look;
+      if (!A) return bare;
+      var ent = id + '_' + G.ANIM.armorLook[A.mat != null ? A.mat : 2];
+      return G.ANIM.ent[ent] ? ent : id;
+    },
+    // the trim colour of the body armour worn (?arar=<rarity> previews one)
+    trimColor: function (eq) {
+      var p = G.params.get('arar'), A = eq && eq.armor, r = p != null ? +p : A ? A.rarity : null;
+      return r == null ? null : G.ANIM.trimByRarity[Math.max(0, Math.min(G.ANIM.trimByRarity.length - 1, r | 0))];
     },
     // the weapon to draw in the hand of a sheet that marks its fist (ANIM `hands`): by the equipped weapon (?wpn=1 / ?wpn=0 forces)
     heroWeapon: function (ent, cls, eq) {
@@ -144,11 +154,11 @@
   R.release = function (dur) { this.wind = 0; this.rel = this.relDur = dur || 0.25; };
   R.attack = function (dur) { this.rel = this.relDur = dur || 0.25; this.atkFrames = true; };    // an attack with no wind-up (the hero's)
   R.hurt = function (fromX) { this.hit = 0.2; this.hitDir = sign(this.img.x - fromX); };
-  R.destroy = function () { this.shadow.destroy(); if (this.glowImg) this.glowImg.destroy(); if (this.wpnImg) { this.wpnImg.destroy(); this.wpnGlow.destroy(); } };
+  R.destroy = function () { this.shadow.destroy(); if (this.glowImg) this.glowImg.destroy(); if (this.wpnImg) { this.wpnImg.destroy(); this.wpnGlow.destroy(); } if (this.trimImg) this.trimImg.destroy(); };
 
   R.update = function (dt, o) {
     var img = this.img, scene = this.scene, M = this.motion();
-    if (!HD.frames(scene, this.ent, 'idle') && !HD.frames(scene, this.ent, o.state)) { this.hdOn = false; this.shadow.setVisible(false); if (this.glowImg) this.glowImg.setVisible(false); if (this.wpnImg) { this.wpnImg.setVisible(false); this.wpnGlow.setVisible(false); } this.lx = null; return false; }
+    if (!HD.frames(scene, this.ent, 'idle') && !HD.frames(scene, this.ent, o.state)) { this.hdOn = false; this.shadow.setVisible(false); if (this.glowImg) this.glowImg.setVisible(false); if (this.wpnImg) { this.wpnImg.setVisible(false); this.wpnGlow.setVisible(false); } if (this.trimImg) this.trimImg.setVisible(false); this.lx = null; return false; }
     this.hdOn = true;
     // movement since the last frame (sim feet position); a jump (new room, dodge) does not count as walking
     if (this.lx === null) { this.lx = o.x; this.ly = o.y; }
@@ -226,6 +236,14 @@
     this.artH = hs / D;
     // the weapon's rarity glow (o.glow = a key of G.ANIM.glow): the frame's mask fx_<frame> (tools/weapon_fx.py, FXPAD px
     // bigger on every side) drawn over the sprite with the same transform, tinted, additive, pulsing
+    // the armour's trim in its rarity colour: trim_<frame> (same size as the frame) over the sprite, same transform
+    var tname = 'trim_' + fname, tri = this.trimImg;
+    if (o.trim != null && img.visible && scene.textures.get('hd').has(tname)) {
+      if (!tri) tri = this.trimImg = scene.add.image(0, 0, 'hd', tname);
+      if (tri.frame.name !== tname) tri.setFrame(tname, false, false);
+      tri.setVisible(true).setFlipX(flip).setScale(img.scaleX, img.scaleY).setRotation(rq).setOrigin(img.originX, img.originY)
+        .setPosition(o.x, o.y).setDepth((o.depth != null ? o.depth : img.depth) + 0.005).setTint(o.trim).setAlpha(o.alpha == null ? 1 : o.alpha);
+    } else if (tri) tri.setVisible(false);
     var gdef = o.glow && G.ANIM.glow[o.glow], gname = 'fx_' + fname, gi = this.glowImg;
     if (gdef && img.visible && scene.textures.get('hd').has(gname)) {
       if (!gi) gi = this.glowImg = scene.add.image(0, 0, 'hd', gname).setBlendMode(Phaser.BlendModes.ADD);

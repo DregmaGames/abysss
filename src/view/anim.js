@@ -33,6 +33,10 @@
       unique:    { color: 0xfff0b8, min: 0.45, max: 1.0, period: 0.7, sparks: 4, spark: 'gold' }
     },
     glowByRarity: [null, 'magic', 'rare', 'epic', 'legendary'],
+    // the colour of an armour's trim (frames trim_<frame>) by the item's rarity: common brass, then the rarity colours
+    trimByRarity: [0xb08850, 0x6eaaff, 0xffd84a, 0xcc80ff, 0xff9434],
+    // the body sheet by the body armour's material (item.mat: 0 light, 1 medium, 2 heavy; an item without one counts as heavy)
+    armorLook: ['leather', 'chain', 'plate'],
     // held weapon art by weapon type (frames wpn_<name> of the HD atlas); `any`: the one drawn for a type with no art yet
     wpnArt: { sword: 'wpn_sword', any: 'wpn_sword' },
     glowOrder: ['none', 'magic', 'rare', 'epic', 'legendary', 'mythic', 'unique'],
@@ -68,6 +72,33 @@
         walk: { frames: ['warrior_bare_walk_0', 'warrior_bare_walk_1', 'warrior_bare_walk_2', 'warrior_bare_walk_3'], fps: 8 },
         attack: { frames: ['warrior_bare_attack_0', 'warrior_bare_attack_1'], fps: 14, hold: 0.14 },
         hurt: { frames: ['warrior_bare_hurt'], hold: 0.25 },
+        motion: { bob: 1, tilt: 0.015, squash: 0.03, lean: 1, lunge: 3, stretch: 0.04, recoil: 2, breathe: 0.02, breathT: 1.8, dust: 1, faces: 1, die: 0.9 }
+      },
+      // the warrior in leather (light) armour: the bare sheet's poses, head and hands bare, the trim recoloured by rarity (tools/trim_fx.py)
+      warrior_leather: {
+        hands: true,
+        idle: { frames: ['warrior_leather_idle_0'] },
+        walk: { frames: ['warrior_leather_walk_0', 'warrior_leather_walk_1', 'warrior_leather_walk_2', 'warrior_leather_walk_3'], fps: 8 },
+        attack: { frames: ['warrior_leather_attack_0', 'warrior_leather_attack_1'], fps: 14, hold: 0.14 },
+        hurt: { frames: ['warrior_leather_hurt'], hold: 0.25 },
+        motion: { bob: 1, tilt: 0.015, squash: 0.03, lean: 1, lunge: 3, stretch: 0.04, recoil: 2, breathe: 0.02, breathT: 1.8, dust: 1, faces: 1, die: 0.9 }
+      },
+      // the warrior in chainmail (medium) armour: the bare sheet's poses, head and hands bare, the trim recoloured by rarity (tools/trim_fx.py)
+      warrior_chain: {
+        hands: true,
+        idle: { frames: ['warrior_chain_idle_0'] },
+        walk: { frames: ['warrior_chain_walk_0', 'warrior_chain_walk_1', 'warrior_chain_walk_2', 'warrior_chain_walk_3'], fps: 8 },
+        attack: { frames: ['warrior_chain_attack_0', 'warrior_chain_attack_1'], fps: 14, hold: 0.14 },
+        hurt: { frames: ['warrior_chain_hurt'], hold: 0.25 },
+        motion: { bob: 1, tilt: 0.015, squash: 0.03, lean: 1, lunge: 3, stretch: 0.04, recoil: 2, breathe: 0.02, breathT: 1.8, dust: 1, faces: 1, die: 0.9 }
+      },
+      // the warrior in plate (heavy) armour: the bare sheet's poses, head and hands bare, the trim recoloured by rarity (tools/trim_fx.py)
+      warrior_plate: {
+        hands: true,
+        idle: { frames: ['warrior_plate_idle_0'] },
+        walk: { frames: ['warrior_plate_walk_0', 'warrior_plate_walk_1', 'warrior_plate_walk_2', 'warrior_plate_walk_3'], fps: 8 },
+        attack: { frames: ['warrior_plate_attack_0', 'warrior_plate_attack_1'], fps: 14, hold: 0.14 },
+        hurt: { frames: ['warrior_plate_hurt'], hold: 0.25 },
         motion: { bob: 1, tilt: 0.015, squash: 0.03, lean: 1, lunge: 3, stretch: 0.04, recoil: 2, breathe: 0.02, breathT: 1.8, dust: 1, faces: 1, die: 0.9 }
       },
       // the warrior sheet (Grok, 4x2): walk x4, idle, sword raised, sword swung, hurt. Plate armour, shield and sword are

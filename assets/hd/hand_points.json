@@ -46,5 +46,149 @@
 26.0,
 33.6,
 13.0
+],
+"warrior_chain_attack_0": [
+12.9,
+19.1,
+-95.1,
+18.6
+],
+"warrior_chain_attack_1": [
+27.2,
+21.7,
+-150.9,
+21.3
+],
+"warrior_chain_hurt": [
+17.0,
+22.1,
+60.8,
+8.4
+],
+"warrior_chain_idle_0": [
+8.4,
+23.7,
+80.9,
+15.2
+],
+"warrior_chain_walk_0": [
+22.3,
+26.1,
+-155.8,
+17.1
+],
+"warrior_chain_walk_1": [
+10.8,
+21.3,
+37.9,
+21.7
+],
+"warrior_chain_walk_2": [
+17.4,
+22.0,
+46.4,
+20.1
+],
+"warrior_chain_walk_3": [
+9.9,
+22.7,
+47.3,
+18.5
+],
+"warrior_leather_attack_0": [
+12.4,
+31.9,
+-94.6,
+31.4
+],
+"warrior_leather_attack_1": [
+31.4,
+23.2,
+-153.7,
+28.2
+],
+"warrior_leather_hurt": [
+4.0,
+14.4,
+21.8,
+24.5
+],
+"warrior_leather_idle_0": [
+7.1,
+18.0,
+79.1,
+22.6
+],
+"warrior_leather_walk_0": [
+22.2,
+25.0,
+-148.2,
+18.0
+],
+"warrior_leather_walk_1": [
+4.6,
+11.7,
+49.9,
+32.5
+],
+"warrior_leather_walk_2": [
+22.1,
+24.9,
+-146.0,
+18.3
+],
+"warrior_leather_walk_3": [
+0.2,
+13.6,
+40.2,
+32.2
+],
+"warrior_plate_attack_0": [
+7.0,
+8.0,
+-39.5,
+12.8
+],
+"warrior_plate_attack_1": [
+34.7,
+23.4,
+38.5,
+14.2
+],
+"warrior_plate_hurt": [
+16.1,
+22.3,
+-22.7,
+13.0
+],
+"warrior_plate_idle_0": [
+5.0,
+27.0,
+40.3,
+14.2
+],
+"warrior_plate_walk_0": [
+27.0,
+25.0,
+30.9,
+12.5
+],
+"warrior_plate_walk_1": [
+19.9,
+25.2,
+33.3,
+10.8
+],
+"warrior_plate_walk_2": [
+25.8,
+25.3,
+31.9,
+10.8
+],
+"warrior_plate_walk_3": [
+17.0,
+26.0,
+31.9,
+11.7
 ]
 }

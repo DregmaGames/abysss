@@ -274,7 +274,7 @@
       this.playerShadow.setPosition(p.x, p.y + p.r).setScale(1 - lift / (HOP_H * 2.5)).setVisible(!hdHero);
       if (hdHero) prig.update(rdt, { x: p.x + bx, y: p.y + p.r + 1 - lift + by, ground: p.y + p.r, face: p.face, tx: null, state: 'walk',
         speed: this.cls.base.speed, depth: p.y + p.r + (lift ? 400 : 0), shadowAlpha: 0.85 * (1 - lift / (HOP_H * 1.5)),
-        glow: G.HD.glowOf(heq && heq.weapon), weapon: G.HD.heroWeapon(prig.ent, this.cls, heq) });
+        glow: G.HD.glowOf(heq && heq.weapon), weapon: G.HD.heroWeapon(prig.ent, this.cls, heq), trim: G.HD.trimColor(heq) });
       else prig.shadow.setVisible(false);
       if (this.weaponImg) {
         var wi = this.weaponImg, wd = G.weaponOf(this.cls, sim.gear).id;

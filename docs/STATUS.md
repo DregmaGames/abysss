@@ -757,3 +757,11 @@ Not checked: equipping real items through the inventory in a run, the city, the 
 Rough: every weapon type draws the sword (the only weapon art); the sword is 2 px wide and turned by the renderer (stair-steps at
 some angles); the glow on it is faint; the fist is drawn under the weapon; shield and helmet are not separate.
 
+
+Armour looks (same branch, 2026-11-13): `warrior_leather`, `warrior_chain`, `warrior_plate` imported (the bare sheet's poses, head and
+hands bare, green rod -> fist via tools/hand_weapon.py). `G.HD.heroEnt` picks the body sheet by the body armour's `mat`
+(G.ANIM.armorLook; an item with no `mat` counts as plate until step-gear-data lands). Trim: `tools/trim_fx.py NAME STRIP <import opts>`
+finds the cyan trim in the full-size source and carries it through the same import -> `trim_<frame>`, drawn tinted by the armour's
+rarity (G.ANIM.trimByRarity; ?arar=N previews). The plate sheet came without cyan trim (no trim frames: its rarity shows only as glow).
+Checked: `qa/equip.js` 8 cases PASS, close-ups looked at. Rough: the trim is only 4-15 px a frame at this size; helmets and shields
+(sheets received, in /home/claude/builds/piezas) need a head point and an off-hand point per frame: not done.
