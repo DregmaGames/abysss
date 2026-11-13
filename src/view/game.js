@@ -258,9 +258,11 @@
       var heq = sim.gear && sim.gear.equipped;
       prig.ent = G.HD.heroEnt(this.cls.id, heq);                    // visible equipment: the sheet by the armour worn
       var hdHero = !!G.HD.frames(this, prig.ent, 'idle');           // the class has HD frames (a sheet imported for it)
+      var kH = G.tuneOf(G.BAL, 'hero'), kM = G.tuneOf(G.BAL, 'monsters');      // size tuning (DBG > SIZES): drawn size only, the sim's hitboxes are the same
       if (!hdHero) {
         if (this.player.isHD || this.player.texture.key !== 'atlas') G.HD.chunky(this.player, this.cls.sprite.frames + '_0');
         this.player.setFrame(this.cls.sprite.frames + '_' + walk).setFlipX(p.face < 0).setOrigin(p.face < 0 ? 0.58 : 0.42, 1);
+        G.HD.tuneChunky(this.player, kH);
       }
       // hop: height of the dodge arc over a crack (0 outside it); bump: a 1 px recoil off the edge
       var lift = 0, bx = 0, by = 0;
@@ -271,8 +273,8 @@
       }
       if (this.bumpT > 0) { this.bumpT--; bx = Math.round(this.bumpX); by = Math.round(this.bumpY); }
       this.player.setPosition(p.x + bx, p.y + p.r + 1 - lift + by).setDepth(p.y + p.r + (lift ? 400 : 0));
-      this.playerShadow.setPosition(p.x, p.y + p.r).setScale(1 - lift / (HOP_H * 2.5)).setVisible(!hdHero);
-      if (hdHero) prig.update(rdt, { x: p.x + bx, y: p.y + p.r + 1 - lift + by, ground: p.y + p.r, face: p.face, tx: null, state: 'walk',
+      this.playerShadow.setPosition(p.x, p.y + p.r).setScale((1 - lift / (HOP_H * 2.5)) * kH).setVisible(!hdHero);
+      if (hdHero) prig.update(rdt, { x: p.x + bx, y: p.y + p.r + 1 - lift + by, ground: p.y + p.r, face: p.face, tx: null, state: 'walk', k: kH,
         speed: this.cls.base.speed, depth: p.y + p.r + (lift ? 400 : 0), shadowAlpha: 0.85 * (1 - lift / (HOP_H * 1.5)),
         glow: G.HD.glowOf(heq && heq.weapon), weapon: G.HD.heroWeapon(prig.ent, this.cls, heq), trim: G.HD.trimColor(heq) });
       else prig.shadow.setVisible(false);
@@ -280,8 +282,8 @@
         var wi = this.weaponImg, wd = G.weaponOf(this.cls, sim.gear).id;
         if (this.swingT > 0) this.swingT--;
         var wa = this.swingT > 0 ? -1.0 + 2.7 * (1 - this.swingT / 9) : 0.3;
-        wi.setFrame('w_' + wd).setFlipX(p.face < 0).setRotation(p.face * wa).setAlpha(this.player.alpha)
-          .setPosition(p.x + bx + p.face * 5, p.y + p.r + 1 - lift + by - 11).setDepth(p.y + p.r + (lift ? 400 : 0) + 0.5).setVisible(sim.state !== 'dead' && !hdHero);      // the HD sheet has the weapon drawn in
+        wi.setFrame('w_' + wd).setFlipX(p.face < 0).setRotation(p.face * wa).setAlpha(this.player.alpha).setScale(kH)
+          .setPosition(p.x + bx + Math.round(p.face * 5 * kH), p.y + p.r + 1 - lift + by - Math.round(11 * kH)).setDepth(p.y + p.r + (lift ? 400 : 0) + 0.5).setVisible(sim.state !== 'dead' && !hdHero);      // the HD sheet has the weapon drawn in
       }
       this.drawArc();
       this.playerGlow.setPosition(p.x, p.y);
@@ -301,7 +303,7 @@
       }, function (s, m) {
         var fly = m.def.fly || 0, rate = m.def.ai === 'weave' ? 2 : 3, pose = G.attackPose(m, p);
         var state = pose ? (m.def.boss ? POSE_STATE[pose] : 'attack') : 'walk';
-        if (s.rig.update(rdt, { x: m.x, y: m.y + m.r + 1 - fly, ground: m.y + m.r, face: m.face, tx: p.x, state: state, speed: m.def.speed,
+        if (s.rig.update(rdt, { x: m.x, y: m.y + m.r + 1 - fly, ground: m.y + m.r, face: m.face, tx: p.x, state: state, speed: m.def.speed, k: kM,
           depth: m.y + m.r, alpha: m.emerge > 0 ? 0.6 : 1 })) {
           s.sh.setVisible(false);
           s.artH = s.rig.artH;
@@ -309,8 +311,9 @@
           if (s.isHD || s.texture.key !== 'atlas') G.HD.chunky(s, m.type + '_0');
           s.setPosition(m.x, m.y + m.r + 1 - fly).setDepth(m.y + m.r).setFlipX(m.face < 0).setOrigin(0.5, 1);
           s.setFrame(m.type + '_' + (pose || (((tick >> rate) + m.id) & 1)));
-          s.sh.setVisible(true).setPosition(m.x, m.y + m.r);
-          s.artH = s.height;
+          G.HD.tuneChunky(s, kM);
+          s.sh.setVisible(true).setPosition(m.x, m.y + m.r).setScale(kM);
+          s.artH = s.displayHeight;
         }
         s.setAlpha(m.emerge > 0 ? 0.6 : 1);
         if (s.flashCd > 0) s.flashCd--;

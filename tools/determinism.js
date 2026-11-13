@@ -20,7 +20,14 @@ function load() {
   for (const f of SIM) vm.runInContext(fs.readFileSync(path.join(ROOT, 'src', f), 'utf8'), ctx, { filename: f });
   return ctx.G;
 }
-const G = load(), G2 = load(), N = +(process.argv[2] || 50), rooms = G.BAL.run.rooms;
+// `--tune hero:1.2,room:1.3` (step size panel): runs every check with those BAL.tune multipliers in both contexts
+const ARGS = process.argv.slice(2), TI = ARGS.indexOf('--tune'), TUNE = TI >= 0 ? ARGS.splice(TI, 2)[1] : '';
+const RI = ARGS.indexOf('--rooms'), ROOMS_ONLY = RI >= 0 && !!ARGS.splice(RI, 1);      // --rooms: the room checks only (no bot runs)
+const G = load(), G2 = load(), N = +(ARGS[0] || 50), rooms = G.BAL.run.rooms;
+if (TUNE) {
+  for (const g of [G, G2]) for (const kv of TUNE.split(',')) { const [k, v] = kv.split(':'); if (g.BAL.tune.keys.includes(k) && isFinite(+v)) g.BAL.tune[k] = +v; }
+  console.log('tune: ' + G.BAL.tune.keys.map(k => k + ' ' + G.BAL.tune[k]).join(', '));
+}
 const key = r => JSON.stringify([r.w, r.h, Array.from(r.tiles), r.start, r.exit, r.chest, r.fissures.map(f => [f.x, f.y, f.big, f.cells.length, f.cells[0], f.cells[f.cells.length - 1]]), r.decals.length, r.torches, r.hash]);
 let bad = 0, checked = 0;
 const hashes = new Set();
@@ -36,11 +43,12 @@ let sane = 0;
 for (let seed = 1; seed <= N; seed++) for (let i = 0; i < rooms; i++) {
   const r = G.genRoom(seed, i, G.BAL), R = G.BAL.room, boss = i === rooms - 1, why = [];
   const at = (tx, ty) => tx < 0 || ty < 0 || tx >= r.w || ty >= r.h ? 1 : r.tiles[ty * r.w + tx];
-  const size = boss ? r.w === R.boss.w && r.h === R.boss.h : r.w >= R.w[0] && r.w <= R.w[1] && r.h >= R.h[0] && r.h <= R.h[1];
+  const kR = G.tuneOf(G.BAL, 'room'), s = n => G.tuneScale(n, kR);
+  const size = boss ? r.w === s(R.boss.w) && r.h === s(R.boss.h) : r.w >= s(R.w[0]) && r.w <= s(R.w[1]) && r.h >= s(R.h[0]) && r.h <= s(R.h[1]);
   if (!size) why.push('size ' + r.w + 'x' + r.h);
   const normal = r.fissures.filter(f => !f.big);
   if (normal.length !== G.BAL.fissure.count[i]) why.push('cracks ' + normal.length + '/' + G.BAL.fissure.count[i]);
-  if (normal.some(f => f.cells.length < G.BAL.fissure.minCells)) why.push('a stub crack');
+  if (normal.some(f => f.cells.length < G.tuneScale(G.BAL.fissure.minCells, G.tuneOf(G.BAL, 'fissures')))) why.push('a stub crack');
   const sx = Math.floor(r.start.x / 16), sy = Math.floor(r.start.y / 16), big = r.fissures[r.fissures.length - 1];
   const dist = new Int16Array(r.w * r.h).fill(-1), q = [sy * r.w + sx]; dist[q[0]] = 0;
   for (let h = 0; h < q.length; h++) { const c = q[h], x = c % r.w, y = (c - x) / r.w; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const n = (y + dy) * r.w + x + dx; if (!at(x + dx, y + dy) && dist[n] < 0) { dist[n] = dist[c] + 1; q.push(n); } } }
@@ -73,6 +81,7 @@ for (let seed = 1; seed <= Math.min(N, 20); seed++) for (let i = 0; i < rooms; i
   if (d1 !== d2 || G.doorsFor(seed, i, G.BAL).length !== 2 || G.doorsFor(seed, i, G.BAL)[0] === G.doorsFor(seed, i, G.BAL)[1]) { modBad++; console.log('DOORS MISMATCH', seed, i); }
 }
 console.log(`${modChecked} modified rooms generated twice (walls unchanged), doors offered twice: ${modBad} problems`);
+if (ROOMS_ONLY) process.exit(sane || bad || modBad || hashes.size !== checked ? 1 : 0);
 const r1 = G.botRun(3), r2 = G2.botRun(3);
 const same = JSON.stringify(r1) === JSON.stringify(r2);
 console.log(`bot run seed 3 twice: ${same ? 'identical' : 'DIFFERENT'} (${r1.result}, ${r1.rooms} rooms, level ${r1.level}, ${r1.kills} kills, ${r1.seconds} s)`);

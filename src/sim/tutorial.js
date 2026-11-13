@@ -13,7 +13,10 @@
   // BAL.tutorial.w x h tiles (38 x 26; 24 x 26 before the big rooms): the hero starts at the bottom; a wall divides the room and a crack lies across its gate (the only way on is a dodge across it),
   // the super fissure is above it, the chest and the exit at the top. Pure function of the balance numbers: the same room every time.
   G.tutorialRoom = function (B) {
-    var TB = B.tutorial, F = B.fissure, W = TB.w, H = TB.h, tiles = new Uint8Array(W * H), x, y, i, k;
+    // size tuning (BAL.tune): the room's width x room (its height holds the scripted rows: unchanged), the cracks' widths, the
+    // two short arms and the super fissure x fissures; the long arms still run from the gate to the wall ends
+    var kR = G.tuneOf(B, 'room'), kF = G.tuneOf(B, 'fissures');
+    var TB = B.tutorial, F = B.fissure, W = kR === 1 ? TB.w : Math.max(TB.gate + 22, Math.round(TB.w * kR)), H = TB.h, tiles = new Uint8Array(W * H), x, y, i, k;
     for (y = 0; y < H; y++) for (x = 0; x < W; x++) if (x === 0 || x === W - 1 || y < 2 || y === H - 1) tiles[y * W + x] = 1;
     var pillars = [[3, 17, 2, 2], [W - 5, 17, 2, 2], [3, 6, 2, 2], [W - 5, 6, 2, 2]];      // four small pillars near the side walls
     if (W >= 34) pillars.push([9, 10, 2, 2], [W - 11, 10, 2, 2]);      // the wider room (step big rooms): two more, beside the super fissure
@@ -30,7 +33,7 @@
     // across the screen.) A fixed crack: the first seed whose two long arms reach the wall ends.
     // Where it may run (px from the centre): TB.crackReach above / below the row inside the gate, within TB.crackEnd of the row by
     // the wall ends (it meets the wall face, it does not slip past the corner), and only the centre knot in the lane the hero dodges through.
-    var gapPx = (TB.gate >> 1) * T + 8, CPt = { fork: F.fork, forkLen: F.forkLen }, core = {}, line = {}, seedK, armL, armR, CR = TB.crackReach;
+    var gapPx = (TB.gate >> 1) * T + 8, CPt = { fork: F.fork, forkLen: F.forkLen, wk: kF }, core = {}, line = {}, seedK, armL, armR, CR = TB.crackReach;
     function okT(lx, ly) {
       if (lx > -TB.crackLane && lx < TB.crackLane) return ly >= -8 && ly <= 8;
       if (lx < -gapPx + 16 || lx > gapPx - 16) { if (ly < -TB.crackEnd || ly > TB.crackEnd) return false; } else if (ly < -CR[0] || ly > CR[1]) return false;
@@ -50,7 +53,7 @@
       oy = n ? Math.round(oy / n) : 0;
       return G.genFissure(new G.RNG(seed), false, len, true, ang, function (lx, ly) { return okT(lx + ox, ly + oy); }, CPt).map(function (c) { return { x: c.x + ox, y: c.y + oy, o: c.o, core: c.core }; });
     }
-    var armU = side(0x7078, TB.crackLane + 4, -1.0, TB.crackSide[0]), armD = side(0x7079, -TB.crackLane - 6, 2.2, TB.crackSide[1]);
+    var armU = side(0x7078, TB.crackLane + 4, -1.0, G.tuneScale(TB.crackSide[0], kF)), armD = side(0x7079, -TB.crackLane - 6, 2.2, G.tuneScale(TB.crackSide[1], kF));
     [armL, armR, armU, armD].forEach(function (cl, ai) {
       for (var j = 0; j < cl.length; j++) {
         if (!cl[j].core) continue;
@@ -78,7 +81,7 @@
     var crack = { x: cx, y: yc, big: false, cl: 0, cells: cells };
     // the super fissure: the usual pit with its arms, in the middle of the upper half
     var bx = cx, by = TB.pitRow * T + 8;
-    var pit = G.genFissure(new G.RNG(0x7077), true).filter(function (c) { return !at(Math.floor((bx + c.x) / T), Math.floor((by + c.y) / T)); });
+    var pit = G.genFissure(new G.RNG(0x7077), true, 0, false, 0, null, kF === 1 ? null : { r: G.tuneScale(13, kF), arms: [6, 7], armLen: [G.tuneScale(34, kF), G.tuneScale(50, kF)], wk: kF }).filter(function (c) { return !at(Math.floor((bx + c.x) / T), Math.floor((by + c.y) / T)); });
     var fissures = [crack, { x: bx, y: by, big: true, cl: -1, cells: pit }];
     // dressing: a fixed handful of floor marks and torches on the top wall
     var rng = new G.RNG(0x7071), decals = [], torches = [];

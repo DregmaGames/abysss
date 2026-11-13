@@ -134,6 +134,11 @@
   // a tappable sprite whose frame changed size (chunky <-> HD): its hit box follows the frame
   function fitHit(img) { var h = img.input && img.input.hitArea; if (h && (h.width !== img.frame.width || h.height !== img.frame.height)) h.setSize(img.frame.width, img.frame.height); }
   HD.fitHit = fitHit;
+  // a chunky (atlas) sprite at a size multiplier k (BAL.tune hero / monsters): its height snapped to whole art pixels, the width in step
+  HD.tuneChunky = function (img, k) {
+    var sc = k === 1 ? 1 : Math.max(1, Math.round(img.frame.height * k)) / img.frame.height;
+    if (img.scaleX !== sc || img.scaleY !== sc) img.setScale(sc);
+  };
   function sign(v) { return v < 0 ? -1 : 1; }
 
   // ------------------------------------------------------------------ rig
@@ -223,9 +228,10 @@
       this.hit -= dt;
     }
     // whole HD pixels: size, offsets; three tilt steps at most. A lo_ frame (2x2 HD px per art px): whole art pixels, no tilt.
-    var P = fname.indexOf('lo_') === 0 ? D : 1;
-    var ws = Math.max(P, Math.round(W * sx / P) * P), hs = Math.max(P, Math.round(H * sy / P) * P), sxq = ws / W, syq = hs / H;
-    var oxq = Math.round(ox / P) * P, oyq = Math.round(oy / P) * P, rq = P > 1 ? 0 : q(rot, 0.035);
+    // o.k (BAL.tune hero / monsters, visual only): x the drawn size round the feet, still snapped to whole HD pixels
+    var P = fname.indexOf('lo_') === 0 ? D : 1, k = o.k || 1;
+    var ws = Math.max(P, Math.round(W * sx * k / P) * P), hs = Math.max(P, Math.round(H * sy * k / P) * P), sxq = ws / W, syq = hs / H;
+    var oxq = Math.round(ox * k / P) * P, oyq = Math.round(oy * k / P) * P, rq = P > 1 ? 0 : q(rot, 0.035);
     var flip = (this.face * faces) < 0, ax = meta.anchor ? meta.anchor.x : 0.5;
     img.setFlipX(flip).setScale(sxq / D, syq / D).setRotation(rq)
       .setOrigin((flip ? 1 - ax : ax) - oxq / ws, 1 - oyq / hs)
@@ -266,14 +272,15 @@
       if (wi.frame.name !== wp.frame) { wi.setFrame(wp.frame, false, false); wg.setFrame(wp.frame, false, false); }
       var hx = o.x + ((flip ? W - meta.hand[0] - 0.5 : meta.hand[0] + 0.5) - img.originX * W) * img.scaleX, hy = o.y + (meta.hand[1] + 0.5 - img.originY * H) * img.scaleY;
       var ha = meta.hand[2] * Math.PI / 180, wr = (flip ? Math.PI - ha : ha) + Math.PI / 2 + rq, wd = (o.depth != null ? o.depth : img.depth) + 0.02, wal = o.alpha == null ? 1 : o.alpha;
-      wi.setVisible(true).setFlipX(flip).setOrigin(0.5, 1).setScale(1 / D).setRotation(wr).setPosition(hx, hy).setDepth(wd).setAlpha(wal);
+      var wsc = k === 1 ? 1 / D : Math.max(1, Math.round(wi.frame.height * k)) / wi.frame.height / D;      // the weapon at the hero's size, whole HD px
+      wi.setVisible(true).setFlipX(flip).setOrigin(0.5, 1).setScale(wsc).setRotation(wr).setPosition(hx, hy).setDepth(wd).setAlpha(wal);
       var wgd = wp.glow && G.ANIM.glow[wp.glow];
-      if (wgd) wg.setVisible(true).setFlipX(flip).setOrigin(0.5, 1).setScale(1 / D).setRotation(wr).setPosition(hx, hy).setDepth(wd + 0.01).setTint(HD.glowColor(wgd, this.t))
+      if (wgd) wg.setVisible(true).setFlipX(flip).setOrigin(0.5, 1).setScale(wsc).setRotation(wr).setPosition(hx, hy).setDepth(wd + 0.01).setTint(HD.glowColor(wgd, this.t))
         .setAlpha(wal * (wgd.min + (wgd.max - wgd.min) * (0.5 + 0.5 * Math.sin(this.t * 6.2832 / (wgd.period || 1.4)))));
       else wg.setVisible(false);
     } else if (wi) { wi.setVisible(false); wg.setVisible(false); }
     // soft contact shadow: as wide as the feet, smaller while the body is up
-    var fw = Math.max(8, ((meta.foot || W * 0.6) / D) * 1.15 + 4), lift = 1 - Math.max(0, -oyq) * 0.04;
+    var fw = Math.max(8, ((meta.foot || W * 0.6) / D) * 1.15 + 4) * k, lift = 1 - Math.max(0, -oyq) * 0.04;
     var sw = Math.round(fw * lift / 2) * 2;
     this.shadow.setVisible(img.visible).setPosition(o.x, o.ground).setDisplaySize(sw, Math.max(3, Math.round(sw * 0.34)))
       .setAlpha((o.alpha == null ? 1 : o.alpha) * (o.shadowAlpha == null ? 0.85 : o.shadowAlpha));
