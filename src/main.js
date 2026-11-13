@@ -72,6 +72,12 @@
     var sz = G.game.scale.gameSize;
     G.view = G.computeView(sz.width, sz.height, G.save ? G.save.settings.zoom : 0);
     G.qa.hits = {};
+    // Phaser resizes each scene's cameras on this same 'resize' event, but after this handler (the scenes listen later): a scene
+    // that centres its camera on 'viewchange' would centre it for the old window (the title's backdrop sat off to one side after
+    // the window grew). So the full-window cameras get the new size first.
+    G.game.scene.getScenes(true).forEach(function (sc) {
+      sc.cameras.cameras.forEach(function (cam) { if (cam.x === 0 && cam.y === 0 && (cam.width !== sz.width || cam.height !== sz.height)) cam.setSize(sz.width, sz.height); });
+    });
     G.game.events.emit('viewchange');
   };
   G.game.scale.on('resize', G.applyView);

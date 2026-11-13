@@ -638,3 +638,10 @@ own line (`room.tut.lineY`), spawns stay inside the gate. Checked: `tools/check_
 Rough: the tutorial's lower half is now closed by the wall except for the gate (nothing needs to pass but the hero); the
 wall-to-wall band code is gone, `tutorial.crackRow` keeps its name.
 
+## Title backdrop off to one side after the window grows (same branch, 2026-11-13)
+The user's screenshot: title on a window he had enlarged, the backdrop room sitting left with black to its right. Cause: Phaser resizes
+the scenes' cameras on the scale 'resize' event AFTER `G.applyView` (registered first), so a scene that centres its camera on
+'viewchange' (the backdrop) centred it for the old window. `G.applyView` (`src/main.js`) now gives the full-window cameras of the
+running scenes the new size before it emits 'viewchange'. Checked: title opened at 960x540 then grown to 1640x922 (room centred,
+covers the screen) and shrunk to 844x390; `qa/rotate.js` PASS (it resizes a running game both ways). Not rerun: the other QA scripts.
+
