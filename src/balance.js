@@ -151,7 +151,9 @@
     // Nothing in it is banked: no exp, gold, drops or progress. The tutorial's one item (own-class weapon) is the only thing it leaves on the character.
     tutorial: {
       w: 38, h: 26,                   // room size in tiles (step big rooms: was 24 wide; every position in it is relative to the room)
-      crackRow: 14, pitRow: 8,        // the crack runs wall to wall on this tile row; the super fissure is on that row, in the middle
+      crackRow: 14, pitRow: 8,        // the dividing wall (3 tiles thick) and its crack are on this tile row; the super fissure is on that row, in the middle
+      gate: 8,                        // the gate in the dividing wall, tiles (even); the crack lies across it
+      crackReach: [30, 22], crackEnd: 20, crackLane: 20, crackSide: [44, 30],      // px the crack may run above / below the row; px from the row at the wall ends; half width of the lane kept clear for the dodge; px of the two short arms (far side, near side)
       moveDist: 60,                   // step 1: px the hero must move
       hpMult: 0.8, dmgMult: 0.25,     // monster hp and damage (x the base numbers; the room multipliers are not used)
       skillWave: ['imp', 'imp', 'bat'],                                  // step 5

@@ -628,4 +628,13 @@ Checked: build; `tools/determinism.js` (with the 500-room sanity block) pass; `t
 all passed; `node tools/sim_bot.js --seeds 1-10` (mage): 5 wins, no softlocks or timeouts, 626 s average (10 seeds: noise; the
 before/after table of the big-rooms step was not rerun); screenshots of two rooms and the tutorial at 1640x922 looked at.
 Rough: more twigs = a little more barrier around each crack (not measured); the 27 px / old art modes were not looked at.
+Second pass, same night: the user still saw "a straight line" in the tutorial (his first level). The tutorial room now has a
+wall three tiles thick across it with a gate (`tutorial.gate` 8 tiles), and the crack is made by `G.genFissure` like any crack of a
+run: two arms from the centre to the two wall ends (first seed whose arms reach them), two short arms off them, twigs; a lane
+`tutorial.crackLane` px either side of the centre holds only the centre knot, so the dodge lane and the marked spot stay clear
+(`tutorial.crackReach / crackEnd / crackSide`). The crossing test, the two clamps and the crack's spawn points follow the crack's
+own line (`room.tut.lineY`), spawns stay inside the gate. Checked: `tools/check_tutorial.js` pass, `qa/tutorial.js` land_en
+131/131 and port_es (see the commit), `tools/determinism.js` pass, screenshots at 1640x922 and 844x390.
+Rough: the tutorial's lower half is now closed by the wall except for the gate (nothing needs to pass but the hero); the
+wall-to-wall band code is gone, `tutorial.crackRow` keeps its name.
 

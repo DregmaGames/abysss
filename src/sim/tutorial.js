@@ -10,7 +10,7 @@
   G.TUT_STEPS.forEach(function (id, i) { IDX[id] = i; });
 
   // ------------------------------------------------------------------ the room
-  // BAL.tutorial.w x h tiles (38 x 26; 24 x 26 before the big rooms): the hero starts at the bottom, a crack runs wall to wall across the middle (the only way on is a dodge across it),
+  // BAL.tutorial.w x h tiles (38 x 26; 24 x 26 before the big rooms): the hero starts at the bottom; a wall divides the room and a crack lies across its gate (the only way on is a dodge across it),
   // the super fissure is above it, the chest and the exit at the top. Pure function of the balance numbers: the same room every time.
   G.tutorialRoom = function (B) {
     var TB = B.tutorial, F = B.fissure, W = TB.w, H = TB.h, tiles = new Uint8Array(W * H), x, y, i, k;
@@ -20,44 +20,47 @@
     pillars.forEach(function (b) {
       for (var yy = b[1]; yy < b[1] + b[3]; yy++) for (var xx = b[0]; xx < b[0] + b[2]; xx++) tiles[yy * W + xx] = 1;
     });
+    // a wall three tiles thick divides the room, with a gate TB.gate tiles wide in the middle: the crack lies across the gate
+    for (y = TB.crackRow - 1; y <= TB.crackRow + 1; y++) for (x = 1; x < W - 1; x++) if (x < (W >> 1) - (TB.gate >> 1) || x > (W >> 1) + (TB.gate >> 1)) tiles[y * W + x] = 1;
     function at(tx, ty) { return tx < 0 || ty < 0 || tx >= W || ty >= H ? 1 : tiles[ty * W + tx]; }
     var sx = W >> 1, sy = H - 3, ex = W >> 1, cx = sx * T + 8, yc = TB.crackRow * T + 8;
-    // the crack: a jagged band from wall to wall with side twigs, like the cracks of a run (it was a smooth, even band, which
-    // read as a ribbon once the room got wider); o = distance from the middle, so the tips go dark first (like any crack).
-    // Its own fixed seed: the same crack every time.
-    var crng = new G.RNG(0x7076), x0 = 12, x1 = W * T - 12, half = Math.max(cx - x0, x1 - cx), line = [], hw = [], ly = 0, dir = 0, wv = 3, twigs = [];
-    for (x = x0; x <= x1; x++) {
-      if (crng.chance(0.3)) dir = crng.int(-1, 1);                    // the path: short runs up, level or down, within 5 px of the row
-      if (crng.chance(0.55)) ly += dir;
-      if (ly > 5) { ly = 5; dir = -1; }
-      if (ly < -5) { ly = -5; dir = 1; }
-      if (crng.chance(0.12)) wv = crng.int(2, 4);                     // the half width: 2 to 4 px, in runs
-      line.push(ly); hw.push(wv);
-      if (x > x0 + 6 && x < x1 - 6 && crng.chance(0.07)) twigs.push([x, crng.chance(0.5) ? 1 : -1, crng.range(0.55, 1.25) * (crng.chance(0.5) ? 1 : -1), crng.int(8, 22)]);
+    // the crack: the same kind of crack as in a run (G.genFissure: arms from a centre, tapering, with twigs), lying across the gate
+    // of the wall that divides the room. Two arms run from the centre to the two wall ends (so the only way on is the dodge), two
+    // short ones leave them toward the far and the near half. (It was a band from wall to wall of the whole room: a straight line
+    // across the screen.) A fixed crack: the first seed whose two long arms reach the wall ends.
+    // Where it may run (px from the centre): TB.crackReach above / below the row inside the gate, within TB.crackEnd of the row by
+    // the wall ends (it meets the wall face, it does not slip past the corner), and only the centre knot in the lane the hero dodges through.
+    var gapPx = (TB.gate >> 1) * T + 8, CPt = { fork: F.fork, forkLen: F.forkLen }, core = {}, line = {}, seedK, armL, armR, CR = TB.crackReach;
+    function okT(lx, ly) {
+      if (lx > -TB.crackLane && lx < TB.crackLane) return ly >= -8 && ly <= 8;
+      if (lx < -gapPx + 16 || lx > gapPx - 16) { if (ly < -TB.crackEnd || ly > TB.crackEnd) return false; } else if (ly < -CR[0] || ly > CR[1]) return false;
+      return !at(Math.floor((cx + lx) / T), Math.floor((yc + ly) / T));
     }
-    function lineY(px) { var i2 = Math.round(px) - x0; return yc + line[i2 < 0 ? 0 : i2 >= line.length ? line.length - 1 : i2]; }
-    var core = {};
-    function put(px, py, o) { var kc = (px - cx) + ',' + (py - yc); if (!(kc in core) || core[kc] > o) core[kc] = o; }
-    for (x = x0; x <= x1; x++) {
-      var o = Math.abs(x - cx) / half, h2 = hw[x - x0];
-      for (y = -h2; y <= h2; y++) {
-        if (Math.abs(y) === h2 && ((x * 7) % 5 === 0)) continue;      // a ragged lip
-        put(x, lineY(x) + y, o);
+    function reach(cl, sgn) { for (var j = 0; j < cl.length; j++) if (cl[j].core && cl[j].x * sgn >= gapPx - 1) return true; return false; }      // the wall ends are gapPx from the centre
+    for (seedK = 0; seedK < 4000; seedK++) {
+      var crng = new G.RNG(0x7076 + seedK * 7919);
+      armL = G.genFissure(crng, false, gapPx + 40, true, Math.PI + crng.range(-0.3, 0.3), okT, CPt);
+      armR = G.genFissure(crng, false, gapPx + 40, true, crng.range(-0.3, 0.3), okT, CPt);
+      if (reach(armL, -1) && reach(armR, 1)) break;
+    }
+    // the short arms start on the long ones, just outside the lane: up and to the right, down and to the left
+    function side(seed, ox, ang, len) {
+      var oy = 0, j, n = 0;
+      for (j = 0; j < (ox > 0 ? armR : armL).length; j++) { var c = (ox > 0 ? armR : armL)[j]; if (c.core && c.x === ox) { oy += c.y; n++; } }
+      oy = n ? Math.round(oy / n) : 0;
+      return G.genFissure(new G.RNG(seed), false, len, true, ang, function (lx, ly) { return okT(lx + ox, ly + oy); }, CPt).map(function (c) { return { x: c.x + ox, y: c.y + oy, o: c.o, core: c.core }; });
+    }
+    var armU = side(0x7078, TB.crackLane + 4, -1.0, TB.crackSide[0]), armD = side(0x7079, -TB.crackLane - 6, 2.2, TB.crackSide[1]);
+    [armL, armR, armU, armD].forEach(function (cl, ai) {
+      for (var j = 0; j < cl.length; j++) {
+        if (!cl[j].core) continue;
+        var kc = cl[j].x + ',' + cl[j].y;
+        if (!(kc in core) || core[kc] > cl[j].o) core[kc] = cl[j].o;
+        if (ai < 2) { var ln = line[cl[j].x] || (line[cl[j].x] = [0, 0]); ln[0] += cl[j].y; ln[1]++; }
       }
-    }
-    for (i = 0; i < twigs.length; i++) {                              // side twigs: off one lip, tapering to a point, at most 20 px from the row
-      var tw = twigs[i], tx = tw[0], ty = lineY(tw[0]) + tw[1] * hw[tw[0] - x0], ta = Math.abs(tw[2]), sdx = tw[2] < 0 ? -1 : 1, n2 = tw[3], to = Math.abs(tw[0] - cx) / half;
-      for (k = 0; k < n2; k++) {
-        ta += crng.range(-0.35, 0.35);
-        if (ta < 0.3) ta = 0.3;
-        if (ta > 1.4) ta = 1.4;
-        tx += sdx * G.M.cos(ta); ty += tw[1] * G.M.sin(ta) * 0.8;
-        if (Math.abs(ty - yc) > 20 || tx < x0 || tx > x1) break;
-        var rx = Math.round(tx), ry = Math.round(ty);
-        put(rx, ry, to);
-        if (k < n2 * 0.5) { put(rx + 1, ry, to); put(rx, ry + tw[1], to); }      // 2 px thick for its first half
-      }
-    }
+    });
+    // the crack's centre line at room x (px): where its monsters come out, and the line the hero must be past
+    function lineY(px) { var ln = line[Math.round(px) - cx]; return ln ? Math.round(yc + ln[0] / ln[1]) : yc; }
     var cells = [];
     for (k in core) { var p = k.split(','); cells.push({ x: +p[0], y: +p[1], o: core[k], core: true }); }
     var edge = {};
@@ -92,7 +95,7 @@
       chest: { x: ex * T + 8, y: 4 * T + 8 },
       fissures: fissures, decals: decals, torches: torches, hash: h,
       tut: {
-        crackY: yc, lineY: lineY,
+        crackY: yc, lineY: lineY, gate: gapPx, crackTry: seedK,
         spot: { x: cx, y: yc - 38 },                                   // the marked spot on the far side of the crack
         dummy: [{ x: cx - 100, y: sy * T + 8 - 56 }, { x: cx + 100, y: sy * T + 8 - 56 }, { x: cx - 100, y: sy * T + 8 - 106 }, { x: cx + 100, y: sy * T + 8 - 106 }],      // where the training dummy can stand
         wave: [{ x: cx - 70, y: yc - 56 }, { x: cx + 70, y: yc - 56 }, { x: cx, y: yc - 74 }]      // where step 5's monsters come from
@@ -157,8 +160,8 @@
     if (p.hp < p.maxHp * TB.healBelow) p.hp = Math.min(p.maxHp, p.hp + p.maxHp * TB.healRate * dt);
     // the crack is the way on: before the crossing step the hero cannot dodge over it early, after it they cannot go back (the monsters could not follow)
     var step = t.step;
-    if (step < IDX.cross) { if (p.y < R.crackY + TB.crossMargin) p.y = R.crackY + TB.crossMargin; }
-    else if (step > IDX.cross) { if (p.y > R.crackY - TB.crossMargin) p.y = R.crackY - TB.crossMargin; }
+    if (step < IDX.cross) { if (p.y < R.lineY(p.x) + TB.crossMargin) p.y = R.lineY(p.x) + TB.crossMargin; }
+    else if (step > IDX.cross) { if (p.y > R.lineY(p.x) - TB.crossMargin) p.y = R.lineY(p.x) - TB.crossMargin; }
 
     if (id === 'darken') {
       t.spawnCd -= dt;
@@ -166,7 +169,7 @@
         var live = 0;
         for (i = 0; i < this.monsters.length; i++) if (!this.monsters[i].dead && this.monsters[i].fid === 0) live++;
         if (live < TB.crackAlive) {
-          var px = this.rngRoom.range(40, this.room.w * T - 40);
+          var px = R.spot.x + this.rngRoom.range(-R.gate + 24, R.gate - 24);      // along the crack, inside the gate
           this.spawnMonster(t.crackLeft.shift(), px, R.lineY(px) - 18, 0);
           t.spawnCd = TB.crackEvery;
         } else t.spawnCd = 0.2;
@@ -201,7 +204,7 @@
       case 'move': dx = p.x - t.p0.x; dy = p.y - t.p0.y; if (dx * dx + dy * dy >= TB.moveDist * TB.moveDist) this.tutAdvance(); break;
       case 'attack': if (t.dummy.dead) this.tutAdvance(); break;
       case 'dodge': if (t.act.dodge) this.tutAdvance(); break;
-      case 'cross': if (p.y < R.crackY - TB.crossMargin) this.tutAdvance(); break;
+      case 'cross': if (p.y < R.lineY(p.x) - TB.crossMargin) this.tutAdvance(); break;
       case 'skill':
         if (t.act.skill) t.sub = 1;
         var alive = 0;
