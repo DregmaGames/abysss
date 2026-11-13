@@ -50,6 +50,20 @@
       torchGap: 5, torchTop: 0.6, torchIn: 0.3      // wall torches: min tiles apart, chance per face tile on the top wall / on inner walls
     },
 
+    // Size tuning (step size panel; DBG > SIZES, ?tune=hero:1.2,room:1.3). Multipliers, 1 = the sizes above. A test tool for the
+    // developers, not a player option: once a set is liked it is baked into the numbers above and these go back to 1.
+    // hero, monsters: VISUAL only (src/view: the drawn sprite, held weapon, trim, glow, shadow scale round the feet; hitboxes unchanged).
+    // city: the camera zoom of the city scene only (src/view/city.js; the town's layout is the same).
+    // room, obstacles, fissures: the GAME (src/mapgen.js G.genRoom, src/sim/tutorial.js): room size in tiles (and the outline's cut
+    // corners and buttresses), the pillars / wall blocks, the cracks' arm lengths and widths and the super fissure (pit radius, arms).
+    // Read by the sim from the balance object it is given (G.tuneOf), so a seed with the same values is the same run.
+    tune: {
+      hero: 1, monsters: 1, room: 1, city: 1, obstacles: 1, fissures: 1,
+      keys: ['hero', 'monsters', 'room', 'city', 'obstacles', 'fissures'],
+      range: { hero: [0.6, 1.6], monsters: [0.6, 1.6], room: [0.6, 1.6], city: [0.6, 1.6], obstacles: [0.6, 1.6], fissures: [0.6, 1.6] },
+      step: 0.1
+    },
+
     // Doors (step 6). After every room but the last: leave with the sealed bag, or go on through one of two doors.
     // The two doors after room N depend only on the run seed and N (G.doorsFor); each is a fissure modifier for the
     // next room and pays `loot`: +that share of gear drop chances and +that much rarity luck (0.25 = +25 %).
@@ -1450,7 +1464,7 @@
   var LOOK = 9, TURNS = [0.6, 1.0, 1.4], MAXTURN = 1.5;      // px an arm looks ahead; the turns it tries (rad, either side); how far it may end up from its first heading
   function genFissure(rng, big, len, oneArm, ang0, ok, P) {
     P = P || {};
-    var core = new Map(), maxO = 0, forkP = P.fork || (big ? 0.08 : 0.07);
+    var core = new Map(), maxO = 0, forkP = P.fork || (big ? 0.08 : 0.07), wk = P.wk || 1;      // wk: x the arm widths (BAL.tune.fissures)
     function stamp(x, y, w, o) {
       var h = Math.floor(w / 2);
       for (var dy = -h; dy <= h; dy++) for (var dx = -h; dx <= h; dx++) {
@@ -1504,10 +1518,10 @@
       }
       for (i = 0; i < arms; i++) {
         ang = a0 + i / arms * 6.283 + rng.range(-0.25, 0.25);
-        walk(G.M.cos(ang) * (R - 3), G.M.sin(ang) * (R - 3) * 0.8, ang, rng.int(pl[0], pl[1]), 6, R * 0.8, 1);
+        walk(G.M.cos(ang) * (R - 3), G.M.sin(ang) * (R - 3) * 0.8, ang, rng.int(pl[0], pl[1]), sc(6, wk), R * 0.8, 1);
       }
     } else if (oneArm) {
-      walk(0, 0, ang0, len, 6, 0, 0);
+      walk(0, 0, ang0, len, sc(6, wk), 0, 0);
     } else {
       ang = rng.range(0, Math.PI);
       if (ok && P.aim) {      // of P.aim headings, the one with the most free floor along both arms: cracks run where the room is open
@@ -1520,10 +1534,10 @@
         }
         ang = bestA;
       }
-      walk(0, 0, ang, len, 7, 0, 0);
-      walk(0, 0, ang + Math.PI + rng.range(-0.3, 0.3), len - rng.int(0, 8), 7, 0, 0);
+      walk(0, 0, ang, len, sc(7, wk), 0, 0);
+      walk(0, 0, ang + Math.PI + rng.range(-0.3, 0.3), len - rng.int(0, 8), sc(7, wk), 0, 0);
       if (P.third && rng.chance(P.third[0])) {      // a third arm: the crack reaches across more of the room without being one more crack
-        walk(0, 0, ang + (rng.chance(0.5) ? 1 : -1) * Math.PI / 2 + rng.range(-0.4, 0.4), Math.round(len * rng.range(P.third[1], P.third[2])), 6, 0, 0);
+        walk(0, 0, ang + (rng.chance(0.5) ? 1 : -1) * Math.PI / 2 + rng.range(-0.4, 0.4), Math.round(len * rng.range(P.third[1], P.third[2])), sc(6, wk), 0, 0);
       }
     }
     var cells = [], edge = new Map();
@@ -1545,20 +1559,35 @@
 
   G.genFissure = genFissure;      // the tutorial room (src/sim/tutorial.js) draws its super fissure with it
 
+  // A size multiplier of BAL.tune (step size panel): 1 when the block or the key is missing, clamped to its range, rounded to 0.01
+  // (so 0.1 steps added in floating point give the same rooms as the typed value).
+  G.tuneOf = function (B, key) {
+    var t = B && B.tune, v = t && typeof t[key] === 'number' && isFinite(t[key]) ? t[key] : 1, rg = t && t.range && t.range[key];
+    if (rg) v = Math.max(rg[0], Math.min(rg[1], v));
+    return Math.round(v * 100) / 100;
+  };
+  function sc(n, k, lo) { return k === 1 ? n : Math.max(lo || 1, Math.round(n * k)); }      // n tiles or px x a multiplier, at least lo
+  G.tuneScale = sc;
+
   // `mod`: optional door modifier id (BAL.doors.mods): crackLen and extraCracks change the cracks only; the walls are the same
   G.genRoom = function (runSeed, index, B, mod) {
     var seed = G.hash32(runSeed >>> 0, index * 7919 + 13);
     var rng = new G.RNG(seed);
     var boss = index === B.run.rooms - 1;
     var R = B.room, RV = R.reserve;
-    var W = boss ? R.boss.w : rng.int(R.w[0], R.w[1]), H = boss ? R.boss.h : rng.int(R.h[0], R.h[1]);
+    // size tuning (BAL.tune; 1 = untouched: every number and every rng call is what it was): kR x the room and its outline's
+    // corners and buttresses, kO x the pillars and wall blocks, kF x the cracks and the super fissure. Whole tiles / px.
+    var kR = G.tuneOf(B, 'room'), kO = G.tuneOf(B, 'obstacles'), kF = G.tuneOf(B, 'fissures');
+    function ri(a, b) { return rng.int(a, Math.max(a, b)); }      // a range a tuned size may have closed up: its low end
+    var W = boss ? sc(R.boss.w, kR) : rng.int(sc(R.w[0], kR), sc(R.w[1], kR)), H = boss ? sc(R.boss.h, kR) : rng.int(sc(R.h[0], kR), sc(R.h[1], kR));
     var tiles = new Uint8Array(W * H), x, y, i;
     function at(tx, ty) { return tx < 0 || ty < 0 || tx >= W || ty >= H ? 1 : tiles[ty * W + tx]; }
     for (y = 0; y < H; y++) for (x = 0; x < W; x++) {
       if (x === 0 || x === W - 1 || y < 2 || y === H - 1) tiles[y * W + x] = 1;
     }
-    var sx = rng.int(R.startMargin, W - 1 - R.startMargin), sy = H - 3;
-    var ex = rng.int(R.startMargin, W - 1 - R.startMargin);
+    var sm = Math.min(sc(R.startMargin, kR), (W >> 1) - 4);      // with the room (its cut corners grow too); never past the middle
+    var sx = rng.int(sm, W - 1 - sm), sy = H - 3;
+    var ex = rng.int(sm, W - 1 - sm);
     var cx = Math.floor(W / 2), cy = Math.floor(H / 2) + 1;
     var chest = { tx: ex, ty: 4 };
     // tiles that never become wall: round the start (the merchant and the cage stand there), under the exit (the chest), round the super fissure
@@ -1577,25 +1606,25 @@
     var cw, ch, CN = R.corner, k0;
     for (k0 = 0; k0 < 4; k0++) {
       if (!rng.chance(CN.chance)) continue;
-      cw = rng.int(CN.w[0], CN.w[1]); ch = rng.int(CN.h[0], CN.h[1]);
+      cw = rng.int(sc(CN.w[0], kR), sc(CN.w[1], kR)); ch = rng.int(sc(CN.h[0], kR), sc(CN.h[1], kR));
       var left = k0 % 2 === 0, top = k0 < 2, c2 = rng.chance(CN.step) ? Math.max(2, cw >> 1) : 0, h2 = c2 ? ch + rng.int(1, 3) : 0;
       fill(left ? 1 : W - 1 - cw, top ? 2 : H - 1 - ch, cw, ch);
       if (c2) fill(left ? 1 : W - 1 - c2, top ? 2 : H - 1 - h2, c2, h2);
     }
     var bumps = boss ? R.bossBumps : rng.int(R.bumps[0], R.bumps[1]);
     for (i = 0; i < bumps; i++) {
-      var side = rng.int(0, 3), bl = rng.int(R.bumpLen[0], R.bumpLen[1]), bd = rng.int(R.bumpDepth[0], R.bumpDepth[1]);
-      if (side === 0) fill(rng.int(8, W - 9 - bl), 2, bl, bd);
-      else if (side === 1) fill(rng.int(8, W - 9 - bl), H - 1 - bd, bl, bd);
-      else if (side === 2) fill(1, rng.int(6, H - 7 - bl), bd, bl);
-      else fill(W - 1 - bd, rng.int(6, H - 7 - bl), bd, bl);
+      var side = rng.int(0, 3), bl = rng.int(sc(R.bumpLen[0], kR), sc(R.bumpLen[1], kR)), bd = rng.int(R.bumpDepth[0], R.bumpDepth[1]);
+      if (side === 0) fill(ri(8, W - 9 - bl), 2, bl, bd);
+      else if (side === 1) fill(ri(8, W - 9 - bl), H - 1 - bd, bl, bd);
+      else if (side === 2) fill(1, ri(6, H - 7 - bl), bd, bl);
+      else fill(W - 1 - bd, ri(6, H - 7 - bl), bd, bl);
     }
     // pillars and wall blocks inside the room (always at least 2 tall, so they show a top and a face). Kinds: pillar (2-3 square),
     // wide wall, tall wall, big block, and an L (a wide and a tall wall sharing a corner). Every block keeps `blockGap` free tiles round it.
     var blocks = [];
     if (boss) {
-      var px0 = [9, 18, W - 20, W - 11];
-      for (i = 0; i < px0.length; i++) blocks.push([px0[i], 7, 2, 2], [px0[i], H - 10, 2, 2]);
+      var px0 = [sc(9, kR), sc(18, kR), W - sc(20, kR), W - sc(11, kR)], pr = sc(2, kO, 2), py0 = sc(7, kR, 4), py1 = H - sc(10, kR, 6);
+      for (i = 0; i < px0.length; i++) blocks.push([px0[i], py0, pr, pr], [px0[i], py1, pr, pr]);
     } else {
       var n = rng.int(R.blocks[0], R.blocks[1]), tries = 0, BK = R.blockKinds, gp = R.blockGap;
       while (blocks.length < n && tries++ < 600) {
@@ -1605,7 +1634,8 @@
         else if (kd === 2) { bw = 2; bh = rng.int(4, 6); }
         else if (kd === 3) { bw = rng.int(4, 5); bh = rng.int(3, 4); }
         else { bw = rng.int(4, 6); bh = rng.int(4, 5); ell = rng.int(1, 4); }
-        var bx = rng.int(4, W - 5 - bw), by = rng.int(5, H - 5 - bh), ok = true;
+        if (kO !== 1) { bw = sc(bw, kO, ell ? 4 : 2); bh = sc(bh, kO, ell ? 4 : 2); }      // the L keeps room for its two 2-thick bars
+        var bx = ri(4, W - 5 - bw), by = ri(5, H - 5 - bh), ok = true;
         for (y = by - gp; y < by + bh + gp && ok; y++) for (x = bx - gp; x < bx + bw + gp && ok; x++) {
           if (reserved(x, y) || at(x, y)) ok = false;
         }
@@ -1613,8 +1643,9 @@
         blocks.push([bx, by, bw, bh]);
         if (!ell) fill(bx, by, bw, bh);
         else {      // the L: a horizontal bar on the top or bottom row pair, a vertical bar on the left or right column pair
-          fill(bx, ell <= 2 ? by : by + bh - 2, bw, 2);
-          fill(ell % 2 ? bx : bx + bw - 2, by, 2, bh);
+          var th = kO === 1 ? 2 : sc(2, kO, 2);      // the bars' thickness
+          fill(bx, ell <= 2 ? by : by + bh - th, bw, th);
+          fill(ell % 2 ? bx : bx + bw - th, by, th, bh);
         }
       }
     }
@@ -1648,7 +1679,7 @@
     for (i = 0; i < W * H; i++) if (!seen[i]) tiles[i] = 1;
 
     // fissure sites: open floor, away from the start, the exit and the centre
-    var cand = [], ST = R.site;
+    var cand = [], ST = kR === 1 ? R.site : { start: R.site.start, exit: R.site.exit, centre: [sc(R.site.centre[0], kR), sc(R.site.centre[1], kR)] };      // the centre's keep-out grows and shrinks with the room
     for (y = 4; y < H - 3; y++) for (x = 3; x < W - 3; x++) {
       var clear = true;
       for (var dy = -1; dy <= 1 && clear; dy++) for (var dx = -2; dx <= 2 && clear; dx++) if (at(x + dx, y + dy)) clear = false;
@@ -1671,12 +1702,15 @@
     // Some branch off an earlier crack: joined cracks form a cluster that shares one kill meter.
     var F = B.fissure, dm = (mod && B.doors.mods[mod]) || {}, want = F.count[index] + (dm.extraCracks || 0), fissures = [];
     var cLo = Math.round(F.crackLen[0] * (dm.crackLen || 1)), cHi = Math.round(F.crackLen[1] * (dm.crackLen || 1));
+    if (kF !== 1) { cLo = Math.round(cLo * kF); cHi = Math.round(cHi * kF); }
+    var SP = kF === 1 ? F.superPit : { r: sc(F.superPit.r, kF), arms: F.superPit.arms, armLen: [sc(F.superPit.armLen[0], kF), sc(F.superPit.armLen[1], kF)], keep: sc(F.superPit.keep, kF), wk: kF };
+    var minCells = sc(F.minCells, kF);
     var sxp = sx * T + 8, syp = sy * T + 8, exp_ = ex * T + 8, cxp = cx * T + 8, cyp = cy * T + 8;
     function zone(px, py, m) {                     // reserved areas, grown by a margin of m px
       if (Math.abs(px - sxp) <= 40 + m && Math.abs(py - syp) <= 34 + m) return true;   // start
       if (Math.abs(px - exp_) <= 30 + m && py <= 8 * T + m) return true;               // chest and exit
       var qx = px - cxp, qy = py - cyp;
-      return qx * qx + qy * qy < (F.superPit.keep + m) * (F.superPit.keep + m);        // super fissure pit
+      return qx * qx + qy * qy < (SP.keep + m) * (SP.keep + m);        // super fissure pit
     }
     function keepOut(px, py) {                     // art pixels that never hold a crack
       return at(Math.floor(px / T), Math.floor(py / T)) || zone(px, py, 0);
@@ -1699,7 +1733,7 @@
       return !keepOut(px, py);
     }
     var SECT = [0, 5, 2, 3, 1, 4], flipX = rng.chance(0.5), flipY = rng.chance(0.5), nSite = 0;
-    var gap = F.siteGap, ci = 0, tries = 0, CP = { fork: F.fork, forkLen: F.forkLen, third: F.thirdArm, bend: F.bend, aim: F.aim };
+    var gap = sc(F.siteGap, kR, 4), ci = 0, tries = 0, CP = { fork: F.fork, forkLen: kF === 1 ? F.forkLen : [sc(F.forkLen[0], kF), sc(F.forkLen[1], kF)], third: F.thirdArm, bend: F.bend, aim: F.aim, wk: kF };
     while (fissures.length < want && tries++ < 200) {
       var made = null, k2;
       if (fissures.length >= Math.ceil(want * F.siteShare) && rng.chance(F.joinChance)) {      // the first cracks are always separate centres
@@ -1734,14 +1768,14 @@
         nSite++;
         if (!made) { if (gap > 3) { gap--; continue; } break; }
       }
-      if (made.cells.length < F.minCells) continue;             // stopped or clipped to a stub: try again
+      if (made.cells.length < minCells) continue;             // stopped or clipped to a stub: try again
       if (made.cl < 0) made.cl = fissures.length;
       made.big = false;
       for (k2 = 0; k2 < made.cells.length; k2++) made.cells[k2].seg = Math.min(F.segments - 1, Math.floor(made.cells[k2].o * F.segments));
       fissures.push(made);
     }
     var bx2 = cx * T + 8, by2 = cy * T + 8;
-    var pit = genFissure(rng, true, 0, false, 0, null, F.superPit).filter(function (c) { return !at(Math.floor((bx2 + c.x) / T), Math.floor((by2 + c.y) / T)); });
+    var pit = genFissure(rng, true, 0, false, 0, null, SP).filter(function (c) { return !at(Math.floor((bx2 + c.x) / T), Math.floor((by2 + c.y) / T)); });
     fissures.push({ x: bx2, y: by2, big: true, cl: -1, cells: pit });
 
     // dressing: floor decals, wall torches on south-facing wall faces
@@ -4102,7 +4136,10 @@
   // BAL.tutorial.w x h tiles (38 x 26; 24 x 26 before the big rooms): the hero starts at the bottom; a wall divides the room and a crack lies across its gate (the only way on is a dodge across it),
   // the super fissure is above it, the chest and the exit at the top. Pure function of the balance numbers: the same room every time.
   G.tutorialRoom = function (B) {
-    var TB = B.tutorial, F = B.fissure, W = TB.w, H = TB.h, tiles = new Uint8Array(W * H), x, y, i, k;
+    // size tuning (BAL.tune): the room's width x room (its height holds the scripted rows: unchanged), the cracks' widths, the
+    // two short arms and the super fissure x fissures; the long arms still run from the gate to the wall ends
+    var kR = G.tuneOf(B, 'room'), kF = G.tuneOf(B, 'fissures');
+    var TB = B.tutorial, F = B.fissure, W = kR === 1 ? TB.w : Math.max(TB.gate + 22, Math.round(TB.w * kR)), H = TB.h, tiles = new Uint8Array(W * H), x, y, i, k;
     for (y = 0; y < H; y++) for (x = 0; x < W; x++) if (x === 0 || x === W - 1 || y < 2 || y === H - 1) tiles[y * W + x] = 1;
     var pillars = [[3, 17, 2, 2], [W - 5, 17, 2, 2], [3, 6, 2, 2], [W - 5, 6, 2, 2]];      // four small pillars near the side walls
     if (W >= 34) pillars.push([9, 10, 2, 2], [W - 11, 10, 2, 2]);      // the wider room (step big rooms): two more, beside the super fissure
@@ -4119,7 +4156,7 @@
     // across the screen.) A fixed crack: the first seed whose two long arms reach the wall ends.
     // Where it may run (px from the centre): TB.crackReach above / below the row inside the gate, within TB.crackEnd of the row by
     // the wall ends (it meets the wall face, it does not slip past the corner), and only the centre knot in the lane the hero dodges through.
-    var gapPx = (TB.gate >> 1) * T + 8, CPt = { fork: F.fork, forkLen: F.forkLen }, core = {}, line = {}, seedK, armL, armR, CR = TB.crackReach;
+    var gapPx = (TB.gate >> 1) * T + 8, CPt = { fork: F.fork, forkLen: F.forkLen, wk: kF }, core = {}, line = {}, seedK, armL, armR, CR = TB.crackReach;
     function okT(lx, ly) {
       if (lx > -TB.crackLane && lx < TB.crackLane) return ly >= -8 && ly <= 8;
       if (lx < -gapPx + 16 || lx > gapPx - 16) { if (ly < -TB.crackEnd || ly > TB.crackEnd) return false; } else if (ly < -CR[0] || ly > CR[1]) return false;
@@ -4139,7 +4176,7 @@
       oy = n ? Math.round(oy / n) : 0;
       return G.genFissure(new G.RNG(seed), false, len, true, ang, function (lx, ly) { return okT(lx + ox, ly + oy); }, CPt).map(function (c) { return { x: c.x + ox, y: c.y + oy, o: c.o, core: c.core }; });
     }
-    var armU = side(0x7078, TB.crackLane + 4, -1.0, TB.crackSide[0]), armD = side(0x7079, -TB.crackLane - 6, 2.2, TB.crackSide[1]);
+    var armU = side(0x7078, TB.crackLane + 4, -1.0, G.tuneScale(TB.crackSide[0], kF)), armD = side(0x7079, -TB.crackLane - 6, 2.2, G.tuneScale(TB.crackSide[1], kF));
     [armL, armR, armU, armD].forEach(function (cl, ai) {
       for (var j = 0; j < cl.length; j++) {
         if (!cl[j].core) continue;
@@ -4167,7 +4204,7 @@
     var crack = { x: cx, y: yc, big: false, cl: 0, cells: cells };
     // the super fissure: the usual pit with its arms, in the middle of the upper half
     var bx = cx, by = TB.pitRow * T + 8;
-    var pit = G.genFissure(new G.RNG(0x7077), true).filter(function (c) { return !at(Math.floor((bx + c.x) / T), Math.floor((by + c.y) / T)); });
+    var pit = G.genFissure(new G.RNG(0x7077), true, 0, false, 0, null, kF === 1 ? null : { r: G.tuneScale(13, kF), arms: [6, 7], armLen: [G.tuneScale(34, kF), G.tuneScale(50, kF)], wk: kF }).filter(function (c) { return !at(Math.floor((bx + c.x) / T), Math.floor((by + c.y) / T)); });
     var fissures = [crack, { x: bx, y: by, big: true, cl: -1, cells: pit }];
     // dressing: a fixed handful of floor marks and torches on the top wall
     var rng = new G.RNG(0x7071), decals = [], torches = [];
@@ -6336,6 +6373,11 @@
   // a tappable sprite whose frame changed size (chunky <-> HD): its hit box follows the frame
   function fitHit(img) { var h = img.input && img.input.hitArea; if (h && (h.width !== img.frame.width || h.height !== img.frame.height)) h.setSize(img.frame.width, img.frame.height); }
   HD.fitHit = fitHit;
+  // a chunky (atlas) sprite at a size multiplier k (BAL.tune hero / monsters): its height snapped to whole art pixels, the width in step
+  HD.tuneChunky = function (img, k) {
+    var sc = k === 1 ? 1 : Math.max(1, Math.round(img.frame.height * k)) / img.frame.height;
+    if (img.scaleX !== sc || img.scaleY !== sc) img.setScale(sc);
+  };
   function sign(v) { return v < 0 ? -1 : 1; }
 
   // ------------------------------------------------------------------ rig
@@ -6425,9 +6467,10 @@
       this.hit -= dt;
     }
     // whole HD pixels: size, offsets; three tilt steps at most. A lo_ frame (2x2 HD px per art px): whole art pixels, no tilt.
-    var P = fname.indexOf('lo_') === 0 ? D : 1;
-    var ws = Math.max(P, Math.round(W * sx / P) * P), hs = Math.max(P, Math.round(H * sy / P) * P), sxq = ws / W, syq = hs / H;
-    var oxq = Math.round(ox / P) * P, oyq = Math.round(oy / P) * P, rq = P > 1 ? 0 : q(rot, 0.035);
+    // o.k (BAL.tune hero / monsters, visual only): x the drawn size round the feet, still snapped to whole HD pixels
+    var P = fname.indexOf('lo_') === 0 ? D : 1, k = o.k || 1;
+    var ws = Math.max(P, Math.round(W * sx * k / P) * P), hs = Math.max(P, Math.round(H * sy * k / P) * P), sxq = ws / W, syq = hs / H;
+    var oxq = Math.round(ox * k / P) * P, oyq = Math.round(oy * k / P) * P, rq = P > 1 ? 0 : q(rot, 0.035);
     var flip = (this.face * faces) < 0, ax = meta.anchor ? meta.anchor.x : 0.5;
     img.setFlipX(flip).setScale(sxq / D, syq / D).setRotation(rq)
       .setOrigin((flip ? 1 - ax : ax) - oxq / ws, 1 - oyq / hs)
@@ -6468,14 +6511,15 @@
       if (wi.frame.name !== wp.frame) { wi.setFrame(wp.frame, false, false); wg.setFrame(wp.frame, false, false); }
       var hx = o.x + ((flip ? W - meta.hand[0] - 0.5 : meta.hand[0] + 0.5) - img.originX * W) * img.scaleX, hy = o.y + (meta.hand[1] + 0.5 - img.originY * H) * img.scaleY;
       var ha = meta.hand[2] * Math.PI / 180, wr = (flip ? Math.PI - ha : ha) + Math.PI / 2 + rq, wd = (o.depth != null ? o.depth : img.depth) + 0.02, wal = o.alpha == null ? 1 : o.alpha;
-      wi.setVisible(true).setFlipX(flip).setOrigin(0.5, 1).setScale(1 / D).setRotation(wr).setPosition(hx, hy).setDepth(wd).setAlpha(wal);
+      var wsc = k === 1 ? 1 / D : Math.max(1, Math.round(wi.frame.height * k)) / wi.frame.height / D;      // the weapon at the hero's size, whole HD px
+      wi.setVisible(true).setFlipX(flip).setOrigin(0.5, 1).setScale(wsc).setRotation(wr).setPosition(hx, hy).setDepth(wd).setAlpha(wal);
       var wgd = wp.glow && G.ANIM.glow[wp.glow];
-      if (wgd) wg.setVisible(true).setFlipX(flip).setOrigin(0.5, 1).setScale(1 / D).setRotation(wr).setPosition(hx, hy).setDepth(wd + 0.01).setTint(HD.glowColor(wgd, this.t))
+      if (wgd) wg.setVisible(true).setFlipX(flip).setOrigin(0.5, 1).setScale(wsc).setRotation(wr).setPosition(hx, hy).setDepth(wd + 0.01).setTint(HD.glowColor(wgd, this.t))
         .setAlpha(wal * (wgd.min + (wgd.max - wgd.min) * (0.5 + 0.5 * Math.sin(this.t * 6.2832 / (wgd.period || 1.4)))));
       else wg.setVisible(false);
     } else if (wi) { wi.setVisible(false); wg.setVisible(false); }
     // soft contact shadow: as wide as the feet, smaller while the body is up
-    var fw = Math.max(8, ((meta.foot || W * 0.6) / D) * 1.15 + 4), lift = 1 - Math.max(0, -oyq) * 0.04;
+    var fw = Math.max(8, ((meta.foot || W * 0.6) / D) * 1.15 + 4) * k, lift = 1 - Math.max(0, -oyq) * 0.04;
     var sw = Math.round(fw * lift / 2) * 2;
     this.shadow.setVisible(img.visible).setPosition(o.x, o.ground).setDisplaySize(sw, Math.max(3, Math.round(sw * 0.34)))
       .setAlpha((o.alpha == null ? 1 : o.alpha) * (o.shadowAlpha == null ? 0.85 : o.shadowAlpha));
@@ -7149,7 +7193,7 @@
       this.keyEnter = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
       this.px = L.start.x; this.py = L.start.y; this.face = 1; this.moving = false; this.frame = 0; this.cam = { x: L.start.x, y: L.start.y };
       this.entering = false; this.near = null; this.out = { mx: 0, my: 0, dodge: false, pulse: false };
-      this.cameras.main.setZoom(G.view.S);
+      this.cameras.main.setZoom(this.zoom());
       this.buildWorld();
       this.player = this.add.image(0, 0, 'atlas', C.sprite.frames + '_0').setOrigin(0.42, 1);
       this.shadow = this.add.image(0, 0, 'atlas', 'shadow_s').setDepth(-100);
@@ -7166,7 +7210,7 @@
 
     // a new screen size, zoom or language: the town is the same on every screen, only the camera and the texts change
     applyView: function () {
-      this.cameras.main.setZoom(G.view.S);
+      this.cameras.main.setZoom(this.zoom());
       this.relabel(); this.follow(true);
     },
 
@@ -7341,8 +7385,12 @@
       if (!this.blocked(this.px, this.py + dy)) this.py += dy;
     },
     // the camera: on the hero (a little above him), kept inside the town; a screen bigger than the town shows it centred
+    // the camera zoom: the pixel scale S x BAL.tune.city (DBG > SIZES; a test tool, fractional: the town's art pixels may come out
+    // uneven). The town's layout is the same, only how much of it fits on the screen changes.
+    zoom: function () { return G.view.S * G.tuneOf(G.BAL, 'city'); },
     follow: function (snap) {
-      var V = G.view, cam = this.cameras.main, MW = this.lay.w, MH = this.lay.h, up = V.H < LOOK.short ? LOOK.upShort : LOOK.up;
+      var kc = G.view.S / this.zoom(), V = { W: G.view.W * kc, H: G.view.H * kc };      // the world the camera shows, in town px
+      var cam = this.cameras.main, MW = this.lay.w, MH = this.lay.h, up = G.view.H < LOOK.short ? LOOK.upShort : LOOK.up;
       if (!this.cam) return;
       if (snap) { this.cam.x = this.px; this.cam.y = this.py - up; } else { this.cam.x += (this.px - this.cam.x) * 0.14; this.cam.y += (this.py - up - this.cam.y) * 0.14; }
       var cx = MW <= V.W ? MW / 2 : Math.max(V.W / 2, Math.min(MW - V.W / 2, this.cam.x));
@@ -7375,14 +7423,16 @@
       var hx = Math.round(this.px), hy = Math.round(this.py);
       var ceq = G.gearOf(G.save, G.cls).equipped;
       this.prig.ent = G.HD.heroEnt(C.id, ceq);
-      var hd = this.prig.update(G.paused ? 0 : dt, { x: hx, y: hy, ground: hy - 1, face: this.face, tx: null, state: 'walk', speed: C.base.speed, depth: this.py,
+      var kH = G.tuneOf(G.BAL, 'hero');
+      var hd = this.prig.update(G.paused ? 0 : dt, { x: hx, y: hy, ground: hy - 1, face: this.face, tx: null, state: 'walk', speed: C.base.speed, depth: this.py, k: kH,
         glow: G.HD.glowOf(ceq.weapon), weapon: G.HD.heroWeapon(this.prig.ent, C, ceq), trim: G.HD.trimColor(ceq) });
       if (!hd) {
         if (this.player.isHD || this.player.texture.key !== 'atlas') G.HD.chunky(this.player, C.sprite.frames + '_0');
         var walk = this.moving ? ((this.frame >> 3) & 1) : 0;
         this.player.setFrame(C.sprite.frames + '_' + walk).setFlipX(this.face < 0).setOrigin(this.face < 0 ? 0.58 : 0.42, 1).setPosition(hx, hy).setDepth(this.py);
+        G.HD.tuneChunky(this.player, kH);
       }
-      this.shadow.setPosition(hx, hy - 1).setVisible(!hd);
+      this.shadow.setPosition(hx, hy - 1).setVisible(!hd).setScale(kH);
       var self = this, f = this.frame, i;
       Object.keys(this.spots).forEach(function (k) {
         var s = self.spots[k];
@@ -7794,9 +7844,11 @@
       var heq = sim.gear && sim.gear.equipped;
       prig.ent = G.HD.heroEnt(this.cls.id, heq);                    // visible equipment: the sheet by the armour worn
       var hdHero = !!G.HD.frames(this, prig.ent, 'idle');           // the class has HD frames (a sheet imported for it)
+      var kH = G.tuneOf(G.BAL, 'hero'), kM = G.tuneOf(G.BAL, 'monsters');      // size tuning (DBG > SIZES): drawn size only, the sim's hitboxes are the same
       if (!hdHero) {
         if (this.player.isHD || this.player.texture.key !== 'atlas') G.HD.chunky(this.player, this.cls.sprite.frames + '_0');
         this.player.setFrame(this.cls.sprite.frames + '_' + walk).setFlipX(p.face < 0).setOrigin(p.face < 0 ? 0.58 : 0.42, 1);
+        G.HD.tuneChunky(this.player, kH);
       }
       // hop: height of the dodge arc over a crack (0 outside it); bump: a 1 px recoil off the edge
       var lift = 0, bx = 0, by = 0;
@@ -7807,8 +7859,8 @@
       }
       if (this.bumpT > 0) { this.bumpT--; bx = Math.round(this.bumpX); by = Math.round(this.bumpY); }
       this.player.setPosition(p.x + bx, p.y + p.r + 1 - lift + by).setDepth(p.y + p.r + (lift ? 400 : 0));
-      this.playerShadow.setPosition(p.x, p.y + p.r).setScale(1 - lift / (HOP_H * 2.5)).setVisible(!hdHero);
-      if (hdHero) prig.update(rdt, { x: p.x + bx, y: p.y + p.r + 1 - lift + by, ground: p.y + p.r, face: p.face, tx: null, state: 'walk',
+      this.playerShadow.setPosition(p.x, p.y + p.r).setScale((1 - lift / (HOP_H * 2.5)) * kH).setVisible(!hdHero);
+      if (hdHero) prig.update(rdt, { x: p.x + bx, y: p.y + p.r + 1 - lift + by, ground: p.y + p.r, face: p.face, tx: null, state: 'walk', k: kH,
         speed: this.cls.base.speed, depth: p.y + p.r + (lift ? 400 : 0), shadowAlpha: 0.85 * (1 - lift / (HOP_H * 1.5)),
         glow: G.HD.glowOf(heq && heq.weapon), weapon: G.HD.heroWeapon(prig.ent, this.cls, heq), trim: G.HD.trimColor(heq) });
       else prig.shadow.setVisible(false);
@@ -7816,8 +7868,8 @@
         var wi = this.weaponImg, wd = G.weaponOf(this.cls, sim.gear).id;
         if (this.swingT > 0) this.swingT--;
         var wa = this.swingT > 0 ? -1.0 + 2.7 * (1 - this.swingT / 9) : 0.3;
-        wi.setFrame('w_' + wd).setFlipX(p.face < 0).setRotation(p.face * wa).setAlpha(this.player.alpha)
-          .setPosition(p.x + bx + p.face * 5, p.y + p.r + 1 - lift + by - 11).setDepth(p.y + p.r + (lift ? 400 : 0) + 0.5).setVisible(sim.state !== 'dead' && !hdHero);      // the HD sheet has the weapon drawn in
+        wi.setFrame('w_' + wd).setFlipX(p.face < 0).setRotation(p.face * wa).setAlpha(this.player.alpha).setScale(kH)
+          .setPosition(p.x + bx + Math.round(p.face * 5 * kH), p.y + p.r + 1 - lift + by - Math.round(11 * kH)).setDepth(p.y + p.r + (lift ? 400 : 0) + 0.5).setVisible(sim.state !== 'dead' && !hdHero);      // the HD sheet has the weapon drawn in
       }
       this.drawArc();
       this.playerGlow.setPosition(p.x, p.y);
@@ -7837,7 +7889,7 @@
       }, function (s, m) {
         var fly = m.def.fly || 0, rate = m.def.ai === 'weave' ? 2 : 3, pose = G.attackPose(m, p);
         var state = pose ? (m.def.boss ? POSE_STATE[pose] : 'attack') : 'walk';
-        if (s.rig.update(rdt, { x: m.x, y: m.y + m.r + 1 - fly, ground: m.y + m.r, face: m.face, tx: p.x, state: state, speed: m.def.speed,
+        if (s.rig.update(rdt, { x: m.x, y: m.y + m.r + 1 - fly, ground: m.y + m.r, face: m.face, tx: p.x, state: state, speed: m.def.speed, k: kM,
           depth: m.y + m.r, alpha: m.emerge > 0 ? 0.6 : 1 })) {
           s.sh.setVisible(false);
           s.artH = s.rig.artH;
@@ -7845,8 +7897,9 @@
           if (s.isHD || s.texture.key !== 'atlas') G.HD.chunky(s, m.type + '_0');
           s.setPosition(m.x, m.y + m.r + 1 - fly).setDepth(m.y + m.r).setFlipX(m.face < 0).setOrigin(0.5, 1);
           s.setFrame(m.type + '_' + (pose || (((tick >> rate) + m.id) & 1)));
-          s.sh.setVisible(true).setPosition(m.x, m.y + m.r);
-          s.artH = s.height;
+          G.HD.tuneChunky(s, kM);
+          s.sh.setVisible(true).setPosition(m.x, m.y + m.r).setScale(kM);
+          s.artH = s.displayHeight;
         }
         s.setAlpha(m.emerge > 0 ? 0.6 : 1);
         if (s.flashCd > 0) s.flashCd--;

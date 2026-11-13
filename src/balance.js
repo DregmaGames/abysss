@@ -40,6 +40,20 @@
       torchGap: 5, torchTop: 0.6, torchIn: 0.3      // wall torches: min tiles apart, chance per face tile on the top wall / on inner walls
     },
 
+    // Size tuning (step size panel; DBG > SIZES, ?tune=hero:1.2,room:1.3). Multipliers, 1 = the sizes above. A test tool for the
+    // developers, not a player option: once a set is liked it is baked into the numbers above and these go back to 1.
+    // hero, monsters: VISUAL only (src/view: the drawn sprite, held weapon, trim, glow, shadow scale round the feet; hitboxes unchanged).
+    // city: the camera zoom of the city scene only (src/view/city.js; the town's layout is the same).
+    // room, obstacles, fissures: the GAME (src/mapgen.js G.genRoom, src/sim/tutorial.js): room size in tiles (and the outline's cut
+    // corners and buttresses), the pillars / wall blocks, the cracks' arm lengths and widths and the super fissure (pit radius, arms).
+    // Read by the sim from the balance object it is given (G.tuneOf), so a seed with the same values is the same run.
+    tune: {
+      hero: 1, monsters: 1, room: 1, city: 1, obstacles: 1, fissures: 1,
+      keys: ['hero', 'monsters', 'room', 'city', 'obstacles', 'fissures'],
+      range: { hero: [0.6, 1.6], monsters: [0.6, 1.6], room: [0.6, 1.6], city: [0.6, 1.6], obstacles: [0.6, 1.6], fissures: [0.6, 1.6] },
+      step: 0.1
+    },
+
     // Doors (step 6). After every room but the last: leave with the sealed bag, or go on through one of two doors.
     // The two doors after room N depend only on the run seed and N (G.doorsFor); each is a fissure modifier for the
     // next room and pays `loot`: +that share of gear drop chances and +that much rarity luck (0.25 = +25 %).

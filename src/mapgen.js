@@ -16,7 +16,7 @@
   var LOOK = 9, TURNS = [0.6, 1.0, 1.4], MAXTURN = 1.5;      // px an arm looks ahead; the turns it tries (rad, either side); how far it may end up from its first heading
   function genFissure(rng, big, len, oneArm, ang0, ok, P) {
     P = P || {};
-    var core = new Map(), maxO = 0, forkP = P.fork || (big ? 0.08 : 0.07);
+    var core = new Map(), maxO = 0, forkP = P.fork || (big ? 0.08 : 0.07), wk = P.wk || 1;      // wk: x the arm widths (BAL.tune.fissures)
     function stamp(x, y, w, o) {
       var h = Math.floor(w / 2);
       for (var dy = -h; dy <= h; dy++) for (var dx = -h; dx <= h; dx++) {
@@ -70,10 +70,10 @@
       }
       for (i = 0; i < arms; i++) {
         ang = a0 + i / arms * 6.283 + rng.range(-0.25, 0.25);
-        walk(G.M.cos(ang) * (R - 3), G.M.sin(ang) * (R - 3) * 0.8, ang, rng.int(pl[0], pl[1]), 6, R * 0.8, 1);
+        walk(G.M.cos(ang) * (R - 3), G.M.sin(ang) * (R - 3) * 0.8, ang, rng.int(pl[0], pl[1]), sc(6, wk), R * 0.8, 1);
       }
     } else if (oneArm) {
-      walk(0, 0, ang0, len, 6, 0, 0);
+      walk(0, 0, ang0, len, sc(6, wk), 0, 0);
     } else {
       ang = rng.range(0, Math.PI);
       if (ok && P.aim) {      // of P.aim headings, the one with the most free floor along both arms: cracks run where the room is open
@@ -86,10 +86,10 @@
         }
         ang = bestA;
       }
-      walk(0, 0, ang, len, 7, 0, 0);
-      walk(0, 0, ang + Math.PI + rng.range(-0.3, 0.3), len - rng.int(0, 8), 7, 0, 0);
+      walk(0, 0, ang, len, sc(7, wk), 0, 0);
+      walk(0, 0, ang + Math.PI + rng.range(-0.3, 0.3), len - rng.int(0, 8), sc(7, wk), 0, 0);
       if (P.third && rng.chance(P.third[0])) {      // a third arm: the crack reaches across more of the room without being one more crack
-        walk(0, 0, ang + (rng.chance(0.5) ? 1 : -1) * Math.PI / 2 + rng.range(-0.4, 0.4), Math.round(len * rng.range(P.third[1], P.third[2])), 6, 0, 0);
+        walk(0, 0, ang + (rng.chance(0.5) ? 1 : -1) * Math.PI / 2 + rng.range(-0.4, 0.4), Math.round(len * rng.range(P.third[1], P.third[2])), sc(6, wk), 0, 0);
       }
     }
     var cells = [], edge = new Map();
@@ -111,20 +111,35 @@
 
   G.genFissure = genFissure;      // the tutorial room (src/sim/tutorial.js) draws its super fissure with it
 
+  // A size multiplier of BAL.tune (step size panel): 1 when the block or the key is missing, clamped to its range, rounded to 0.01
+  // (so 0.1 steps added in floating point give the same rooms as the typed value).
+  G.tuneOf = function (B, key) {
+    var t = B && B.tune, v = t && typeof t[key] === 'number' && isFinite(t[key]) ? t[key] : 1, rg = t && t.range && t.range[key];
+    if (rg) v = Math.max(rg[0], Math.min(rg[1], v));
+    return Math.round(v * 100) / 100;
+  };
+  function sc(n, k, lo) { return k === 1 ? n : Math.max(lo || 1, Math.round(n * k)); }      // n tiles or px x a multiplier, at least lo
+  G.tuneScale = sc;
+
   // `mod`: optional door modifier id (BAL.doors.mods): crackLen and extraCracks change the cracks only; the walls are the same
   G.genRoom = function (runSeed, index, B, mod) {
     var seed = G.hash32(runSeed >>> 0, index * 7919 + 13);
     var rng = new G.RNG(seed);
     var boss = index === B.run.rooms - 1;
     var R = B.room, RV = R.reserve;
-    var W = boss ? R.boss.w : rng.int(R.w[0], R.w[1]), H = boss ? R.boss.h : rng.int(R.h[0], R.h[1]);
+    // size tuning (BAL.tune; 1 = untouched: every number and every rng call is what it was): kR x the room and its outline's
+    // corners and buttresses, kO x the pillars and wall blocks, kF x the cracks and the super fissure. Whole tiles / px.
+    var kR = G.tuneOf(B, 'room'), kO = G.tuneOf(B, 'obstacles'), kF = G.tuneOf(B, 'fissures');
+    function ri(a, b) { return rng.int(a, Math.max(a, b)); }      // a range a tuned size may have closed up: its low end
+    var W = boss ? sc(R.boss.w, kR) : rng.int(sc(R.w[0], kR), sc(R.w[1], kR)), H = boss ? sc(R.boss.h, kR) : rng.int(sc(R.h[0], kR), sc(R.h[1], kR));
     var tiles = new Uint8Array(W * H), x, y, i;
     function at(tx, ty) { return tx < 0 || ty < 0 || tx >= W || ty >= H ? 1 : tiles[ty * W + tx]; }
     for (y = 0; y < H; y++) for (x = 0; x < W; x++) {
       if (x === 0 || x === W - 1 || y < 2 || y === H - 1) tiles[y * W + x] = 1;
     }
-    var sx = rng.int(R.startMargin, W - 1 - R.startMargin), sy = H - 3;
-    var ex = rng.int(R.startMargin, W - 1 - R.startMargin);
+    var sm = Math.min(sc(R.startMargin, kR), (W >> 1) - 4);      // with the room (its cut corners grow too); never past the middle
+    var sx = rng.int(sm, W - 1 - sm), sy = H - 3;
+    var ex = rng.int(sm, W - 1 - sm);
     var cx = Math.floor(W / 2), cy = Math.floor(H / 2) + 1;
     var chest = { tx: ex, ty: 4 };
     // tiles that never become wall: round the start (the merchant and the cage stand there), under the exit (the chest), round the super fissure
@@ -143,25 +158,25 @@
     var cw, ch, CN = R.corner, k0;
     for (k0 = 0; k0 < 4; k0++) {
       if (!rng.chance(CN.chance)) continue;
-      cw = rng.int(CN.w[0], CN.w[1]); ch = rng.int(CN.h[0], CN.h[1]);
+      cw = rng.int(sc(CN.w[0], kR), sc(CN.w[1], kR)); ch = rng.int(sc(CN.h[0], kR), sc(CN.h[1], kR));
       var left = k0 % 2 === 0, top = k0 < 2, c2 = rng.chance(CN.step) ? Math.max(2, cw >> 1) : 0, h2 = c2 ? ch + rng.int(1, 3) : 0;
       fill(left ? 1 : W - 1 - cw, top ? 2 : H - 1 - ch, cw, ch);
       if (c2) fill(left ? 1 : W - 1 - c2, top ? 2 : H - 1 - h2, c2, h2);
     }
     var bumps = boss ? R.bossBumps : rng.int(R.bumps[0], R.bumps[1]);
     for (i = 0; i < bumps; i++) {
-      var side = rng.int(0, 3), bl = rng.int(R.bumpLen[0], R.bumpLen[1]), bd = rng.int(R.bumpDepth[0], R.bumpDepth[1]);
-      if (side === 0) fill(rng.int(8, W - 9 - bl), 2, bl, bd);
-      else if (side === 1) fill(rng.int(8, W - 9 - bl), H - 1 - bd, bl, bd);
-      else if (side === 2) fill(1, rng.int(6, H - 7 - bl), bd, bl);
-      else fill(W - 1 - bd, rng.int(6, H - 7 - bl), bd, bl);
+      var side = rng.int(0, 3), bl = rng.int(sc(R.bumpLen[0], kR), sc(R.bumpLen[1], kR)), bd = rng.int(R.bumpDepth[0], R.bumpDepth[1]);
+      if (side === 0) fill(ri(8, W - 9 - bl), 2, bl, bd);
+      else if (side === 1) fill(ri(8, W - 9 - bl), H - 1 - bd, bl, bd);
+      else if (side === 2) fill(1, ri(6, H - 7 - bl), bd, bl);
+      else fill(W - 1 - bd, ri(6, H - 7 - bl), bd, bl);
     }
     // pillars and wall blocks inside the room (always at least 2 tall, so they show a top and a face). Kinds: pillar (2-3 square),
     // wide wall, tall wall, big block, and an L (a wide and a tall wall sharing a corner). Every block keeps `blockGap` free tiles round it.
     var blocks = [];
     if (boss) {
-      var px0 = [9, 18, W - 20, W - 11];
-      for (i = 0; i < px0.length; i++) blocks.push([px0[i], 7, 2, 2], [px0[i], H - 10, 2, 2]);
+      var px0 = [sc(9, kR), sc(18, kR), W - sc(20, kR), W - sc(11, kR)], pr = sc(2, kO, 2), py0 = sc(7, kR, 4), py1 = H - sc(10, kR, 6);
+      for (i = 0; i < px0.length; i++) blocks.push([px0[i], py0, pr, pr], [px0[i], py1, pr, pr]);
     } else {
       var n = rng.int(R.blocks[0], R.blocks[1]), tries = 0, BK = R.blockKinds, gp = R.blockGap;
       while (blocks.length < n && tries++ < 600) {
@@ -171,7 +186,8 @@
         else if (kd === 2) { bw = 2; bh = rng.int(4, 6); }
         else if (kd === 3) { bw = rng.int(4, 5); bh = rng.int(3, 4); }
         else { bw = rng.int(4, 6); bh = rng.int(4, 5); ell = rng.int(1, 4); }
-        var bx = rng.int(4, W - 5 - bw), by = rng.int(5, H - 5 - bh), ok = true;
+        if (kO !== 1) { bw = sc(bw, kO, ell ? 4 : 2); bh = sc(bh, kO, ell ? 4 : 2); }      // the L keeps room for its two 2-thick bars
+        var bx = ri(4, W - 5 - bw), by = ri(5, H - 5 - bh), ok = true;
         for (y = by - gp; y < by + bh + gp && ok; y++) for (x = bx - gp; x < bx + bw + gp && ok; x++) {
           if (reserved(x, y) || at(x, y)) ok = false;
         }
@@ -179,8 +195,9 @@
         blocks.push([bx, by, bw, bh]);
         if (!ell) fill(bx, by, bw, bh);
         else {      // the L: a horizontal bar on the top or bottom row pair, a vertical bar on the left or right column pair
-          fill(bx, ell <= 2 ? by : by + bh - 2, bw, 2);
-          fill(ell % 2 ? bx : bx + bw - 2, by, 2, bh);
+          var th = kO === 1 ? 2 : sc(2, kO, 2);      // the bars' thickness
+          fill(bx, ell <= 2 ? by : by + bh - th, bw, th);
+          fill(ell % 2 ? bx : bx + bw - th, by, th, bh);
         }
       }
     }
@@ -214,7 +231,7 @@
     for (i = 0; i < W * H; i++) if (!seen[i]) tiles[i] = 1;
 
     // fissure sites: open floor, away from the start, the exit and the centre
-    var cand = [], ST = R.site;
+    var cand = [], ST = kR === 1 ? R.site : { start: R.site.start, exit: R.site.exit, centre: [sc(R.site.centre[0], kR), sc(R.site.centre[1], kR)] };      // the centre's keep-out grows and shrinks with the room
     for (y = 4; y < H - 3; y++) for (x = 3; x < W - 3; x++) {
       var clear = true;
       for (var dy = -1; dy <= 1 && clear; dy++) for (var dx = -2; dx <= 2 && clear; dx++) if (at(x + dx, y + dy)) clear = false;
@@ -237,12 +254,15 @@
     // Some branch off an earlier crack: joined cracks form a cluster that shares one kill meter.
     var F = B.fissure, dm = (mod && B.doors.mods[mod]) || {}, want = F.count[index] + (dm.extraCracks || 0), fissures = [];
     var cLo = Math.round(F.crackLen[0] * (dm.crackLen || 1)), cHi = Math.round(F.crackLen[1] * (dm.crackLen || 1));
+    if (kF !== 1) { cLo = Math.round(cLo * kF); cHi = Math.round(cHi * kF); }
+    var SP = kF === 1 ? F.superPit : { r: sc(F.superPit.r, kF), arms: F.superPit.arms, armLen: [sc(F.superPit.armLen[0], kF), sc(F.superPit.armLen[1], kF)], keep: sc(F.superPit.keep, kF), wk: kF };
+    var minCells = sc(F.minCells, kF);
     var sxp = sx * T + 8, syp = sy * T + 8, exp_ = ex * T + 8, cxp = cx * T + 8, cyp = cy * T + 8;
     function zone(px, py, m) {                     // reserved areas, grown by a margin of m px
       if (Math.abs(px - sxp) <= 40 + m && Math.abs(py - syp) <= 34 + m) return true;   // start
       if (Math.abs(px - exp_) <= 30 + m && py <= 8 * T + m) return true;               // chest and exit
       var qx = px - cxp, qy = py - cyp;
-      return qx * qx + qy * qy < (F.superPit.keep + m) * (F.superPit.keep + m);        // super fissure pit
+      return qx * qx + qy * qy < (SP.keep + m) * (SP.keep + m);        // super fissure pit
     }
     function keepOut(px, py) {                     // art pixels that never hold a crack
       return at(Math.floor(px / T), Math.floor(py / T)) || zone(px, py, 0);
@@ -265,7 +285,7 @@
       return !keepOut(px, py);
     }
     var SECT = [0, 5, 2, 3, 1, 4], flipX = rng.chance(0.5), flipY = rng.chance(0.5), nSite = 0;
-    var gap = F.siteGap, ci = 0, tries = 0, CP = { fork: F.fork, forkLen: F.forkLen, third: F.thirdArm, bend: F.bend, aim: F.aim };
+    var gap = sc(F.siteGap, kR, 4), ci = 0, tries = 0, CP = { fork: F.fork, forkLen: kF === 1 ? F.forkLen : [sc(F.forkLen[0], kF), sc(F.forkLen[1], kF)], third: F.thirdArm, bend: F.bend, aim: F.aim, wk: kF };
     while (fissures.length < want && tries++ < 200) {
       var made = null, k2;
       if (fissures.length >= Math.ceil(want * F.siteShare) && rng.chance(F.joinChance)) {      // the first cracks are always separate centres
@@ -300,14 +320,14 @@
         nSite++;
         if (!made) { if (gap > 3) { gap--; continue; } break; }
       }
-      if (made.cells.length < F.minCells) continue;             // stopped or clipped to a stub: try again
+      if (made.cells.length < minCells) continue;             // stopped or clipped to a stub: try again
       if (made.cl < 0) made.cl = fissures.length;
       made.big = false;
       for (k2 = 0; k2 < made.cells.length; k2++) made.cells[k2].seg = Math.min(F.segments - 1, Math.floor(made.cells[k2].o * F.segments));
       fissures.push(made);
     }
     var bx2 = cx * T + 8, by2 = cy * T + 8;
-    var pit = genFissure(rng, true, 0, false, 0, null, F.superPit).filter(function (c) { return !at(Math.floor((bx2 + c.x) / T), Math.floor((by2 + c.y) / T)); });
+    var pit = genFissure(rng, true, 0, false, 0, null, SP).filter(function (c) { return !at(Math.floor((bx2 + c.x) / T), Math.floor((by2 + c.y) / T)); });
     fissures.push({ x: bx2, y: by2, big: true, cl: -1, cells: pit });
 
     // dressing: floor decals, wall torches on south-facing wall faces

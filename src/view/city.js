@@ -158,7 +158,7 @@
       this.keyEnter = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
       this.px = L.start.x; this.py = L.start.y; this.face = 1; this.moving = false; this.frame = 0; this.cam = { x: L.start.x, y: L.start.y };
       this.entering = false; this.near = null; this.out = { mx: 0, my: 0, dodge: false, pulse: false };
-      this.cameras.main.setZoom(G.view.S);
+      this.cameras.main.setZoom(this.zoom());
       this.buildWorld();
       this.player = this.add.image(0, 0, 'atlas', C.sprite.frames + '_0').setOrigin(0.42, 1);
       this.shadow = this.add.image(0, 0, 'atlas', 'shadow_s').setDepth(-100);
@@ -175,7 +175,7 @@
 
     // a new screen size, zoom or language: the town is the same on every screen, only the camera and the texts change
     applyView: function () {
-      this.cameras.main.setZoom(G.view.S);
+      this.cameras.main.setZoom(this.zoom());
       this.relabel(); this.follow(true);
     },
 
@@ -350,8 +350,12 @@
       if (!this.blocked(this.px, this.py + dy)) this.py += dy;
     },
     // the camera: on the hero (a little above him), kept inside the town; a screen bigger than the town shows it centred
+    // the camera zoom: the pixel scale S x BAL.tune.city (DBG > SIZES; a test tool, fractional: the town's art pixels may come out
+    // uneven). The town's layout is the same, only how much of it fits on the screen changes.
+    zoom: function () { return G.view.S * G.tuneOf(G.BAL, 'city'); },
     follow: function (snap) {
-      var V = G.view, cam = this.cameras.main, MW = this.lay.w, MH = this.lay.h, up = V.H < LOOK.short ? LOOK.upShort : LOOK.up;
+      var kc = G.view.S / this.zoom(), V = { W: G.view.W * kc, H: G.view.H * kc };      // the world the camera shows, in town px
+      var cam = this.cameras.main, MW = this.lay.w, MH = this.lay.h, up = G.view.H < LOOK.short ? LOOK.upShort : LOOK.up;
       if (!this.cam) return;
       if (snap) { this.cam.x = this.px; this.cam.y = this.py - up; } else { this.cam.x += (this.px - this.cam.x) * 0.14; this.cam.y += (this.py - up - this.cam.y) * 0.14; }
       var cx = MW <= V.W ? MW / 2 : Math.max(V.W / 2, Math.min(MW - V.W / 2, this.cam.x));
@@ -384,14 +388,16 @@
       var hx = Math.round(this.px), hy = Math.round(this.py);
       var ceq = G.gearOf(G.save, G.cls).equipped;
       this.prig.ent = G.HD.heroEnt(C.id, ceq);
-      var hd = this.prig.update(G.paused ? 0 : dt, { x: hx, y: hy, ground: hy - 1, face: this.face, tx: null, state: 'walk', speed: C.base.speed, depth: this.py,
+      var kH = G.tuneOf(G.BAL, 'hero');
+      var hd = this.prig.update(G.paused ? 0 : dt, { x: hx, y: hy, ground: hy - 1, face: this.face, tx: null, state: 'walk', speed: C.base.speed, depth: this.py, k: kH,
         glow: G.HD.glowOf(ceq.weapon), weapon: G.HD.heroWeapon(this.prig.ent, C, ceq), trim: G.HD.trimColor(ceq) });
       if (!hd) {
         if (this.player.isHD || this.player.texture.key !== 'atlas') G.HD.chunky(this.player, C.sprite.frames + '_0');
         var walk = this.moving ? ((this.frame >> 3) & 1) : 0;
         this.player.setFrame(C.sprite.frames + '_' + walk).setFlipX(this.face < 0).setOrigin(this.face < 0 ? 0.58 : 0.42, 1).setPosition(hx, hy).setDepth(this.py);
+        G.HD.tuneChunky(this.player, kH);
       }
-      this.shadow.setPosition(hx, hy - 1).setVisible(!hd);
+      this.shadow.setPosition(hx, hy - 1).setVisible(!hd).setScale(kH);
       var self = this, f = this.frame, i;
       Object.keys(this.spots).forEach(function (k) {
         var s = self.spots[k];
