@@ -925,3 +925,5 @@ its labels can sit at the screen edge; (5) hero/monster scale also scales the HD
 height or hit sparks; (6) values stored in localStorage stay on in that browser until RESET (the DBG button turns green as a hint).
 
 Mage base imported (2026-11-13, chibi, blue apprentice robe, green rod -> fist): mage_bare; held staff wpn_staff cut from the first mage sheet (grip 0.46 from the top, G.ANIM.wpnGrip). heroWeapon maps classes without weapon types: mage -> staff, archer -> bow (no bow art yet: falls back to the sword).
+
+Warrior base replaced by the chibi one (2026-11-13). His leather/chain/plate sheets are still the realistic ones: to be redone in the chibi chat.
