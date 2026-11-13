@@ -49,7 +49,8 @@ qa/                   headless Chromium checks (Playwright)
 One pixel size: the whole game, world and UI, is drawn at one integer scale S. 960x540 gives
 480x270 art pixels at 2x, 540x960 gives 270x480; a desktop window (922-1080 px high) is also 2x, so it
 shows about twice as much world and a room (52-58 x 30-33 tiles, `BAL.room`) fills it; on a smaller
-view the camera follows the hero. The zoom setting moves S for everything at once;
+view the camera follows the hero. The city is one town of 56 x 32 tiles (the `CITY` table at the top of
+`src/view/city.js`): centred on a bigger screen, followed by the camera on a smaller one. The zoom setting moves S for everything at once;
 layouts are computed from the art-pixel viewport and rebuilt on resize or rotation.
 
 ## QA
@@ -63,7 +64,7 @@ node tools/sim_bot.js --career 14           # consecutive runs keeping gear
 node qa/bot.js --seeds 1-12                 # bot plays the real game in headless Chromium:
                                             #   no console errors, no softlock, must match Node
 node qa/screens.js both                     # screenshots of every screen at 960x540 and 540x960
-node qa/city.js                             # city: both layouts, both languages: nothing off screen, no label or prompt overlaps, rotation
+node qa/city.js [dir]                       # city: the town at five sizes, both languages: fills or is centred on the screen, short walks, no label over a label or a landmark, prompts, the portal, the HD hero, a resize
 node qa/tutorial.js [land_en|land_es|port_en|port_es]  # the interactive tutorial played in the browser (keyboard 960x540, touch 540x960), then the city steps and the gated run steps
 node qa/touch.js [portrait|landscape] [lang]  # the game by finger (touch emulation): city, run, level-up, doors, inventory, settings
 node qa/test_room.js [dir]                  # test room: edge, blocked step, dodge arc, touch, restart; 2 shots

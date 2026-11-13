@@ -27,7 +27,7 @@ Design decisions live in the plan doc (the user has it); this file is what an ag
   `run.gearK` kept: it is now the only rule where gear score raises monster strength (+0.5 % per point; gear 100 = x1.5), and the title shows it ("Monsters x1.xx").
   Decide in step 10 whether it stays. Old saves load as they are (the stored shop tier is ignored; save stays v6).
 - Step 8 (city) on branch `step-8-city`: **done**. Title ("ENTER THE CITY", the class picker row stays on the title) -> the walkable city of the selected class. The title no longer has EQUIPMENT or SHOP.
-  City = `src/view/city.js` (`CityScene` world + `CityHudScene` overlay), 26 x 15 tiles, art in `tools/pixelart.py` `city()`. Stalls: Blacksmith (BUY with the scrolls, SELL, UPGRADE; `Panels.openShop(scene, false, 'smith')`),
+  City = `src/view/city.js` (`CityScene` world + `CityHudScene` overlay), 26 x 15 tiles, art in `tools/pixelart.py` `city()`. (Since step big city: one town of 56 x 32 tiles, see "Bigger city" at the end of this file.) Stalls: Blacksmith (BUY with the scrolls, SELL, UPGRADE; `Panels.openShop(scene, false, 'smith')`),
   Trainer on the Neutral quarter's plot (permanent RANKS; `'trainer'`), Don Montoto (the old man who replaced the Appraiser: a story line per talk and free identify-all, `Panels.openMontoto`), Mage quarter = fenced empty plot with a sign, the Rift portal (walk into it = run).
   Equipping and the kept bag: the inventory button / I in the city. Result screen: RUN AGAIN and BACK TO CITY. QUIT RUN (settings) goes to the city; END (city) goes to the title; the test room is still on the title.
   Don Montoto (user design, 2026-11-11, replaces the Appraiser; no fee any more, `economy.appraiser` and `G.appraiseFee/appraiseAt` are gone). Rescue: his cage is ALWAYS in room 5 (`economy.montoto.room` = index 4; `G.cageRoom` = 4 until the character has rescued him, none in the test room)
@@ -49,6 +49,7 @@ Design decisions live in the plan doc (the user has it); this file is what an ag
   Don Montoto has his own body plan (bent, hood, beard to the belt, stick). Axe and mace icons and in-hand sprites redrawn (the mace read as a spear). City settings button = gear icon (`city.set` key removed). `UI.button` moves a label with an accented capital (Ñ, Á...) down so the mark clears the frame.
   City labels pushed in from the edge are lifted a line when they overlap (portrait); the TALK tag sits above the stall label. `qa/screens.js` (23 shots per size: title, city, stalls, run, door choice, result, back to city, boss slam / burst / charge, won) and `qa/session.js` (title -> city -> portal -> run -> LEAVE -> city -> again, default 2 min) rewritten for today's game. Grok prompts: tyrant poses, Montoto, Montoto portrait, skeleton throw.
 - Step 9b (what step 9 left rough, same branch `step-9-content`):
+  (The two layouts below were replaced by one town in step big city: "Bigger city" at the end of this file.)
   **City, two layouts** (`src/view/city.js`, `LAND` / `PORT`, picked by `pickLayout()`: portrait when the screen is taller than wide and narrower than 416 art px). `land` = the old 26 x 15 city, unchanged. `port` = 16 x 23 tiles (256 x 368):
   Blacksmith and Trainer on top, Don Montoto and the Mage quarter in the middle, the portal at the bottom; at 540x960 the whole city is on screen, nothing scrolls. A rotation rebuilds the world (`applyView`) and keeps the hero at the stall they were at.
   **Prompt and labels**: the TALK / LOOK / READ prompt sits one line (`LINE` 12 px) above the label of the thing in reach (`placeTag`) and is lifted while it touches any label; labels are placed with their real boxes (`box`: an accented capital rises 2 px).
@@ -584,7 +585,7 @@ View (Phaser):
 - `src/view/game.js`: scene, fixed 60 Hz stepping, sim events to effects, `G.qa.state()`.
 - `src/view/room.js`: tiles and `FissureView` (per-pixel crack renderer, `updateNet`; dark halo =
   barrier edge, `bump` flares the lip). Dodge arc and recoil: `planArc`/`drawArc` in `game.js`.
-- `src/view/city.js` (city world and overlay), `src/view/hud.js`, `src/view/panels.js` (inventory, settings, debug, result), `src/view/ui.js`
+- `src/view/city.js` (city world and overlay; the `CITY` table at its top places everything in the town, `PROP` says what each prop is), `src/view/hud.js`, `src/view/panels.js` (inventory, settings, debug, result), `src/view/ui.js`
   (UI toolkit, `UI.hit` names for QA clicks), `title.js`, `input.js`, `fx.js`, `boot.js`, `main.js`.
 
 Tools:
@@ -645,3 +646,73 @@ the scenes' cameras on the scale 'resize' event AFTER `G.applyView` (registered 
 running scenes the new size before it emits 'viewchange'. Checked: title opened at 960x540 then grown to 1640x922 (room centred,
 covers the screen) and shrunk to 844x390; `qa/rotate.js` PASS (it resizes a running game both ways). Not rerun: the other QA scripts.
 
+## Bigger city (branch `step-big-city`, on top of `step-landscape`; 2026-11-13, not merged; brief `docs/steps/step-big-city.md`)
+The user: on his 1640x922 window the city (26 x 15 tiles) was a small island in a black screen. It is now ONE town of
+**56 x 32 tiles (896 x 512 art px)** on every screen: at 1640x922 (820x461 art px) the screen is full and the camera moves a
+little with the hero, at 1920x1080 the whole town is on screen, centred, with a rampart of wall top round it instead of the
+void (`APRON`), and on a phone (844x390, also turned with `?rotate=1`) or a tall window (540x960) the camera follows the hero.
+The two old layouts (`LAND` / `PORT`, `pickLayout`) are gone. The sim, `src/balance.js` and the save are untouched (the city's
+saved state is still `gear.city = { montoto, story }`).
+**One data table**: `CITY` at the top of `src/view/city.js` (also `G.CITY`): size, wall blocks, ground areas (road, plaza,
+garden beds), torches, start, portal, stalls, board, quarters (label, sign, lots) and every prop; `PROP` says what a prop
+frame is (solid box, animation frames, light, depth); `KEEPER` who keeps a stall. Collision boxes are worked out from it once.
+**Layout** (all in px in the table): the hero arrives on the plaza (448, 242) in front of the portal "La Brecha" / "The Rift",
+which stands on a stone dais in the MIDDLE of the market row with two braziers; the row, west to east: Don Montoto (an empty
+stall until rescued), Blacksmith, portal, Trainer, a vacant fenced pitch, with stock (barrels, the crates) at both ends.
+The market street runs the whole width under the row, lamp posts on its south side. North of the row: the road to a barred
+gate in the north wall (gate towers, town banners), the Mage quarter (north-west: two fenced lots, its sign, purple banners)
+and the Neutral quarter (north-east: two lots, a sign, grey-green banners, the Trainer's dummies): empty lots for the keepers
+to come, NO new shops. South of the street: the notice board (the daily challenge, its own sprite now), the fountain,
+planters and two more braziers on the plaza; four garden beds with trees; six boarded-up houses along a lower street (for
+the neighbours rescued later); a grove (south-west) and a fenced graveyard with candles (south-east).
+Walk from the start, measured by `qa/city.js` over the real collision test, at the slowest class (74 px/s): portal 0.5 s,
+Blacksmith 1.3, Trainer 1.3, board 1.1, Don Montoto 2.6; the two quarter signs 3.3.
+**Art** (all `tools/pixelart.py`, one pixel size): walls are the ROOMS' wall tiles (top, face, shadows) and torches with the
+same light (`glow`, em2, the rooms' flicker); the town's ground is new tiles in `tiles.png` (104-139: a 64 px cobble
+texture, the paved road, plaza pavers, a nine-slice garden bed with a kerb); `town()` draws the gate, two houses, the
+fountain (2 frames), brazier (3), lamp post, barrel, tree, bare tree, bush, planter, banners on poles (4 colours, 2 frames),
+the notice board, graves, an iron fence and the dais. 17 new palette colours (grass, earth, water, roofs, plaster). The old
+`c_floor*`, `c_path`, `c_wall` frames are removed. No HD (double-density) art was added: props and ground stay on the art pixel grid.
+**The hero in the city is HD**: `CityScene` gives the player a `G.Rig` like `GameScene` (HD frames, walk frames tied to the
+distance walked, facing, breathing, soft shadow) when the art mode is HD and the class has a sheet (today: the mage); warrior
+and archer stay chunky because they have no HD sheet. Don Montoto was already HD. **The Blacksmith and the Trainer stay
+code-drawn chunky sprites** (no HD frames exist for them), as do the stalls.
+**Decisions taken without asking** (the brief said: decide and note):
+- One layout for every screen instead of a second one for tall windows: 540x960 scrolls now (the camera follows).
+- The portal moved from the bottom of the old city into the market row and is entered from the FRONT (the plaza side) only:
+  the back of its arch is solid. Scripts that walked down into it now walk up (`qa/touch.js`, `qa/session.js`).
+- Labels are fixed to the town (no more clamping to the camera, no lifting): the table places them so that none covers
+  another label or a landmark, which then holds on every screen; only the TALK / LOOK / READ prompt follows the screen.
+  "RETO DIARIO" is over the notice board, about 100 px from the portal.
+- A keeper is solid and the talking spot (`front`) is 26 px in front of the counter (was 14, on the keeper), reach 26 px (was
+  30): the hero no longer stands on the keeper he talks to.
+- A stall is solid over its whole depth (the hero walks behind it, not through its back).
+- The gate is in the NORTH wall, because only north walls show a face in this view; it is dressing (barred, no way out).
+- The Neutral quarter has its own sign and text (`city.neutralQuarter`, `city.neutralSign`, English and Spanish:
+  "BARRIO NEUTRAL"); the Trainer keeps his stall in the market row, his dummies stand in that quarter.
+- On a short screen (under 240 art px high) the camera looks 24 px above the hero instead of 8 (`LOOK`), so the labels of the
+  stalls are below the overlay's top strip on arrival; and a city hint is drawn at the bottom beside the TALK button
+  (`src/view/hints.js`), because at the top it covered the label and the prompt of the stall in reach.
+- The tutorial's city arrows ask the city where to point (`CityScene.pointAt`: just above the label of the stall or portal).
+**Checked** (final build): `python3 tools/build.py`; `node tools/check_i18n.js` pass; `node tools/contrast.js` 39 pairs, 0
+failing; `node tools/determinism.js` pass (the sim is untouched); `node qa/city.js` (rewritten: 1640x922, 1920x1080, 960x540,
+844x390 touch, 540x960; English and Spanish; rescued and empty stall) 8301 of 8301 checks, 0 errors; `node qa/tutorial.js
+land_en` 131 of 131 (the four city steps unchanged in the script; one earlier run failed BEFORE the city, in the tutorial
+room: "timeout: pop-up of step exit", passed twice since, not looked into); `node qa/touch.js landscape` 35 of 35;
+`node qa/rotate.js` PASS (the city turned); `node qa/hd.js` 0 console errors (hero and Don Montoto HD with hd=1, chunky with
+hd=0); `node qa/daily.js` 32 checks, 0 failing (the board in the city). Screenshots looked at: the city at 1640x922
+(English, Spanish with Don Montoto), 1920x1080, 960x540, 844x390, 540x960, the shop open at 1640x922, Don Montoto's stall at
+844x390 in Spanish, the turned phone (390x844, rotate=1), the tutorial's city steps. Copies: `/home/claude/builds/riftscar_city.html`,
+`/home/claude/builds/city/`.
+**Not tested**: a real phone or a real desktop browser (headless Chromium only, about 4 fps: walking feel and the rig's motion
+are unjudged); `qa/tutorial.js` in the other three configs (land_es, port_en, port_es); `qa/touch.js portrait` (its city check
+was rewritten but not run); `qa/screens.js` and `qa/session.js` (the latter was edited for the portal's direction, not run);
+the 27 px and OLD art modes in the city beyond hd=0; zoom steps other than the default; the warrior and archer beyond the
+tutorial run (warrior); the bot (not needed: no sim change).
+**Rough**: the town is dark away from the fires (mood, but the far lots and the quarter names are dim, more so under the
+overlay's vignette); the six houses are two sprites, the bare tree is small and scratchy; the Blacksmith, the Trainer and
+the stalls are chunky beside an HD hero and an HD Don Montoto; at 1640x922 the bottom 50 px of the town (grove, graveyard)
+are off screen until the hero walks down; on a phone the vacant pitch and the Neutral quarter sit under the top-right
+buttons when the hero stands at the Trainer; a keeper is a small solid in the street, a hero hugging the stalls has to steer
+round him; the hero can walk behind houses and trees (drawn behind them, hidden for a moment); nothing in the far corners
+can be used yet (lots and dressing only); `qa/tutorial.js` still writes four of its shots to /tmp (untouched).

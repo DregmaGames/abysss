@@ -69,10 +69,14 @@
     if (!scene || !scene.sys || !scene.sys.isActive()) return;
     var key = c.alt ? h.alt : (G.touch && h.touch ? h.touch : h.text);
     var L = H.L = UI.layer(scene, 2600);
-    var w = Math.min(V.W - 16, inCity && V.W >= 300 ? 300 : 232), probe = UI.text(scene, 0, 0, G.t(key), 'ui_text').setMaxWidth(w - 12), th = probe.height;
+    // the city on a short wide screen (a phone lying down): the top is where the label and the prompt of the stall in reach are,
+    // so the hint goes to the bottom, beside the TALK button
+    var low = inCity && V.W >= 300 && V.H < 240;
+    var w = low ? Math.min(V.W - 96, 300) : Math.min(V.W - 16, inCity && V.W >= 300 ? 300 : 232), probe = UI.text(scene, 0, 0, G.t(key), 'ui_text').setMaxWidth(w - 12), th = probe.height;
     probe.destroy();
-    var ph = th + 12, x = Math.round((V.W - w) / 2), y;
-    if (h.pos === 'bottom' || (inCity && V.W < 300)) y = V.H - ph - (inCity ? 54 : 6);
+    var ph = th + 12, x = low ? Math.max(4, Math.round((V.W - 80 - w) / 2)) : Math.round((V.W - w) / 2), y;
+    if (low) y = V.H - ph - 6;
+    else if (h.pos === 'bottom' || (inCity && V.W < 300)) y = V.H - ph - (inCity ? 54 : 6);
     else y = (inCity ? 6 : (G.hud && G.hud.obj ? G.hud.obj.y + 30 : 34)) + 3;
     L.panel(x, y, w, ph, 'plate', 0);
     L.text(x + 6, y + 6, G.t(key), 'ui_text').setMaxWidth(w - 12);

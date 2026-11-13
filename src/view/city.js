@@ -251,7 +251,6 @@
         self.marks.push({ name: q.id + '_sign', o: o.img });
         self.signs[q.id] = o; self.talkers.push(o);
       });
-      this.plotOwner = this.signs.plot;
       // the notice board of the daily challenge (READ opens today's run)
       this.board = put(L.board.x, L.board.y, 'c_board').setOrigin(0.5, 1).setDepth(L.board.y).setInteractive({ useHandCursor: true });
       this.board.on('pointerdown', function () { self.tap(self.boardOwner); });
