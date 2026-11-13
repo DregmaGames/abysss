@@ -157,7 +157,10 @@
   R.motion = function () { var E = G.ANIM.ent[this.ent]; return (E && E.motion) || {}; };
   R.windup = function (dur) { this.wind = this.windDur = Math.max(0.05, dur); };
   R.release = function (dur) { this.wind = 0; this.rel = this.relDur = dur || 0.25; };
-  R.attack = function (dur) { this.rel = this.relDur = dur || 0.25; this.atkFrames = true; };    // an attack with no wind-up (the hero's)
+  R.attack = function (dur) {      // an attack with no wind-up (the hero's); the sheet's attack `dur` wins, so its poses can be seen
+    var E = G.ANIM.ent[this.ent], a = E && E.attack;
+    this.rel = this.relDur = (a && a.dur) || dur || 0.25; this.atkFrames = true;
+  };    // an attack with no wind-up (the hero's)
   R.hurt = function (fromX) { this.hit = 0.2; this.hitDir = sign(this.img.x - fromX); };
   R.destroy = function () { this.shadow.destroy(); if (this.glowImg) this.glowImg.destroy(); if (this.wpnImg) { this.wpnImg.destroy(); this.wpnGlow.destroy(); } if (this.trimImg) this.trimImg.destroy(); };
 
@@ -191,7 +194,10 @@
     else if (attacking || this.atkFrames) {
       var k = this.wind > 0 ? 1 - this.wind / this.windDur : 1;
       fname = this.rel > 0 || k >= 1 ? list[n - 1] : list[Math.min(n - 2, Math.floor(k * (n - 1)))] || list[0];
-      if (this.atkFrames && this.rel > 0 && n > 1) fname = list[Math.min(n - 1, Math.floor((1 - this.rel / this.relDur) * n))];
+      if (this.atkFrames && this.rel > 0 && n > 1) {
+        var pr = 1 - this.rel / this.relDur;
+        fname = st.split ? (pr < st.split ? list[0] : list[n - 1]) : list[Math.min(n - 1, Math.floor(pr * n))];      // split: share of the attack held on the wind-up pose
+      }
       if (this.rel <= 0) this.atkFrames = false;
     } else fname = list[Math.floor(this.t * (st.fps || 1)) % n];
     if (this.hit > 0) { var hf = HD.frames(scene, this.ent, 'hurt'); if (hf && hf.state === 'hurt') fname = hf.list[0]; }

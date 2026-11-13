@@ -71,7 +71,7 @@
         hands: true,
         idle: { frames: ['mage_bare_idle_0'] },
         walk: { frames: ['mage_bare_walk_0', 'mage_bare_walk_1', 'mage_bare_walk_2', 'mage_bare_walk_3'], fps: 8 },
-        attack: { frames: ['mage_bare_attack_0', 'mage_bare_attack_1'], fps: 14, hold: 0.14 },
+        attack: { frames: ['mage_bare_attack_0', 'mage_bare_attack_1'], fps: 14, hold: 0.14, dur: 0.38, split: 0.5 },
         hurt: { frames: ['mage_bare_hurt'], hold: 0.25 },
         motion: { bob: 1, tilt: 0.015, squash: 0.03, lean: 1, lunge: 2, stretch: 0.04, recoil: 2, breathe: 0.02, breathT: 1.7, dust: 1, faces: 1, die: 0.9 }
       },
@@ -81,7 +81,7 @@
         hands: true,
         idle: { frames: ['warrior_bare_idle_0'] },
         walk: { frames: ['warrior_bare_walk_0', 'warrior_bare_walk_1', 'warrior_bare_walk_2', 'warrior_bare_walk_3'], fps: 8 },
-        attack: { frames: ['warrior_bare_attack_0', 'warrior_bare_attack_1'], fps: 14, hold: 0.14 },
+        attack: { frames: ['warrior_bare_attack_0', 'warrior_bare_attack_1'], fps: 14, hold: 0.14, dur: 0.38, split: 0.5 },
         hurt: { frames: ['warrior_bare_hurt'], hold: 0.25 },
         motion: { bob: 1, tilt: 0.015, squash: 0.03, lean: 1, lunge: 3, stretch: 0.04, recoil: 2, breathe: 0.02, breathT: 1.8, dust: 1, faces: 1, die: 0.9 }
       },
@@ -90,7 +90,7 @@
         hands: true,
         idle: { frames: ['warrior_leather_idle_0'] },
         walk: { frames: ['warrior_leather_walk_0', 'warrior_leather_walk_1', 'warrior_leather_walk_2', 'warrior_leather_walk_3'], fps: 8 },
-        attack: { frames: ['warrior_leather_attack_0', 'warrior_leather_attack_1'], fps: 14, hold: 0.14 },
+        attack: { frames: ['warrior_leather_attack_0', 'warrior_leather_attack_1'], fps: 14, hold: 0.14, dur: 0.38, split: 0.5 },
         hurt: { frames: ['warrior_leather_hurt'], hold: 0.25 },
         motion: { bob: 1, tilt: 0.015, squash: 0.03, lean: 1, lunge: 3, stretch: 0.04, recoil: 2, breathe: 0.02, breathT: 1.8, dust: 1, faces: 1, die: 0.9 }
       },
@@ -99,7 +99,7 @@
         hands: true,
         idle: { frames: ['warrior_chain_idle_0'] },
         walk: { frames: ['warrior_chain_walk_0', 'warrior_chain_walk_1', 'warrior_chain_walk_2', 'warrior_chain_walk_3'], fps: 8 },
-        attack: { frames: ['warrior_chain_attack_0', 'warrior_chain_attack_1'], fps: 14, hold: 0.14 },
+        attack: { frames: ['warrior_chain_attack_0', 'warrior_chain_attack_1'], fps: 14, hold: 0.14, dur: 0.38, split: 0.5 },
         hurt: { frames: ['warrior_chain_hurt'], hold: 0.25 },
         motion: { bob: 1, tilt: 0.015, squash: 0.03, lean: 1, lunge: 3, stretch: 0.04, recoil: 2, breathe: 0.02, breathT: 1.8, dust: 1, faces: 1, die: 0.9 }
       },
@@ -108,7 +108,7 @@
         hands: true,
         idle: { frames: ['warrior_plate_idle_0'] },
         walk: { frames: ['warrior_plate_walk_0', 'warrior_plate_walk_1', 'warrior_plate_walk_2', 'warrior_plate_walk_3'], fps: 8 },
-        attack: { frames: ['warrior_plate_attack_0', 'warrior_plate_attack_1'], fps: 14, hold: 0.14 },
+        attack: { frames: ['warrior_plate_attack_0', 'warrior_plate_attack_1'], fps: 14, hold: 0.14, dur: 0.38, split: 0.5 },
         hurt: { frames: ['warrior_plate_hurt'], hold: 0.25 },
         motion: { bob: 1, tilt: 0.015, squash: 0.03, lean: 1, lunge: 3, stretch: 0.04, recoil: 2, breathe: 0.02, breathT: 1.8, dust: 1, faces: 1, die: 0.9 }
       },
