@@ -59,6 +59,13 @@ PALETTE = {
     'iron0': '#2c2e3a', 'iron1': '#565a6c', 'iron2': '#8e94a8', 'iron3': '#c8ccd8',
     'cloth0': '#3a2a4c', 'cloth1': '#6a4c86', 'cloth2': '#9c78b8',
     'moss': '#24331f', 'blood': '#c8283a',
+    # the town (step big city): grass and earth of the gardens, water, roof tiles and slates, plaster
+    'gr0': '#131a14', 'gr1': '#1a2419', 'gr2': '#243323', 'gr3': '#35492c',
+    'dirt0': '#1e1816', 'dirt1': '#2a211d',
+    'wat0': '#10202e', 'wat1': '#1c3d55', 'wat2': '#4a86a6',
+    'rf0': '#241a1e', 'rf1': '#3d2828', 'rf2': '#5a3a34',
+    'rs0': '#1c1f2c', 'rs1': '#2c3144', 'rs2': '#444a62',
+    'pl0': '#383435', 'pl1': '#4d4846',
     # UI
     'ui_bg': '#13111b', 'ui_bg2': '#1d1b29', 'ui_line': '#5a5674', 'ui_hi': '#8f8aae',
     'ui_text': '#f2efe6', 'ui_dim': '#aaa6ba', 'ui_warn': '#ffd060', 'ui_good': '#7cf09a', 'ui_bad': '#ff6e5e',
@@ -1266,6 +1273,274 @@ gxg.awvwwvwabbbba.
         add('portal_%d' % f, outline(pt))
 
 
+# ------------------------------------------------------------ the town (step big city)
+def town():
+    """Props of the bigger city: the gate in the north wall, houses, a fountain, braziers, lamp posts, barrels, trees,
+    bushes, banners on poles, the notice board, graves, an iron fence and the dais under the portal. Same pixel size
+    and palette as everything else; every sprite's anchor is its bottom centre."""
+    rnd = random.Random(20261113)
+
+    # the gate: a gatehouse front set into the north wall (three wall tiles tall), barred shut
+    g = blank(64, 48)
+    rect(g, 0, 6, 64, 42, 'wb1')
+    for row, y in enumerate(range(7, 48, 4)):                 # brick courses
+        rect(g, 0, y + 3, 64, 1, 'wb0')
+        for x in range((row % 2) * 4, 64, 8):
+            rect(g, x, y, 1, 3, 'wb0')
+            if rnd.random() < 0.35:
+                rect(g, x + 1, y, 6, 1, 'wb2')
+    for x in range(0, 64, 12):                                # merlons
+        rect(g, x, 0, 8, 7, 'wb1'); rect(g, x, 0, 8, 1, 'wb3'); rect(g, x, 1, 1, 6, 'wb2'); rect(g, x + 7, 1, 1, 6, 'wb0')
+    rect(g, 0, 6, 64, 1, 'wb3')
+    rect(g, 0, 7, 2, 41, 'wb2'); rect(g, 62, 7, 2, 41, 'wb0')
+    for x in (6, 56):                                         # arrow slits
+        rect(g, x, 16, 2, 8, 'void'); rect(g, x - 1, 19, 4, 2, 'void')
+    for y in range(12, 48):                                   # the arch: a stone ring, then the doors
+        for x in range(64):
+            dx = (x + 0.5 - 32) / 21.0
+            dy = (y + 0.5 - 30) / 19.0 if y < 30 else 0
+            if dx * dx + dy * dy > 1:
+                continue
+            inner = ((x + 0.5 - 32) / 18.0) ** 2 + (((y + 0.5 - 30) / 16.0) ** 2 if y < 30 else 0)
+            if inner <= 1:
+                k = 'wood' if (x - 14) % 6 == 1 else 'wood_d' if (x - 14) % 6 else 'boot'
+            else:
+                k = 'wb3' if x < 30 and y < 26 else 'wb2' if y < 26 or x < 32 else 'wb0'
+            g.putpixel((x, y), rgb(k))
+    rect(g, 31, 15, 2, 33, 'outline')                         # the seam between the two leaves
+    for y in (22, 40):                                        # iron bands and studs
+        rect(g, 15, y, 34, 2, 'iron1'); rect(g, 15, y, 34, 1, 'iron2')
+        for x in range(17, 48, 6):
+            rect(g, x, y, 1, 1, 'iron3')
+    rect(g, 13, 30, 38, 3, 'iron0'); rect(g, 13, 30, 38, 1, 'iron1')      # the bar across
+    rect(g, 13, 29, 3, 5, 'iron1'); rect(g, 48, 29, 3, 5, 'iron1')
+    rect(g, 30, 10, 4, 5, 'wb3'); rect(g, 30, 10, 4, 1, 'white')          # keystone
+    add('c_gate', outline(g))
+
+    # a house: the south slope of a tiled roof over a timber and plaster front. Windows boarded: nobody lives there yet.
+    def house(r0, r1, r2, ridge):
+        im = blank(64, 58)
+        rect(im, 0, 0, 64, 34, r1)
+        for row, y in enumerate(range(2, 34, 4)):
+            rect(im, 0, y + 3, 64, 1, r0)
+            for x in range((row % 2) * 3, 64, 6):
+                rect(im, x, y, 1, 3, r0)
+                if rnd.random() < 0.3:
+                    rect(im, x + 1, y, 4, 1, r2)
+        rect(im, 0, 0, 64, 2, r2); rect(im, 0, 0, 64, 1, ridge)                               # the ridge
+        rect(im, 0, 32, 64, 2, r0)                                                            # eaves
+        rect(im, 44, 3, 8, 11, 'wb1'); rect(im, 44, 3, 8, 2, 'wb3'); rect(im, 46, 5, 4, 2, 'void'); rect(im, 51, 5, 1, 9, 'wb0')   # chimney
+        rect(im, 1, 34, 62, 24, 'pl0')
+        for x in range(64):
+            if (x * 5) % 13 == 0:
+                rect(im, x, 39 + (x * 3) % 13, 2, 1, 'pl1')
+        rect(im, 1, 34, 62, 2, 'outline')                                                     # shadow under the eaves
+        rect(im, 1, 54, 62, 4, 'wb0'); rect(im, 1, 54, 62, 1, 'wb1')                          # stone footing
+        for x in (1, 20, 41, 60):                                                             # timber frame
+            rect(im, x, 36, 3, 18, 'wood_d'); rect(im, x, 36, 1, 18, 'ch1')
+        rect(im, 1, 36, 62, 2, 'wood_d')
+        rect(im, 26, 40, 12, 18, 'boot'); rect(im, 27, 41, 10, 17, 'wood_d')                  # the door
+        for x in (30, 33):
+            rect(im, x, 41, 1, 17, 'boot')
+        rect(im, 27, 46, 10, 1, 'iron0'); rect(im, 35, 50, 1, 2, 'gold_d')
+        for x in (7, 46):                                                                     # two windows, boarded
+            rect(im, x, 41, 11, 10, 'wood_d'); rect(im, x + 1, 42, 9, 8, 'f0')
+            rect(im, x, 43, 11, 2, 'ch1'); rect(im, x, 43, 11, 1, 'ch2'); rect(im, x, 47, 11, 2, 'ch1'); rect(im, x, 47, 11, 1, 'ch2')
+            rect(im, x + 1, 43, 1, 1, 'iron2'); rect(im, x + 9, 47, 1, 1, 'iron2')
+        return outline(im)
+    add('c_house_a', house('rf0', 'rf1', 'rf2', 'ir1'))
+    add('c_house_b', house('rs0', 'rs1', 'rs2', 'wb3'))
+
+    # the fountain: a stone basin seen from above, a short pillar in the middle; 2 frames (the water glints)
+    for f in range(2):
+        im = blank(40, 30)
+        ellipse(im, 20, 18, 20, 12, 'wb0'); ellipse(im, 20, 17, 20, 11, 'wb1'); ellipse(im, 20, 16, 19.5, 10.5, 'wb3')
+        ellipse(im, 20, 17, 18.5, 10, 'wb2')
+        ellipse(im, 20, 16, 15.5, 7.5, 'wat0'); ellipse(im, 20, 17, 14.5, 6.5, 'wat1')
+        for i in range(9):
+            a = i * 0.7 + f * 0.35
+            x, y = int(20 + math.cos(a) * (5 + (i * 5) % 8)), int(17 + math.sin(a) * (2 + (i * 3) % 4))
+            rect(im, x, y, 2 if i % 2 else 1, 1, 'wat2')
+        for x in range(5, 37, 5):                              # joints of the rim
+            rect(im, x, 25 if 12 < x < 28 else 23, 1, 2, 'wb0')
+        rect(im, 17, 4, 6, 13, 'wb2'); rect(im, 17, 4, 1, 13, 'wb3'); rect(im, 22, 4, 1, 13, 'wb0')
+        rect(im, 14, 2, 12, 4, 'wb2'); rect(im, 14, 2, 12, 1, 'wb3'); rect(im, 16, 3, 8, 2, 'wat1'); rect(im, 17 + f * 3, 3, 2, 1, 'wat2')
+        rect(im, 15, 6, 1, 6 + f, 'wat2'); rect(im, 24, 6, 1, 7 - f, 'wat2')                    # two threads of water
+        add('c_fountain_%d' % f, outline(im))
+
+    # a brazier on three legs (the torch's flame, a wider cup), 3 frames
+    L = 'i=iron1 I=iron0 h=iron2 r=em1 o=em2 y=em3 w=em4'
+    flames = ["""
+....y....
+...yoy...
+..oowoo..
+.ooywyoo.
+.oyywyyo.
+""", """
+...y.....
+...oy....
+..oywoo..
+.ooywyoo.
+.oyywyyo.
+""", """
+.....y...
+....yo...
+..oowyo..
+.ooywyoo.
+.oyywyyo.
+"""]
+    stand = """
+IhhhhhhhI
+IiiiiiiiI
+.IiiiiiI.
+..IIIII..
+...I.I...
+..I...I..
+..I...I..
+.I.....I.
+.I.....I.
+"""
+    for i, f in enumerate(flames):
+        add('c_brazier_%d' % i, outline(parse(f.strip('\n') + '\n' + stand.strip('\n'), L)))
+
+    # a lamp post: an iron pole, a lantern hanging from its arm
+    lp = blank(11, 30)
+    rect(lp, 2, 3, 2, 26, 'iron0'); rect(lp, 2, 3, 1, 26, 'iron1'); rect(lp, 0, 28, 6, 2, 'iron0'); rect(lp, 1, 27, 4, 1, 'iron1')
+    rect(lp, 2, 2, 7, 1, 'iron1'); rect(lp, 1, 1, 2, 2, 'iron2'); rect(lp, 8, 2, 1, 3, 'iron1')
+    rect(lp, 6, 5, 5, 7, 'iron0'); rect(lp, 7, 6, 3, 5, 'em3'); rect(lp, 8, 7, 1, 3, 'em4'); rect(lp, 6, 5, 5, 1, 'iron1'); rect(lp, 7, 12, 3, 1, 'iron1')
+    add('c_lamp', outline(lp))
+
+    bl = blank(12, 15)                                        # a barrel
+    rect(bl, 1, 2, 10, 13, 'ch1'); rect(bl, 0, 4, 12, 9, 'ch1')
+    for x in (3, 6, 9):
+        rect(bl, x, 2, 1, 13, 'ch0')
+    rect(bl, 1, 3, 1, 10, 'ch2')
+    rect(bl, 0, 5, 12, 1, 'iron1'); rect(bl, 0, 11, 12, 1, 'iron1'); rect(bl, 0, 5, 3, 1, 'iron2'); rect(bl, 0, 11, 3, 1, 'iron2')
+    rect(bl, 1, 0, 10, 3, 'ch0'); rect(bl, 2, 0, 8, 2, 'ch1'); rect(bl, 2, 0, 8, 1, 'ch2'); rect(bl, 5, 1, 2, 1, 'boot')
+    add('c_barrel', outline(bl))
+
+    # a tree: a dark, heavy crown on a short trunk; and a bare one
+    tr = blank(30, 40)
+    rect(tr, 13, 26, 4, 14, 'boot'); rect(tr, 13, 26, 1, 14, 'wood_d'); rect(tr, 11, 38, 8, 2, 'boot'); rect(tr, 10, 39, 2, 1, 'boot'); rect(tr, 18, 39, 2, 1, 'boot')
+    for cx, cy, rx, ry, k in ((15, 16, 14, 13, 'gr0'), (10, 17, 9, 9, 'gr1'), (20, 15, 9, 10, 'gr1'), (15, 10, 10, 8, 'gr1'),
+                              (9, 14, 6, 5, 'gr2'), (19, 11, 7, 5, 'gr2'), (14, 7, 6, 4, 'gr2')):
+        ellipse(tr, cx, cy, rx, ry, k)
+    for _ in range(40):
+        x, y = rnd.randrange(3, 27), rnd.randrange(3, 24)
+        if tr.getpixel((x, y))[:3] == rgb('gr2')[:3]:
+            tr.putpixel((x, y), rgb('gr3'))
+        elif tr.getpixel((x, y))[:3] == rgb('gr1')[:3] and rnd.random() < 0.5:
+            tr.putpixel((x, y), rgb('gr0'))
+    add('c_tree', outline(tr))
+    dead = """
+....b......b......
+.b...b....b...b...
+..b..b...b...b....
+...b.bb..b..b.....
+....bbb.bb.b......
+.b...abbb.b...b...
+..bb..abbb..bb....
+....bbabbbbb......
+......abbb........
+......abbb........
+......abb.........
+.....aabb.........
+.....abbb.........
+.....abbb.........
+....aabbbb........
+...aabbbbbb.......
+"""
+    add('c_tree_dead', outline(parse(dead, 'a=wood_d b=boot')))
+
+    bu = blank(14, 10)                                        # a bush
+    ellipse(bu, 7, 6, 7, 4.5, 'gr0'); ellipse(bu, 7, 5, 6.5, 4, 'gr1'); ellipse(bu, 5, 4, 4, 2.5, 'gr2')
+    for x, y in ((4, 3), (8, 4), (10, 6), (6, 6)):
+        bu.putpixel((x, y), rgb('gr3'))
+    add('c_bush', outline(bu))
+    pl = blank(22, 15)                                        # a stone planter with bushes in it
+    pl.alpha_composite(bu, (1, 0)); pl.alpha_composite(bu, (7, 1))
+    rect(pl, 0, 8, 22, 7, 'wb1'); rect(pl, 0, 8, 22, 1, 'wb3'); rect(pl, 0, 14, 22, 1, 'wb0'); rect(pl, 1, 9, 20, 1, 'dirt0')
+    for x in (7, 15):
+        rect(pl, x, 10, 1, 4, 'wb0')
+    add('c_planter', outline(pl))
+
+    # a banner on a pole: the quarter's colours, a swallow tail; 2 frames (the cloth stirs)
+    def banner(name, c0, c1, c2):
+        for f in range(2):
+            im = blank(13, 34)
+            rect(im, 1, 2, 2, 32, 'wood_d'); rect(im, 1, 2, 1, 32, 'wood'); rect(im, 0, 0, 4, 2, 'gold_d'); rect(im, 1, 0, 2, 1, 'gold')
+            rect(im, 3, 4, 9, 1, 'wood_d')
+            for y in range(5, 25):
+                sway = 1 if (f and y > 14) else 0
+                for x in range(3, 12):
+                    if y > 20 and abs(x - 7) < (y - 20):          # the swallow tail
+                        continue
+                    k = c1 if 4 < x < 10 else c0
+                    if (y % 7 == 3 and f == 0) or (y % 7 == 5 and f == 1):
+                        k = c0
+                    im.putpixel((x + sway, y), rgb(k))
+            rect(im, 6, 9, 3, 3, c2); rect(im, 7, 8, 1, 5, c2); rect(im, 5, 10, 5, 1, c2)      # the mark
+            add('%s_%d' % (name, f), outline(im))
+    banner('c_banner_mage', 'tome0', 'tome1', 'tome2')
+    banner('c_banner_neutral', 'wd0', 'wd1', 'wd3')
+    banner('c_banner_rift', 'rg0', 'rg1', 'rg3')
+    banner('c_banner_town', 'ir0', 'ir1', 'gold')
+
+    # the notice board (the daily challenge): a small roof, papers pinned to the boards, one with a gold seal
+    nb = blank(28, 28)
+    rect(nb, 3, 6, 2, 22, 'wood_d'); rect(nb, 23, 6, 2, 22, 'wood_d'); rect(nb, 3, 6, 1, 22, 'ch1'); rect(nb, 23, 6, 1, 22, 'ch1')
+    rect(nb, 1, 7, 26, 15, 'wood'); rect(nb, 1, 7, 26, 1, 'ch2'); rect(nb, 1, 21, 26, 1, 'wood_d'); rect(nb, 1, 14, 26, 1, 'wood_d')
+    rect(nb, 0, 2, 28, 5, 'rf1'); rect(nb, 0, 2, 28, 1, 'rf2'); rect(nb, 0, 6, 28, 1, 'rf0'); rect(nb, 2, 0, 24, 2, 'rf1'); rect(nb, 2, 0, 24, 1, 'rf2')
+    for x in range(3, 28, 5):
+        rect(nb, x, 2, 1, 4, 'rf0')
+    rect(nb, 4, 9, 6, 8, 'sk2'); rect(nb, 5, 11, 4, 1, 'sk0'); rect(nb, 5, 13, 3, 1, 'sk0'); rect(nb, 6, 9, 1, 1, 'ir1')
+    rect(nb, 11, 9, 7, 10, 'sk3'); rect(nb, 12, 11, 5, 1, 'sk0'); rect(nb, 12, 13, 5, 1, 'sk0'); rect(nb, 13, 15, 3, 3, 'gold'); rect(nb, 14, 16, 1, 1, 'gold_d')
+    rect(nb, 19, 10, 5, 7, 'sk1'); rect(nb, 20, 12, 3, 1, 'sk0'); rect(nb, 21, 10, 1, 1, 'ir1')
+    add('c_board', outline(nb))
+
+    gv = blank(9, 12)                                         # graves: a rounded stone, and a wooden cross
+    rect(gv, 1, 2, 7, 9, 'wb2'); rect(gv, 2, 1, 5, 1, 'wb2'); rect(gv, 3, 0, 3, 1, 'wb3'); rect(gv, 1, 2, 1, 9, 'wb3'); rect(gv, 7, 3, 1, 8, 'wb0')
+    rect(gv, 4, 4, 1, 4, 'wb0'); rect(gv, 3, 5, 3, 1, 'wb0'); rect(gv, 0, 11, 9, 1, 'gr0'); rect(gv, 2, 10, 1, 1, 'moss')
+    add('c_grave_0', outline(gv))
+    gc = blank(9, 12)
+    rect(gc, 4, 0, 2, 12, 'wood_d'); rect(gc, 1, 3, 8, 2, 'wood_d'); rect(gc, 4, 0, 1, 12, 'wood'); rect(gc, 1, 3, 8, 1, 'wood'); rect(gc, 2, 11, 6, 1, 'gr0')
+    add('c_grave_1', outline(gc))
+
+    fe = blank(16, 13)                                        # an iron fence, one tile long (posts every 4 px)
+    rect(fe, 0, 4, 16, 1, 'iron1'); rect(fe, 0, 10, 16, 1, 'iron1')
+    for x in range(1, 16, 4):
+        rect(fe, x, 1, 1, 12, 'iron1'); fe.putpixel((x, 0), rgb('iron3')); fe.putpixel((x, 1), rgb('iron2'))
+    add('c_fence', fe)
+
+    # the dais under the portal: worn rings of stone, rift-green marks at three points. Part of the ground: no outline.
+    da = blank(88, 50)
+    for y in range(50):
+        for x in range(88):
+            dx, dy = (x + 0.5 - 44) / 44.0, (y + 0.5 - 22) / 27.0
+            d = (dx * dx + dy * dy) ** 0.5
+            if d > 1:
+                continue
+            ang = math.atan2(dy, dx)
+            if d > 0.93:
+                k = 'f0'
+            elif d > 0.72:
+                k = 'f4' if int((ang + math.pi) * 9 / math.pi) % 2 else 'f3'
+                if abs(math.sin(ang * 9)) < 0.12:
+                    k = 'f1'
+            elif d > 0.68:
+                k = 'f1'
+            elif d > 0.4:
+                k = 'f3' if abs(math.sin(ang * 5 + 0.3)) > 0.14 else 'f1'
+            elif d > 0.36:
+                k = 'f1'
+            else:
+                k = 'f2' if (x + y) % 7 else 'f3'
+            da.putpixel((x, y), rgb(k))
+    for ax, ay in ((44, 45), (8, 22), (79, 22)):
+        rect(da, ax - 1, ay - 1, 3, 3, 'rg1'); da.putpixel((ax, ay), rgb('rg3'))
+    add('c_dais', da)
+
+
 def icons():
     # 7 equipment slots, 14x14, shared iron/cloth/gold materials
     L = ('a=iron0 b=iron1 c=iron2 d=iron3 g=gold G=gold_d p=cloth0 q=cloth1 r=cloth2 w=wood W=wood_d '
@@ -2028,6 +2303,12 @@ def tiles():
        64..79  wall top, 4-bit mask of wall neighbours N=1 E=2 S=4 W=8
        80..95  wall face (a wall with floor to the south): 80 + E?1 + W?2 + N?4 + variant*8
        96..99  shadow overlays: 96 under a face, 97 under a face's left end, 98 right end, 99 torch-lit
+       the town's ground (step big city, src/view/city.js):
+       104..119 cobbles, a seamless 64x64 texture: 104 + (ty % 4) * 4 + (tx % 4)
+       120..123 the paved road, seamless 32x32: 120 + (ty % 2) * 2 + (tx % 2)
+       124..127 the plaza's pavers, seamless 32x32, same rule
+       128..136 a garden bed with a stone kerb, nine-slice: 128 + row * 3 + column (row, column: 0 edge, 1 middle, 2 edge)
+       137..139 more grass for the middle of a bed
     """
     rng = random.Random(20261110)
     FW = 128
@@ -2080,7 +2361,7 @@ def tiles():
                 if not (1 <= x < pw - 2 and y < ph - 2):
                     break
 
-    sheet = blank(8 * T, 13 * T)
+    sheet = blank(8 * T, 18 * T)
     sheet.paste(floor, (0, 0))
 
     def tile_at(idx):
@@ -2148,6 +2429,95 @@ def tiles():
     shadow(97, lambda x, y: (1.0 - y / 7.0) * min(1, (x + 1) / 6.0))
     shadow(98, lambda x, y: (1.0 - y / 7.0) * min(1, (T - x) / 6.0))
     shadow(99, lambda x, y: 0.9 - x / 6.0)                     # floor just east of a wall
+
+    # ---- the town's ground
+    r3 = random.Random(20261113)
+
+    def stones(size, rows, widths, shades, grout, round_=True):
+        """A seamless texture of stones laid in courses: rows = course heights (they add up to size)."""
+        im = Image.new('RGBA', (size, size), rgb(grout))
+        y = 0
+        for h in rows:
+            x = r3.randrange(0, 6)
+            left = size
+            while left > 0:
+                w = r3.choice(widths)
+                if left - w < 4:
+                    w = left
+                shade, hi, lo = r3.choice(shades)
+                for yy in range(h - 1):
+                    for xx in range(w - 1):
+                        k = shade
+                        if yy == 0 and r3.random() < 0.75:
+                            k = hi
+                        elif xx == 0 and r3.random() < 0.5:
+                            k = hi
+                        elif (yy == h - 2 or xx == w - 2) and r3.random() < 0.5:
+                            k = lo
+                        elif r3.random() < 0.03:
+                            k = lo
+                        if round_ and (xx, yy) in ((0, 0), (w - 2, 0), (0, h - 2), (w - 2, h - 2)) and r3.random() < 0.8:
+                            k = grout
+                        im.putpixel(((x + xx) % size, y + yy), rgb(k))
+                x += w; left -= w
+            y += h
+        return im
+
+    def paste_tiles(im, first, per_row):
+        for j in range(im.height // T):
+            for i in range(im.width // T):
+                sheet.paste(im.crop((i * T, j * T, i * T + T, j * T + T)), tile_at(first + j * per_row + i))
+
+    cob = stones(64, [5, 5, 6, 5, 6, 5, 5, 6, 5, 5, 6, 5], [5, 6, 6, 7, 8],
+                 [('f1', 'f2', 'f0'), ('f2', 'f3', 'f1'), ('f2', 'f3', 'f1'), ('f2', 'f3', 'f1'), ('fa', 'f3', 'f1'), ('fb', 'f3', 'f1')], 'f0')
+    for _ in range(10):                                        # moss in a few joints
+        cob.putpixel((r3.randrange(64), r3.randrange(64)), rgb('moss'))
+    paste_tiles(cob, 104, 4)
+    road = stones(32, [8, 8, 8, 8], [8, 12, 16, 10], [('f3', 'f4', 'f2'), ('f3', 'f4', 'f2'), ('f2', 'f3', 'f1')], 'f1', round_=False)
+    paste_tiles(road, 120, 2)
+    plaza = Image.new('RGBA', (32, 32), rgb('f1'))             # square pavers, two tones in a checker
+    for j in range(4):
+        for i in range(4):
+            shade, hi, lo = (('f3', 'f4', 'f2') if (i + j) % 2 else ('fa', 'f3', 'f1'))
+            for yy in range(7):
+                for xx in range(7):
+                    k = hi if (yy == 0 or xx == 0) and r3.random() < 0.7 else lo if (yy == 6 or xx == 6) and r3.random() < 0.4 else shade
+                    plaza.putpixel((i * 8 + xx, j * 8 + yy), rgb(k))
+    paste_tiles(plaza, 124, 2)
+
+    def grass(seed):
+        r4 = random.Random(seed)
+        im = Image.new('RGBA', (T, T), rgb('gr1'))
+        for _ in range(26):
+            im.putpixel((r4.randrange(T), r4.randrange(T)), rgb('gr0'))
+        for _ in range(9):
+            x, y = r4.randrange(T), r4.randrange(1, T)
+            im.putpixel((x, y), rgb('gr2')); im.putpixel((x, y - 1), rgb('gr2' if r4.random() < 0.6 else 'gr3'))
+        return im
+    for row in range(3):
+        for col in range(3):
+            im = grass(500 + row * 3 + col)
+            def kerb(x0, y0, w, h, horiz):
+                rect(im, x0, y0, w, h, 'f3')
+                if horiz:
+                    rect(im, x0, y0, w, 1, 'f4'); rect(im, x0, y0 + h - 1, w, 1, 'f1')
+                    for x in range(x0 + 5, x0 + w, 8):
+                        rect(im, x, y0, 1, h, 'f1')
+                else:
+                    rect(im, x0, y0, 1, h, 'f4'); rect(im, x0 + w - 1, y0, 1, h, 'f1')
+                    for y in range(y0 + 3, y0 + h, 8):
+                        rect(im, x0, y, w, 1, 'f1')
+            if col == 0:
+                kerb(0, 0, 3, T, False); rect(im, 3, 0, 1, T, 'gr0')
+            if col == 2:
+                kerb(T - 3, 0, 3, T, False); rect(im, T - 4, 0, 1, T, 'gr0')
+            if row == 0:
+                kerb(0, 0, T, 3, True); rect(im, 3 if col == 0 else 0, 3, T - (3 if col == 0 else 0) - (3 if col == 2 else 0), 1, 'gr0')
+            if row == 2:
+                kerb(0, T - 3, T, 3, True)
+            sheet.paste(im, tile_at(128 + row * 3 + col))
+    for i in range(3):
+        sheet.paste(grass(600 + i), tile_at(137 + i))
     sheet.save(os.path.join(OUT, 'tiles.png'))
     return sheet
 
@@ -2190,7 +2560,7 @@ def main():
     os.makedirs(OUT, exist_ok=True)
     with open(os.path.join(OUT, 'palette.json'), 'w') as f:
         json.dump(PALETTE, f, indent=0)
-    characters(); objects(); city(); icons(); ui(); logo()
+    characters(); objects(); city(); town(); icons(); ui(); logo()
     f = font()
     t = tiles()
     a = pack()

@@ -1,65 +1,145 @@
-// The city (step 8): a small walkable plaza between runs, drawn at the game's one pixel size.
-// Title -> class -> city. The Blacksmith (buy, sell, upgrade, scrolls), Don Montoto (stories, identifies the kept bag for free; rescued in room 5 of a run), the Trainer
-// (permanent ranks, the Neutral quarter), an empty plot for the Mage quarter, and the portal that starts a run.
-// CityScene is the world (camera follows the hero); CityHudScene is the overlay: gold, buttons, the touch stick, panels.
+// The city: the walkable town between runs, drawn at the game's one pixel size (step 8; a real town since step big city).
+// Title -> class -> city. A walled town of 56 x 32 tiles (896 x 512 art px: it fills a desktop window at the far default
+// scale). The hero arrives on the plaza in front of the portal ("La Brecha": walking into it starts a run). The market row
+// is either side of the portal: Don Montoto (stories, identifies the kept bag for free; an empty stall until he is rescued
+// in room 5 of a run), the Blacksmith (buy, sell, upgrade, scrolls), the Trainer (permanent ranks) and a vacant pitch.
+// North of the row: the Mage quarter and the Neutral quarter, fenced empty lots with a sign each (room for the keepers to
+// come), and the road to the gate. South: the notice board (the daily challenge), the fountain, gardens, houses for the
+// neighbours rescued later, the lower street, a grove and the graveyard. Everything is placed by the CITY table below.
+// CityScene is the world (the camera follows the hero when the town is bigger than the screen, and the town is centred
+// when it is smaller); CityHudScene is the overlay: gold, buttons, the touch stick, panels.
 (function (G) {
   var UI = G.UI, T = 16;
-  var SOLID_H = 14;                                   // a stall's counter: the part the hero cannot walk through
   var REACH = 30;                                     // px from the front of a stall to talk to its owner
   var LINE = 12;                                      // px from a label to the prompt above it (a text line is 7 px, 9 with an accent)
-  var TOP = 30;                                       // art px of the screen's top strip that the overlay covers
+  var APRON = 4;                                      // rampart tiles drawn round the town: a screen bigger than the town shows wall, not the void
+  var LOOK = { up: 8, upShort: 24, short: 240 };      // the camera looks a little above the hero; more on a short screen (a phone), so
+                                                      // the stall labels above him clear the overlay's top strip
 
-  // The same city in two layouts, in px. A stall's (x, y) is the bottom centre of its sprite; the owner stands in front of the counter.
-  // `land`: the three stalls in a row, 26 x 15 tiles (416 x 240): fills a 480 x 270 screen. `port`: the stalls two by two with the
-  // portal at the bottom, 16 x 23 tiles (256 x 368): fits a 270 x 480 screen whole, between the top buttons and the talk button.
-  function spots(a, b, c) {
-    return [
-      { id: 'smith', x: a[0], y: a[1], frame: 'stall_smith', npc: 'npc_smith', label: 'city.smith', color: 'ui_warn' },
-      { id: 'trainer', x: b[0], y: b[1], frame: 'stall_trainer', npc: 'npc_trainer', label: 'city.trainer', color: 'ui_good' },
-      { id: 'montoto', x: c[0], y: c[1], frame: 'stall_montoto', npc: 'npc_montoto', label: 'mon.name', color: 'tome2' }
-    ];
-  }
-  var LAND = {
-    id: 'land', cols: 26, rows: 15,
-    spots: spots([100, 88], [208, 88], [316, 88]),
-    plot: { x: 100, y: 186, w: 48, h: 32 },          // the Mage quarter: a fenced empty plot with a sign
-    sign: { x: 144, y: 184 },
-    crates: [[304, 200], [320, 202], [312, 188]],
-    portal: { x: 208, y: 222, w: 20, h: 18 },        // walking into it starts a run
-    board: { x: 244, y: 214 },                       // the daily challenge board (step 10), beside the portal
-    start: { x: 208, y: 140 },
-    path: function (x, y) { return (x >= 12 && x <= 13 && y >= 5) || (y >= 7 && y <= 8 && x >= 2 && x <= 23); }
+  function row(frame, x0, n, dx, y, skip) { var out = []; for (var i = 0; i < n; i++) if (!skip || skip.indexOf(i) < 0) out.push([frame, x0 + i * dx, y]); return out; }
+
+  // ------------------------------------------------------------------------------------------------ the town, one table
+  // Tiles for the ground and the walls ([x, y, w, h] in tiles), px for everything that stands on it. A thing's (x, y) is the
+  // bottom centre of its sprite. The places used every visit are within 3 s on foot of `start` (the hero walks 74-78 px/s):
+  // portal 36 px, Blacksmith and Trainer 102 px, notice board 82 px, Don Montoto 201 px. The far corners are lots and dressing.
+  var CITY = {
+    id: 'town', cols: 56, rows: 32,
+    wallRows: 3,                                      // the north wall: two rows of wall top and the face
+    // wall blocks inside the outer wall: corner towers, the two towers of the gate, buttresses
+    blocks: [[1, 3, 2, 2], [53, 3, 2, 2], [24, 3, 2, 1], [30, 3, 2, 1], [9, 3, 1, 1], [17, 3, 1, 1], [38, 3, 1, 1], [46, 3, 1, 1]],
+    // the ground: cobbles everywhere, then the paved roads (gate road, market street, the walk south, lower street),
+    // the plaza and the garden beds on top
+    road: [[26, 3, 4, 10], [1, 13, 54, 3], [27, 22, 2, 3], [3, 25, 50, 2]],
+    plaza: [[22, 13, 12, 9]],
+    garden: [[3, 17, 8, 4], [13, 17, 7, 4], [36, 17, 7, 4], [45, 17, 8, 4], [2, 28, 13, 3], [41, 28, 13, 3]],
+    torches: [[5, 2], [13, 2], [21, 2], [34, 2], [42, 2], [50, 2], [25, 3], [30, 3]],      // on wall faces, [tile x, tile y]: the rooms' torch and its light
+    start: { x: 448, y: 242 },                        // where the hero arrives: the plaza, in front of the portal
+    portal: { x: 448, y: 206, w: 20, h: 14 },         // walking into it (from the front) starts a run
+    stalls: [{ id: 'montoto', x: 248, y: 208 }, { id: 'smith', x: 348, y: 208 }, { id: 'trainer', x: 548, y: 208 }],
+    board: { x: 388, y: 296 },                        // the notice board: the daily challenge
+    // empty lots with a sign: nothing is built there yet. `at`: where the quarter's name is written
+    quarters: [
+      { id: 'plot', label: 'city.mageQuarter', say: 'city.mageSign', at: { x: 148, y: 76 }, sign: { x: 236, y: 128 }, lots: [[112, 124], [184, 124]] },
+      { id: 'neutral', label: 'city.neutralQuarter', say: 'city.neutralSign', at: { x: 748, y: 76 }, sign: { x: 660, y: 128 }, lots: [[712, 124], [784, 124], [648, 206]] }
+    ],
+    // dressing: [frame, x, y, flip]. What each frame is (solid part, frames, light) is in PROP below
+    props: [
+      // the north wall and the road from the gate
+      ['c_gate', 448, 48], ['wall_banner', 376, 41], ['wall_banner', 520, 41], ['wall_moss', 56, 38], ['wall_chain', 312, 41], ['wall_moss', 584, 38],
+      ['wall_chain', 776, 41], ['wall_moss', 840, 38], ['wall_moss', 168, 38],
+      ['c_banner_town', 408, 110], ['c_banner_town', 488, 110, 1],
+      // the plaza: the portal's dais and its fires, the fountain
+      ['c_dais', 448, 210], ['c_brazier', 414, 198], ['c_brazier', 482, 198], ['c_banner_rift', 406, 170], ['c_banner_rift', 490, 170, 1],
+      ['c_fountain', 448, 326], ['c_planter', 368, 349], ['c_planter', 528, 349], ['c_planter', 512, 296],
+      // the market street: lamps on its south side, stock at both ends of the row
+      ['c_lamp', 100, 263], ['c_lamp', 200, 263], ['c_lamp', 304, 263], ['c_lamp', 592, 263, 1], ['c_lamp', 696, 263, 1], ['c_lamp', 796, 263, 1],
+      ['c_barrel', 134, 204], ['c_barrel', 148, 207], ['c_crate', 166, 206], ['c_crate', 181, 207], ['c_crate', 173, 194],
+      ['c_crate', 740, 205], ['c_crate', 756, 207], ['c_crate', 748, 193], ['c_barrel', 774, 206], ['c_tree', 58, 204], ['c_tree', 838, 204, 1],
+      // the Mage quarter (north-west) and the Neutral quarter (north-east): banners in their colours, the Trainer's dummies
+      ['c_banner_mage', 72, 126], ['c_banner_mage', 148, 126], ['c_tree', 300, 122], ['c_bush', 272, 150], ['c_tree_dead', 60, 116],
+      ['c_banner_neutral', 748, 126], ['c_banner_neutral', 826, 126, 1], ['dummy_0', 596, 132], ['dummy_0', 620, 146], ['c_bush', 572, 108],
+      // gardens between the street and the houses
+      ['c_tree', 76, 318], ['c_tree', 140, 304, 1], ['c_bush', 108, 328], ['c_bush', 62, 292], ['c_tree', 236, 312], ['c_tree_dead', 292, 308], ['c_bush', 264, 326],
+      ['c_tree', 604, 306], ['c_tree', 660, 318, 1], ['c_bush', 632, 328], ['c_tree', 752, 314], ['c_tree', 820, 302, 1], ['c_bush', 786, 328], ['c_bush', 836, 290],
+      // houses along the lower street: boarded up until their neighbours are rescued
+      ['c_house_a', 80, 400], ['c_house_b', 192, 400], ['c_house_a', 304, 400, 1], ['c_house_b', 592, 400], ['c_house_a', 704, 400], ['c_house_b', 816, 400, 1],
+      ['c_lamp', 138, 399], ['c_lamp', 250, 399], ['c_lamp', 646, 399, 1], ['c_lamp', 758, 399, 1], ['c_barrel', 348, 400], ['c_crate', 548, 400],
+      // the south: a grove, the way to the graveyard
+      ['c_tree', 56, 486], ['c_tree', 104, 476, 1], ['c_tree_dead', 152, 488], ['c_tree', 200, 480], ['c_bush', 80, 493], ['c_bush', 228, 491],
+      ['c_tree', 392, 486], ['c_tree', 504, 486, 1], ['c_planter', 448, 493], ['c_barrel', 300, 491], ['c_barrel', 314, 493], ['c_crate', 600, 491],
+      ['c_grave_0', 676, 474], ['c_grave_1', 700, 476], ['c_grave_0', 724, 474], ['c_grave_0', 790, 474], ['c_grave_1', 814, 476], ['c_grave_0', 838, 474],
+      ['c_grave_1', 688, 492], ['c_grave_0', 712, 492], ['c_grave_0', 802, 492], ['c_grave_1', 826, 492], ['prop_candles', 757, 490], ['c_tree_dead', 852, 468]
+    ].concat(row('c_fence', 664, 13, 16, 455, [5]))
   };
-  var PORT = {
-    id: 'port', cols: 16, rows: 23,
-    spots: spots([72, 88], [184, 88], [72, 214]),
-    plot: { x: 190, y: 218, w: 48, h: 32 },
-    sign: { x: 150, y: 216 },
-    crates: [[202, 322], [218, 324], [210, 310]],
-    portal: { x: 128, y: 334, w: 20, h: 18 },
-    board: { x: 84, y: 330 },
-    start: { x: 128, y: 146 },
-    path: function (x, y) { return (x >= 7 && x <= 8 && y >= 5) || ((y === 7 || y === 8 || y === 15 || y === 16) && x >= 2 && x <= 13); }
+  // who keeps a stall
+  var KEEPER = {
+    smith: { frame: 'stall_smith', npc: 'npc_smith', label: 'city.smith', color: 'ui_warn' },
+    trainer: { frame: 'stall_trainer', npc: 'npc_trainer', label: 'city.trainer', color: 'ui_good' },
+    montoto: { frame: 'stall_montoto', npc: 'npc_montoto', label: 'mon.name', color: 'tome2' }
   };
-  [LAND, PORT].forEach(function (L) {
-    L.w = L.cols * T; L.h = L.rows * T;
-    L.walk = [16, 34, L.w - 16, L.h - 16];            // the walkable box (feet), the plaza inside the walls
-  });
-  // the portrait layout when the screen is taller than wide and too narrow for the wide one
-  function pickLayout() { var V = G.view; return V.H > V.W && V.W < LAND.w ? PORT : LAND; }
+  // What a prop is. box: its solid part round the anchor, [left, up, right] in px (none: the hero walks over or behind it);
+  // frames + rate: an animation (<frame>_<n>, a new frame every `rate` x 8 ticks); light: [glow frame, tint, alpha, dx, dy];
+  // o: origin, z: a fixed depth (flat on the ground or on a wall) instead of its y; mark: a landmark that no label may cover.
+  var PROP = {
+    c_gate: { z: -600, mark: 1 },
+    wall_banner: { o: [0.5, 0.5], z: -610 }, wall_moss: { o: [0.5, 0.5], z: -610 }, wall_chain: { o: [0.5, 0.5], z: -610 },
+    c_dais: { o: [0.5, 0.44], z: -950 },
+    c_brazier: { box: [-4, 4, 4], frames: 3, rate: 1, light: ['glow', 'em2', 0.4, 0, -10] },
+    c_lamp: { box: [-5, 3, -1], light: ['glow', 'em3', 0.26, 3, -18] },
+    c_fountain: { box: [-19, 20, 19], frames: 2, rate: 3, mark: 1 },
+    c_planter: { box: [-11, 7, 11] }, c_bush: { box: [-6, 4, 6] },
+    c_tree: { box: [-3, 5, 3] }, c_tree_dead: { box: [-4, 4, 2] },
+    c_barrel: { box: [-5, 6, 5] }, c_crate: { box: [-6, 8, 6] },
+    c_house_a: { box: [-32, 26, 32] }, c_house_b: { box: [-32, 26, 32] },
+    c_banner_town: { box: [-6, 3, -2], frames: 2, rate: 5 }, c_banner_rift: { box: [-6, 3, -2], frames: 2, rate: 5 },
+    c_banner_mage: { box: [-6, 3, -2], frames: 2, rate: 5 }, c_banner_neutral: { box: [-6, 3, -2], frames: 2, rate: 5 },
+    dummy_0: { box: [-5, 5, 5] },
+    c_grave_0: { box: [-4, 4, 4] }, c_grave_1: { box: [-3, 3, 3] }, c_fence: { box: [-8, 3, 8] },
+    prop_candles: { frames: 2, rate: 2, light: ['glow_s', 'em3', 0.35, 0, -6] }
+  };
+
+  // the table worked out once: sizes in px, the wall grid, the ground tile under every cell, the solid boxes
+  (function (L) {
+    var x, y, W = L.cols, H = L.rows, wall = new Uint8Array(W * H), ground = new Uint8Array(W * H);
+    L.w = W * T; L.h = H * T;
+    function fill(g, r, v) { for (var j = r[1]; j < r[1] + r[3]; j++) for (var i = r[0]; i < r[0] + r[2]; i++) g[j * W + i] = typeof v === 'function' ? v(i - r[0], j - r[1], r) : v; }
+    for (y = 0; y < H; y++) for (x = 0; x < W; x++) wall[y * W + x] = x === 0 || x === W - 1 || y < L.wallRows || y === H - 1 ? 1 : 0;
+    L.blocks.forEach(function (b) { fill(wall, b, 1); });
+    L.road.forEach(function (r) { fill(ground, r, 1); });
+    L.plaza.forEach(function (r) { fill(ground, r, 2); });
+    // a garden bed is a nine-slice: 3 + row * 3 + column (0 edge, 1 middle, 2 edge)
+    L.garden.forEach(function (r) { fill(ground, r, function (i, j, q) { return 3 + (j === 0 ? 0 : j === q[3] - 1 ? 2 : 1) * 3 + (i === 0 ? 0 : i === q[2] - 1 ? 2 : 1); }); });
+    L.wallAt = function (tx, ty) { return tx < 0 || ty < 0 || tx >= W || ty >= H ? 1 : wall[ty * W + tx]; };
+    L.groundAt = function (tx, ty) { return tx < 0 || ty < 0 || tx >= W || ty >= H ? 0 : ground[ty * W + tx]; };
+    L.stalls.forEach(function (s) { var k = KEEPER[s.id]; s.frame = k.frame; s.npc = k.npc; s.label = k.label; s.color = k.color; });
+    // solid boxes [x0, y0, x1, y1]: a stall (the hero walks behind it, not through it), a lot, signs, the board, the back of
+    // the portal's arch (so it is entered from the plaza, never from behind), and the props that have a box
+    var S = L.solids = [], P = L.portal;
+    L.stalls.forEach(function (s) { S.push([s.x - 24, s.y - 38, s.x + 24, s.y]); });
+    L.quarters.forEach(function (q) {
+      q.lots.forEach(function (c) { S.push([c[0] - 24, c[1] - 32, c[0] + 24, c[1]]); });
+      S.push([q.sign.x - 4, q.sign.y - 5, q.sign.x + 4, q.sign.y]);
+    });
+    S.push([L.board.x - 12, L.board.y - 5, L.board.x + 12, L.board.y]);
+    S.push([P.x - 17, P.y - 30, P.x + 17, P.y - 9]);
+    L.props.forEach(function (p) {
+      var d = PROP[p[0]], b = d && d.box;
+      if (b) S.push(p[3] ? [p[1] - b[2], p[2] - b[1], p[1] - b[0], p[2]] : [p[1] + b[0], p[2] - b[1], p[1] + b[2], p[2]]);
+    });
+  })(CITY);
+  G.CITY = CITY;
 
   function hash(x, y) { var h = (x * 374761393 + y * 668265263) | 0; h = (h ^ (h >>> 13)) * 1274126177 | 0; return (h ^ (h >>> 16)) >>> 0; }
-
-  function solids(L) {
-    var out = [];
-    L.spots.forEach(function (s) { out.push([s.x - 22, s.y - SOLID_H, s.x + 22, s.y]); });
-    out.push([L.plot.x - 24, L.plot.y - L.plot.h, L.plot.x + 24, L.plot.y]);
-    out.push([L.sign.x - 4, L.sign.y - 5, L.sign.x + 4, L.sign.y]);
-    out.push([L.board.x - 4, L.board.y - 5, L.board.x + 4, L.board.y]);
-    L.crates.forEach(function (c) { out.push([c[0] - 6, c[1] - 8, c[0] + 6, c[1]]); });
-    return out;
-  }
   function overlap(a, b, m) { return a.x < b.x + b.w + m && b.x < a.x + a.w + m && a.y < b.y + b.h + m && b.y < a.y + a.h + m; }
+  // the tile of tiles.png for a ground cell (tools/pixelart.py tiles(): cobbles 104.., road 120.., plaza 124.., garden 128..)
+  function groundTile(k, x, y) {
+    var mx = ((x % 4) + 4) % 4, my = ((y % 4) + 4) % 4;
+    if (k === 0) return 104 + my * 4 + mx;
+    if (k === 1) return 120 + (my & 1) * 2 + (mx & 1);
+    if (k === 2) return 124 + (my & 1) * 2 + (mx & 1);
+    if (k === 7) { var h = hash(x, y) % 5; return h < 2 ? 132 : 135 + h; }      // the middle of a bed: four kinds of grass
+    return 125 + k;
+  }
 
   G.CityScene = new Phaser.Class({
     Extends: Phaser.Scene,
@@ -70,17 +150,17 @@
       G.screen = 'city'; G.city = this; G.gameScene = null; G.hud = null; G.paused = false; G.testRoom = false; G.tutorial = false; G.daily = null;
       if (G.runSeed == null) G.runSeed = G.params.has('seed') ? (parseInt(G.params.get('seed'), 10) >>> 0) : 1;
       this.gear = G.gearOf(G.save, G.cls);
-      var L = this.lay = pickLayout();
-      this.solids = solids(L); this.labels = []; this.world = [];
+      var L = this.lay = CITY;
+      this.solids = L.solids; this.labels = []; this.world = [];
       this.controls = new G.Controls(this);
       this.keyEnter = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
       this.px = L.start.x; this.py = L.start.y; this.face = 1; this.moving = false; this.frame = 0; this.cam = { x: L.start.x, y: L.start.y };
       this.entering = false; this.near = null; this.out = { mx: 0, my: 0, dodge: false, pulse: false };
       this.cameras.main.setZoom(G.view.S);
-      this.follow(true);                                // the camera first: labels are clamped to what it shows
       this.buildWorld();
       this.player = this.add.image(0, 0, 'atlas', C.sprite.frames + '_0').setOrigin(0.42, 1);
       this.shadow = this.add.image(0, 0, 'atlas', 'shadow_s').setDepth(-100);
+      this.prig = new G.Rig(this, this.player, C.id);      // the HD hero, as in a room: walk frames and the motion rig (a class without a sheet stays chunky)
       this.tag = UI.text(this, 0, 0, G.t('city.talk'), 'ui_warn').setDepth(7500).setVisible(false);
       this.cameras.main.setBackgroundColor(UI.hex('void'));
       this.applyView();
@@ -91,129 +171,147 @@
       G.ready = true;
     },
 
-    // a new screen size, zoom or language. A rotation that changes the layout rebuilds the world; the hero stays at the stall
-    // they were at, or goes back to the middle of the plaza.
+    // a new screen size, zoom or language: the town is the same on every screen, only the camera and the texts change
     applyView: function () {
-      var L = pickLayout();
       this.cameras.main.setZoom(G.view.S);
-      if (L !== this.lay) {
-        var at = this.near && this.near.s.id;
-        this.world.forEach(function (o) { o.destroy(); });
-        this.world = []; this.labels = []; this.near = null;
-        this.lay = L; this.solids = solids(L);
-        this.px = L.start.x; this.py = L.start.y;
-        this.follow(true);
-        this.buildWorld();
-        var o = at === 'plot' ? this.plotOwner : at === 'daily' ? this.boardOwner : this.spots[at];
-        if (o) { this.px = o.front.x; this.py = o.front.y + 6; }
-      }
       this.relabel(); this.follow(true);
     },
 
     // ---------------------------------------------------------------- the world
     buildWorld: function () {
-      var self = this, L = this.lay, x, y, W = this.world;
+      var self = this, L = this.lay, x, y, W = this.world, A = APRON, wall = L.wallAt;
       var put = function (px, py, frame) { var o = self.add.image(px, py, 'atlas', frame); W.push(o); return o; };
-      for (y = 0; y < L.rows; y++) for (x = 0; x < L.cols; x++) {
-        var wall = x === 0 || y <= 1 || x === L.cols - 1 || y === L.rows - 1;
-        var path = !wall && L.path(x, y);
-        var h = hash(x, y), f = wall ? 'c_wall' : path ? 'c_path' : 'c_floor' + (h % 8 === 0 ? 3 : h % 3);
-        put(x * T, y * T, f).setOrigin(0, 0).setDepth(-1000);
+      var glow = function (px, py, frame, tint, alpha) { return put(px, py, frame).setDepth(-650).setBlendMode(Phaser.BlendModes.ADD).setTint(UI.hex(tint)).setAlpha(alpha); };
+      this.marks = []; this.lights = []; this.anims2 = [];
+      // ground and walls: two tile layers, as in a room (the rooms' wall tops, faces and shadows; the town's own ground),
+      // with a rampart of wall top all round
+      var ground = [], shade = [];
+      for (y = -A; y < L.rows + A; y++) {
+        var grow = [], srow = [];
+        for (x = -A; x < L.cols + A; x++) {
+          var idx, sh = -1;
+          if (wall(x, y)) {
+            var n = wall(x, y - 1), e = wall(x + 1, y), s = wall(x, y + 1), w = wall(x - 1, y);
+            idx = !s ? 80 + (e ? 1 : 0) + (w ? 2 : 0) + (n ? 4 : 0) + (((x * 7 + y * 13) >> 1) & 1) * 8 : 64 + (n ? 1 : 0) + (e ? 2 : 0) + (s ? 4 : 0) + (w ? 8 : 0);
+          } else {
+            idx = groundTile(L.groundAt(x, y), x, y);
+            if (wall(x, y - 1)) sh = !wall(x - 1, y - 1) ? 97 : (!wall(x + 1, y - 1) ? 98 : 96);
+            else if (wall(x - 1, y)) sh = 99;
+          }
+          grow.push(idx); srow.push(sh);
+        }
+        ground.push(grow); shade.push(srow);
       }
-      this.spots = {};
+      var map = this.make.tilemap({ data: ground, tileWidth: T, tileHeight: T }), map2 = this.make.tilemap({ data: shade, tileWidth: T, tileHeight: T });
+      W.push(map.createLayer(0, map.addTilesetImage('tiles', 'tiles', T, T, 0, 0), -A * T, -A * T).setDepth(-1000));
+      W.push(map2.createLayer(0, map2.addTilesetImage('tiles', 'tiles', T, T, 0, 0), -A * T, -A * T).setDepth(-990));
+      // wall torches: the sprite and the light of a room's torches (src/view/room.js)
+      L.torches.forEach(function (t) {
+        var tx = t[0] * T + 8, ty = t[1] * T + 8;
+        self.lights.push({ img: put(tx, ty, 'torch_0').setDepth(-600), frames: 'torch_', n: 3, rate: 1, glow: glow(tx, ty + 6, 'glow', 'em2', 0.4), a: 0.36 });
+      });
+      // dressing
+      L.props.forEach(function (p, i) {
+        var d = PROP[p[0]] || {}, o = d.o || [0.5, 1];
+        var im = put(p[1], p[2], d.frames ? p[0] + '_0' : p[0]).setOrigin(p[3] ? 1 - o[0] : o[0], o[1]).setFlipX(!!p[3]).setDepth(d.z != null ? d.z : p[2]);
+        if (d.mark) self.marks.push({ name: p[0], o: im });
+        if (d.light) self.lights.push({ img: d.frames ? im : null, frames: p[0] + '_', n: d.frames, rate: d.rate, glow: glow(p[1] + (p[3] ? -d.light[3] : d.light[3]), p[2] + d.light[4], d.light[0], d.light[1], d.light[2]), a: d.light[2] - 0.04, k: i });
+        else if (d.frames) self.anims2.push({ img: im, frames: p[0] + '_', n: d.frames, rate: d.rate, k: i });
+      });
+      // the stalls and their keepers
+      this.spots = {}; this.talkers = [];
       this.rescued = !!(this.gear.city && this.gear.city.montoto);
-      L.spots.forEach(function (s) {
-        var empty = s.id === 'montoto' && !self.rescued, o = { s: s, empty: empty, front: { x: s.x, y: s.y + 14 } };
+      L.stalls.forEach(function (s) {
+        var empty = s.id === 'montoto' && !self.rescued, o = { s: s, empty: empty, front: { x: s.x, y: s.y + 14 }, reach: REACH };
         o.stall = put(s.x, s.y, empty ? 'stall_empty' : s.frame).setOrigin(0.5, 1).setDepth(s.y);
         o.label = self.label(empty ? 'city.emptyStall' : s.label, empty ? 'ui_dim' : s.color, s.x, s.y - 52);
+        self.marks.push({ name: s.id, o: o.stall });
         if (!empty) {
           o.npc = put(s.x, s.y + 12, s.npc + '_0').setOrigin(0.5, 1).setDepth(s.y + 12);
           o.shadow = put(s.x, s.y + 11, 'shadow_s').setDepth(-100);
           if (G.ANIM.ent[s.npc]) { o.rig = new G.Rig(self, o.npc, s.npc); W.push(o.rig.shadow); }     // HD art (Don Montoto): breathing, soft shadow
+          self.marks.push({ name: s.id + '_keeper', o: o.npc });
         }
         o.stall.setInteractive({ useHandCursor: true });
         if (o.npc) o.npc.setInteractive({ useHandCursor: true });
         var tap = function () { self.tap(o); };
         o.stall.on('pointerdown', tap); if (o.npc) o.npc.on('pointerdown', tap);
-        self.spots[s.id] = o;
+        self.spots[s.id] = o; self.talkers.push(o);
       });
-      // the Mage quarter: nothing built yet
-      put(L.plot.x, L.plot.y, 'plot_fence').setOrigin(0.5, 1).setDepth(L.plot.y);
-      var plotLabel = this.label('city.mageQuarter', 'ui_dim', L.plot.x, L.plot.y - L.plot.h - 11);
-      this.sign = put(L.sign.x, L.sign.y, 'c_sign').setOrigin(0.5, 1).setDepth(L.sign.y).setInteractive({ useHandCursor: true });
-      this.sign.on('pointerdown', function () { self.say(G.t('city.mageSign'), 'ui_dim'); });
-      this.plotOwner = { s: { id: 'plot' }, front: { x: L.sign.x - 6, y: L.sign.y + 6 }, label: plotLabel };
-      L.crates.forEach(function (c) { put(c[0], c[1], 'c_crate').setOrigin(0.5, 1).setDepth(c[1]); });
-      // the daily challenge board: a sign beside the portal (READ opens today's run)
-      this.board = put(L.board.x, L.board.y, 'c_sign').setOrigin(0.5, 1).setDepth(L.board.y).setInteractive({ useHandCursor: true });
+      // the quarters: fenced lots, nothing built yet, and a sign to read
+      this.signs = {};
+      L.quarters.forEach(function (q) {
+        q.lots.forEach(function (c) { self.marks.push({ name: q.id + '_lot', o: put(c[0], c[1], 'plot_fence').setOrigin(0.5, 1).setDepth(c[1]) }); });
+        var o = { s: { id: q.id }, sign: q.sign, say: q.say, front: { x: q.sign.x, y: q.sign.y + 6 }, reach: 28, label: self.label(q.label, 'ui_dim', q.at.x, q.at.y) };
+        o.img = put(q.sign.x, q.sign.y, 'c_sign').setOrigin(0.5, 1).setDepth(q.sign.y).setInteractive({ useHandCursor: true });
+        o.img.on('pointerdown', function () { self.tap(o); });
+        self.marks.push({ name: q.id + '_sign', o: o.img });
+        self.signs[q.id] = o; self.talkers.push(o);
+      });
+      this.plotOwner = this.signs.plot;
+      // the notice board of the daily challenge (READ opens today's run)
+      this.board = put(L.board.x, L.board.y, 'c_board').setOrigin(0.5, 1).setDepth(L.board.y).setInteractive({ useHandCursor: true });
       this.board.on('pointerdown', function () { self.tap(self.boardOwner); });
-      this.boardOwner = { s: { id: 'daily' }, front: { x: L.board.x, y: L.board.y + 8 }, label: this.label('city.daily', 'gold', L.board.x, L.board.y - 22) };
+      this.boardOwner = { s: { id: 'daily' }, front: { x: L.board.x, y: L.board.y + 8 }, reach: 24, label: this.label('city.daily', 'gold', L.board.x, L.board.y - 40) };
+      this.marks.push({ name: 'board', o: this.board });
+      this.talkers.push(this.boardOwner);
       // the portal
       this.portal = put(L.portal.x, L.portal.y, 'portal_0').setOrigin(0.5, 1).setDepth(L.portal.y - 20);
-      put(L.portal.x, L.portal.y - 16, 'glow').setDepth(-640).setBlendMode(Phaser.BlendModes.ADD).setTint(UI.hex('rg2')).setAlpha(0.25);
+      glow(L.portal.x, L.portal.y - 16, 'glow', 'rg2', 0.25).setDepth(-640);
       this.label('city.rift', 'ui_good', L.portal.x, L.portal.y - 58);
+      this.marks.push({ name: 'portal', o: this.portal });
     },
 
     say: function (text, color) { if (G.cityHud) G.cityHud.say(text, color); },
 
-    // a world label centred on cx: kept fully inside the visible part of the city (clamped to the camera each frame), so a narrow screen never cuts one
+    // A world label centred on cx. Labels are fixed to the town (the table places them so that none covers another label or a
+    // landmark, whatever the screen: node qa/city.js checks it in both languages); only the prompt follows the screen.
     label: function (key, color, cx, y) {
       var t = UI.text(this, 0, 0, G.t(key), color).setDepth(6000), b = { t: t, cx: cx, y: y, key: key, box: { x: 0, y: 0, w: 0, h: 0 } };
       this.world.push(t);
       this.labels.push(b);
-      this.placeLabels();
+      this.placeLabel(b);
       return b;
     },
     relabel: function () {      // the language changed: world labels and the prompt get the new text
-      (this.labels || []).forEach(function (b) { b.t.setText(G.t(b.key)); });
+      var self = this;
+      (this.labels || []).forEach(function (b) { b.t.setText(G.t(b.key)); self.placeLabel(b); });
       if (this.tag) this.tag.setText(G.t('city.talk'));
-      this.placeLabels();
+      this.placeTag();
     },
     // the box a text really covers: an accented capital rises 2 px above its line
     box: function (t, x, y) { return { x: x, y: y - 2, w: t.width, h: 11 }; },
-    placeLabels: function () {
-      var wv = this.cameras.main.worldView, l = wv.x + 3, r = wv.x + wv.width - 3, self = this;
-      var placed = [];
-      (this.labels || []).forEach(function (b) {
-        var w = b.t.width, x = Math.round(Math.max(l, Math.min(r - w, b.cx - w / 2))), y = b.y, k;
-        // a label pushed in from the edge can land on its neighbour (a zoomed-in screen): lift it a line until it is clear
-        for (k = 0; k < placed.length; k++) if (overlap(self.box(b.t, x, y), placed[k], 3)) { y -= LINE; k = -1; }
-        b.box = self.box(b.t, x, y);
-        placed.push(b.box);
-        b.t.setPosition(x, y);
-      });
-      this.placeTag();
+    placeLabel: function (b) {
+      var w = b.t.width, x = Math.round(Math.max(3, Math.min(this.lay.w - 3 - w, b.cx - w / 2)));
+      b.box = this.box(b.t, x, b.y);
+      b.t.setPosition(x, b.y);
     },
-    // The prompt (TALK / LOOK / READ) of the thing in reach sits one line above that thing's own label, centred on it, and is
-    // lifted further while it touches any label: a prompt and a label never share pixels, in any language or screen size.
+    // The prompt (TALK / LOOK / READ) of the thing in reach sits one line above that thing's own label, centred on it, kept
+    // on screen, and is lifted further while it touches any label: a prompt and a label never share pixels.
     placeTag: function () {
       var o = this.near, tag = this.tag;
       if (!tag || !o || !tag.visible) return;
-      var wv = this.cameras.main.worldView, w = tag.width, lb = o.label.box, plot = o.s.id === 'plot';
-      // a stall: above its label. The sign: above the sign itself (the Mage quarter label belongs to the plot beside it)
-      var cx = plot ? this.lay.sign.x : lb.x + lb.w / 2, y = plot ? this.lay.sign.y - 28 : lb.y + 2 - LINE, n = 0;
+      var wv = this.cameras.main.worldView, w = tag.width, lb = o.label.box;
+      // a stall or the board: above its label. A sign: above the sign itself (the quarter's name is written over its lots)
+      var cx = o.sign ? o.sign.x : lb.x + lb.w / 2, y = o.sign ? o.sign.y - 36 : lb.y + 2 - LINE, n = 0;
       var x = Math.round(Math.max(wv.x + 3, Math.min(wv.x + wv.width - 3 - w, cx - w / 2)));
       for (var k = 0; k < this.labels.length && n < 40; k++) if (overlap(this.box(tag, x, y - 1), this.labels[k].box, 2)) { y -= 2; k = -1; n++; }
       tag.setPosition(x, Math.round(y) - ((this.frame >> 4) & 1));
       this.tagBox = this.box(tag, x, y - 1);
     },
 
-    // a tap on a stall or its owner: talk if the hero is in reach
+    // a tap on a stall, its owner, a sign or the board: talk if the hero is in reach
     tap: function (o) {
       if (G.paused || this.entering) return;
       if (this.inReach(o)) this.talk(o); else this.say(G.t('city.closer'), 'ui_dim');
     },
-    inReach: function (o) { var dx = this.px - o.front.x, dy = this.py - o.front.y; return dx * dx + dy * dy <= REACH * REACH; },
+    inReach: function (o) { var dx = this.px - o.front.x, dy = this.py - o.front.y; return dx * dx + dy * dy <= o.reach * o.reach; },
     nearest: function () {
-      var best = null, bd = 1e9, self = this;
-      Object.keys(this.spots).forEach(function (k) {
-        var o = self.spots[k], dx = self.px - o.front.x, dy = self.py - o.front.y, d = dx * dx + dy * dy;
-        if (d <= REACH * REACH && d < bd) { bd = d; best = o; }
+      var best = null, bd = 1e9, px = this.px, py = this.py;
+      this.talkers.forEach(function (o) {
+        var dx = px - o.front.x, dy = py - o.front.y, d = dx * dx + dy * dy;
+        if (d <= o.reach * o.reach && d < bd) { bd = d; best = o; }
       });
-      var po = this.plotOwner, dx2 = this.px - po.front.x, dy2 = this.py - po.front.y;
-      if (!best && dx2 * dx2 + dy2 * dy2 <= 28 * 28) best = po;
-      var bo = this.boardOwner, dx3 = this.px - bo.front.x, dy3 = this.py - bo.front.y;
-      if (!best && dx3 * dx3 + dy3 * dy3 <= 24 * 24) best = bo;
       return best;
     },
     talk: function (o) {
@@ -227,15 +325,16 @@
       else if (id === 'montoto') {
         if (o.empty) this.say(G.montotoText('emptyStall'), 'ui_warn');
         else G.Panels.openMontoto(hud, false);
-      } else this.say(G.t('city.mageSign'), 'ui_dim');
+      } else this.say(G.t(o.say), 'ui_dim');
     },
     // the label and what the button says for the thing in reach
-    nearLabel: function (o) { return !o ? null : G.t(o.s.id === 'plot' || o.s.id === 'daily' ? 'city.read' : o.empty ? 'city.look' : 'city.talk'); },
+    nearLabel: function (o) { return !o ? null : G.t(o.sign || o.s.id === 'daily' ? 'city.read' : o.empty ? 'city.look' : 'city.talk'); },
 
     // ---------------------------------------------------------------- movement
+    // the hero's feet: a box 8 x 5 px. Walls are tiles, everything else is a box of the table
     blocked: function (x, y) {
-      var l = x - 4, r = x + 4, t = y - 5, b = y, i, W = this.lay.walk;
-      if (l < W[0] || r > W[2] || t < W[1] - 5 || b > W[3]) return true;
+      var l = x - 4, r = x + 4, t = y - 5, b = y, i, L = this.lay, tx, ty;
+      for (ty = Math.floor(t / T); ty <= Math.floor((b - 0.001) / T); ty++) for (tx = Math.floor(l / T); tx <= Math.floor((r - 0.001) / T); tx++) if (L.wallAt(tx, ty)) return true;
       for (i = 0; i < this.solids.length; i++) { var s = this.solids[i]; if (r > s[0] && l < s[2] && b > s[1] && t < s[3]) return true; }
       return false;
     },
@@ -243,15 +342,15 @@
       if (!this.blocked(this.px + dx, this.py)) this.px += dx;
       if (!this.blocked(this.px, this.py + dy)) this.py += dy;
     },
+    // the camera: on the hero (a little above him), kept inside the town; a screen bigger than the town shows it centred
     follow: function (snap) {
-      var V = G.view, cam = this.cameras.main, MW = this.lay.w, MH = this.lay.h;
+      var V = G.view, cam = this.cameras.main, MW = this.lay.w, MH = this.lay.h, up = V.H < LOOK.short ? LOOK.upShort : LOOK.up;
       if (!this.cam) return;
-      if (snap) { this.cam.x = this.px; this.cam.y = this.py - 8; } else { this.cam.x += (this.px - this.cam.x) * 0.14; this.cam.y += (this.py - 8 - this.cam.y) * 0.14; }
-      // the overlay covers the top strip: a city that fits sits below it, a bigger one may scroll that far above the map
+      if (snap) { this.cam.x = this.px; this.cam.y = this.py - up; } else { this.cam.x += (this.px - this.cam.x) * 0.14; this.cam.y += (this.py - up - this.cam.y) * 0.14; }
       var cx = MW <= V.W ? MW / 2 : Math.max(V.W / 2, Math.min(MW - V.W / 2, this.cam.x));
-      var cy = MH + TOP <= V.H ? (MH - TOP) / 2 : Math.max(V.H / 2 - TOP, Math.min(MH - V.H / 2, this.cam.y));
+      var cy = MH <= V.H ? MH / 2 : Math.max(V.H / 2, Math.min(MH - V.H / 2, this.cam.y));
       cam.centerOn(Math.round(cx), Math.round(cy));
-      if (this.labels) this.placeLabels();
+      this.placeTag();
     },
 
     update: function (time, delta) {
@@ -268,30 +367,43 @@
           if (mx) this.face = mx > 0 ? 1 : -1;
         }
         this.near = this.nearest();
-        if (this.near && this.near.s.id !== 'plot') G.Hints.on('city.near.' + this.near.s.id, !!this.near.empty);
+        if (this.near && !this.near.sign) G.Hints.on('city.near.' + this.near.s.id, !!this.near.empty);
         if ((o.dodge || o.pulse || enter) && this.near) this.talk(this.near);
         // the portal: walking into it starts a run
         var P = this.lay.portal;
         if (Math.abs(this.px - P.x) <= P.w / 2 && this.py >= P.y - P.h && this.py <= P.y) this.enterRift();
       } else if (G.paused) this.moving = false;
-      var walk = this.moving ? ((this.frame >> 3) & 1) : 0;
-      this.player.setFrame(C.sprite.frames + '_' + walk).setFlipX(this.face < 0).setOrigin(this.face < 0 ? 0.58 : 0.42, 1).setPosition(Math.round(this.px), Math.round(this.py)).setDepth(this.py);
-      this.shadow.setPosition(Math.round(this.px), Math.round(this.py) - 1);
-      var self = this;
+      // the hero: HD frames and the motion rig when the class has a sheet and the art mode is HD, else the chunky sprite
+      var hx = Math.round(this.px), hy = Math.round(this.py);
+      var hd = this.prig.update(G.paused ? 0 : dt, { x: hx, y: hy, ground: hy - 1, face: this.face, tx: null, state: 'walk', speed: C.base.speed, depth: this.py });
+      if (!hd) {
+        if (this.player.isHD || this.player.texture.key !== 'atlas') G.HD.chunky(this.player, C.sprite.frames + '_0');
+        var walk = this.moving ? ((this.frame >> 3) & 1) : 0;
+        this.player.setFrame(C.sprite.frames + '_' + walk).setFlipX(this.face < 0).setOrigin(this.face < 0 ? 0.58 : 0.42, 1).setPosition(hx, hy).setDepth(this.py);
+      }
+      this.shadow.setPosition(hx, hy - 1).setVisible(!hd);
+      var self = this, f = this.frame, i;
       Object.keys(this.spots).forEach(function (k) {
         var s = self.spots[k];
         if (s.rig && s.rig.update(G.paused ? 0 : dt, { x: s.s.x, y: s.s.y + 12, ground: s.s.y + 11, face: 1, tx: null, state: 'idle', depth: s.s.y + 12 })) s.shadow.setVisible(false);
         else if (s.npc) {
           if (s.npc.isHD || s.npc.texture.key !== 'atlas') { G.HD.chunky(s.npc, s.s.npc + '_0'); s.npc.setOrigin(0.5, 1).setPosition(s.s.x, s.s.y + 12); }
-          s.npc.setFrame(s.s.npc + '_' + (((self.frame >> 4) + s.s.x) & 1));
+          s.npc.setFrame(s.s.npc + '_' + (((f >> 4) + s.s.x) & 1));
           s.shadow.setVisible(true);
         }
       });
-      this.portal.setFrame('portal_' + ((this.frame >> 3) % 3));
+      // fires flicker like a room's torches; water, banners and candles move slowly
+      for (i = 0; i < this.lights.length; i++) {
+        var li = this.lights[i];
+        if (li.img) li.img.setFrame(li.frames + (((f >> 3) / li.rate + i * 2) | 0) % li.n);
+        li.glow.setAlpha(li.a + ((f >> 2) + i * 3) % 4 * 0.025);
+      }
+      for (i = 0; i < this.anims2.length; i++) { var an = this.anims2[i]; an.img.setFrame(an.frames + (((f >> 3) / an.rate + an.k) | 0) % an.n); }
+      this.portal.setFrame('portal_' + ((f >> 3) % 3));
       var nl = this.nearLabel(this.near);
       this.tag.setVisible(!!nl && !G.paused);
       if (nl && this.near) this.tag.setText(nl);
-      this.follow(false);                               // also places the labels and, above them, the prompt
+      this.follow(false);                               // also places the prompt
     },
 
     enterRift: function () {
@@ -307,14 +419,17 @@
       });
     },
 
-    // QA: where things are, in world px, plus the camera, so a test can check what is on screen and what overlaps
+    // QA: where things are, in world px, plus the camera, so a test can check what is on screen and what overlaps.
+    // things: the boxes of the landmarks (stalls, keepers, lots, signs, the board, the portal, the fountain, the gate)
     snapshot: function () {
-      var spots = {}, L = this.lay, wv = this.cameras.main.worldView;
-      for (var k in this.spots) spots[k] = { x: this.spots[k].front.x, y: this.spots[k].front.y, empty: !!this.spots[k].empty, sx: this.spots[k].s.x, sy: this.spots[k].s.y };
+      var spots = {}, signs = {}, L = this.lay, wv = this.cameras.main.worldView, k;
+      for (k in this.spots) spots[k] = { x: this.spots[k].front.x, y: this.spots[k].front.y, empty: !!this.spots[k].empty, sx: this.spots[k].s.x, sy: this.spots[k].s.y };
+      for (k in this.signs) signs[k] = { x: this.signs[k].front.x, y: this.signs[k].front.y };
       return { x: Math.round(this.px), y: Math.round(this.py), near: this.near ? this.near.s.id : null, rescued: this.rescued, entering: this.entering, spots: spots,
-        portal: { x: L.portal.x, y: L.portal.y }, start: L.start, sign: { x: this.plotOwner.front.x, y: this.plotOwner.front.y }, board: { x: this.boardOwner.front.x, y: this.boardOwner.front.y }, layout: L.id, map: { w: L.w, h: L.h },
-        view: { x: wv.x, y: wv.y, w: wv.width, h: wv.height },
+        portal: { x: L.portal.x, y: L.portal.y, w: L.portal.w, h: L.portal.h }, start: L.start, sign: signs.plot, signs: signs, board: { x: this.boardOwner.front.x, y: this.boardOwner.front.y }, layout: L.id, map: { w: L.w, h: L.h },
+        view: { x: wv.x, y: wv.y, w: wv.width, h: wv.height }, heroHD: !!this.player.isHD, heroFrame: this.player.frame.name,
         labels: this.labels.map(function (b) { return { key: b.key, x: b.box.x, y: b.box.y, w: b.box.w, h: b.box.h }; }),
+        things: this.marks.map(function (m) { var r = m.o.getBounds(); return { name: m.name, x: r.x, y: r.y, w: r.width, h: r.height }; }),
         tag: this.tag.visible && this.tagBox ? { text: this.tag.text, x: this.tagBox.x, y: this.tagBox.y, w: this.tagBox.w, h: this.tagBox.h } : null };
     }
   });

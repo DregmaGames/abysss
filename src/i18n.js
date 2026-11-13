@@ -27,6 +27,7 @@
     'city.talk': 'TALK', 'city.read': 'READ', 'city.look': 'LOOK',
     'city.closer': 'Walk closer',
     'city.mageSign': 'Mage quarter: nothing built here yet.',
+    'city.neutralQuarter': 'NEUTRAL QUARTER', 'city.neutralSign': 'Neutral quarter: room for more stalls.',
     'city.end': 'END',
     // Don Montoto
     'mon.name': 'DON MONTOTO',
@@ -153,6 +154,7 @@
     'city.talk': 'HABLAR', 'city.read': 'LEER', 'city.look': 'MIRAR',
     'city.closer': 'Acércate más',
     'city.mageSign': 'Barrio del Mago: aún no hay nada construido.',
+    'city.neutralQuarter': 'BARRIO NEUTRAL', 'city.neutralSign': 'Barrio Neutral: hay lugar para más puestos.',
     'city.end': 'FIN',
     'mon.name': 'DON MONTOTO',
     'mon.clearFirst': 'Limpia la sala primero',
