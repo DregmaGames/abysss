@@ -6315,7 +6315,7 @@
       if (look && G.ANIM.ent[id + '_' + look]) return id + '_' + look;
       if (!A) return bare;
       var ent = id + '_' + G.ANIM.armorLook[A.mat != null ? A.mat : 2];
-      return G.ANIM.ent[ent] ? ent : id;
+      return G.ANIM.ent[ent] ? ent : bare;      // no sheet for that armour yet: the new base, not the old full sheet (?look=full shows that)
     },
     // the trim colour of the body armour worn (?arar=<rarity> previews one)
     trimColor: function (eq) {
