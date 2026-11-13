@@ -1,0 +1,34 @@
+{
+"mage_attack_0": [
+21,
+3
+],
+"mage_attack_1": [
+53,
+20
+],
+"mage_hurt": [
+20,
+3
+],
+"mage_idle_0": [
+2,
+10
+],
+"mage_walk_0": [
+2,
+10
+],
+"mage_walk_1": [
+2,
+10
+],
+"mage_walk_2": [
+2,
+9
+],
+"mage_walk_3": [
+2,
+9
+]
+}

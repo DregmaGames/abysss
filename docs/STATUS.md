@@ -716,3 +716,19 @@ are off screen until the hero walks down; on a phone the vacant pitch and the Ne
 buttons when the hero stands at the Trainer; a keeper is a small solid in the street, a hero hugging the stalls has to steer
 round him; the hero can walk behind houses and trees (drawn behind them, hidden for a moment); nothing in the far corners
 can be used yet (lots and dressing only); `qa/tutorial.js` still writes four of its shots to /tmp (untouched).
+
+## Weapon rarity glow, a test (branch `step-weapon-glow`, on top of `step-big-city`; 2026-11-13, not merged)
+The user's decisions: the hero's look changes with the weapon TYPE (one generated sheet per type: the warrior needs sword, axe, mace,
+hammer), and the weapon's RARITY shows as a glow; on the mage only the staff's crystal glows, not the whole staff. He named the
+tiers Common, Magic, Rare, Legendary, Mythic and maybe Unique: the game's item rarities are still common, magic, rare, epic,
+legendary (not changed here; mythic and unique exist only as glows to preview).
+`tools/weapon_fx.py mage` finds the crystal by colour in every `assets/hd/mage_*.png` and writes a mask `fx_<frame>.png` (the
+crystal, a 3 px halo, a soft round halo; 8 px bigger than the frame per side) plus `assets/hd/fx_points.json` (the crystal's
+centre, which `tools/hd_atlas.py pack` stores as the frame's `head`). `G.Rig` (`src/view/hd.js`) draws the mask over the hero with
+the frame's transform, additive, tinted and pulsing by `G.ANIM.glow` (`src/view/anim.js`: magic blue, rare yellow, epic purple,
+legendary orange with sparks, mythic a colour cycle, unique pale gold with more sparks); sparks leave from `head`. Rooms and city.
+The glow follows the equipped weapon's rarity; `?glow=<key>` or DBG > GLOW (it replaced RESUME; the X closes the panel) previews one.
+Checked: build, check_i18n, `qa/glow.js` (new: 7 states, mask frame follows the hero's frame, 0 console errors) PASS,
+`qa/hd.js` 0 console errors. Not checked: the glow on a real item of each rarity in a run, the city, the 27 px / old art modes
+(no masks there: no glow), warrior and archer (no sheets yet). Rough: the attack-thrust frame's mask includes the cyan flash.
+

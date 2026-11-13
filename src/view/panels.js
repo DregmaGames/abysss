@@ -568,7 +568,8 @@
       [G.t('dbg.merchant'), act(function () { s.cheatMerchant(); }), 'dbg_merchant'],
       [G.t('dbg.cage'), act(function () { s.cheatCage(); }), 'dbg_cage'],
       [G.t('dbg.abilities'), act(function () { s.cheatAbilities(s.defaultActives()); }), 'dbg_abil'],
-      [G.t('dbg.resume'), function () { P.close(); }, 'dbg_resume']
+      // art test: preview the weapon's rarity glow on the hero (cycles none -> magic -> ... -> unique; none = by the equipped weapon)
+      [G.t('dbg.glow', { s: (C.glow || 'auto').toUpperCase() }), function () { var O = G.ANIM.glowOrder, i = O.indexOf(C.glow); C.glow = i + 1 >= O.length ? null : O[i + 1]; reopen(); }, 'dbg_glow', !!C.glow]
     ];
     B.forEach(function (b, i) {
       var bx = x0 + 8 + (i % 2) * (bw + 6), by = y0 + 24 + Math.floor(i / 2) * 21;

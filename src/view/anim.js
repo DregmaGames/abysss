@@ -21,6 +21,19 @@
     fallback: { walk: 'idle', attack: 'idle', hurt: 'idle', slam: 'attack', charge: 'attack', burst: 'attack', cast: 'attack' },
     // a chunky frame shown as an HD frame when the entity has no table entry (cages, static props)
     map: { cage_0: 'cage_0', cage_1: 'cage_1' },
+    // The rarity glow of the hero's weapon (src/view/hd.js): colour (or `cycle` of colours, one turn in cycleT s), the
+    // alpha it pulses between (min, max; one pulse in `period` s), sparks per second. glowByRarity: by an item's rarity
+    // (0 common .. 4 legendary); 'mythic' and 'unique' are not item rarities yet (the art test previews them: ?glow=, DBG).
+    glow: {
+      magic:     { color: 0x6eaaff, min: 0.30, max: 0.55, period: 1.8 },
+      rare:      { color: 0xffd84a, min: 0.35, max: 0.65, period: 1.6 },
+      epic:      { color: 0xcc80ff, min: 0.40, max: 0.75, period: 1.5 },
+      legendary: { color: 0xff9434, min: 0.50, max: 0.95, period: 1.2, sparks: 1.5, spark: 'r_legend' },
+      mythic:    { cycle: [0xff4060, 0xc060ff, 0x40c8ff, 0x60ff90, 0xffd84a], cycleT: 3.2, min: 0.60, max: 1.0, period: 0.9, sparks: 3, spark: 'r_epic' },
+      unique:    { color: 0xfff0b8, min: 0.45, max: 1.0, period: 0.7, sparks: 4, spark: 'gold' }
+    },
+    glowByRarity: [null, 'magic', 'rare', 'epic', 'legendary'],
+    glowOrder: ['none', 'magic', 'rare', 'epic', 'legendary', 'mythic', 'unique'],
     ent: {
       // one imported pose (the bone blade raised): serves every skeleton frame, the motion does the rest
       skeleton: {

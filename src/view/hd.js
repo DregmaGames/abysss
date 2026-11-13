@@ -31,6 +31,20 @@
       if (G.gameScene && G.gameScene.sys.isActive()) G.gameScene.rebuildArt();
       if (G.city && G.city.sys.isActive()) G.city.scene.restart();
     },
+    FXPAD: 8,      // px a glow mask is bigger than its frame, per side (tools/weapon_fx.py PAD)
+    // the glow of a weapon item: G.cheats.glow (a key of G.ANIM.glow, or 'none') previews one; else by the item's rarity
+    glowOf: function (item) {
+      var c = (G.cheats && G.cheats.glow) || G.params.get('glow');
+      if (c) return c === 'none' ? null : c;
+      return item ? G.ANIM.glowByRarity[item.rarity] || null : null;
+    },
+    // the tint of a glow at time t: one colour, or a slow walk round `cycle`
+    glowColor: function (g, t) {
+      if (!g.cycle) return g.color;
+      var n = g.cycle.length, u = (t / (g.cycleT || 3)) % 1 * n, i = Math.floor(u), f = u - i, a = g.cycle[i], b = g.cycle[(i + 1) % n];
+      function ch(sh) { return Math.round(((a >> sh) & 255) + (((b >> sh) & 255) - ((a >> sh) & 255)) * f); }
+      return (ch(16) << 16) | (ch(8) << 8) | ch(0);
+    },
     meta: function (name) { var J = G_ASSETS.hd_atlasJson; return J && J.frames[name]; },
     // the HD frame for an HD name or a chunky frame name (G.ANIM.map), or null (HD off, or no such frame)
     frame: function (scene, name) {
@@ -116,11 +130,11 @@
   R.release = function (dur) { this.wind = 0; this.rel = this.relDur = dur || 0.25; };
   R.attack = function (dur) { this.rel = this.relDur = dur || 0.25; this.atkFrames = true; };    // an attack with no wind-up (the hero's)
   R.hurt = function (fromX) { this.hit = 0.2; this.hitDir = sign(this.img.x - fromX); };
-  R.destroy = function () { this.shadow.destroy(); };
+  R.destroy = function () { this.shadow.destroy(); if (this.glowImg) this.glowImg.destroy(); };
 
   R.update = function (dt, o) {
     var img = this.img, scene = this.scene, M = this.motion();
-    if (!HD.frames(scene, this.ent, 'idle') && !HD.frames(scene, this.ent, o.state)) { this.hdOn = false; this.shadow.setVisible(false); this.lx = null; return false; }
+    if (!HD.frames(scene, this.ent, 'idle') && !HD.frames(scene, this.ent, o.state)) { this.hdOn = false; this.shadow.setVisible(false); if (this.glowImg) this.glowImg.setVisible(false); this.lx = null; return false; }
     this.hdOn = true;
     // movement since the last frame (sim feet position); a jump (new room, dodge) does not count as walking
     if (this.lx === null) { this.lx = o.x; this.ly = o.y; }
@@ -196,6 +210,21 @@
     img.isHD = true;
     fitHit(img);
     this.artH = hs / D;
+    // the weapon's rarity glow (o.glow = a key of G.ANIM.glow): the frame's mask fx_<frame> (tools/weapon_fx.py, FXPAD px
+    // bigger on every side) drawn over the sprite with the same transform, tinted, additive, pulsing
+    var gdef = o.glow && G.ANIM.glow[o.glow], gname = 'fx_' + fname, gi = this.glowImg;
+    if (gdef && img.visible && scene.textures.get('hd').has(gname)) {
+      if (!gi) gi = this.glowImg = scene.add.image(0, 0, 'hd', gname).setBlendMode(Phaser.BlendModes.ADD);
+      if (gi.frame.name !== gname) gi.setFrame(gname, false, false);
+      var pd = HD.FXPAD, pulse = 0.5 + 0.5 * Math.sin(this.t * 6.2832 / (gdef.period || 1.4));
+      gi.setVisible(true).setFlipX(flip).setScale(img.scaleX, img.scaleY).setRotation(rq)
+        .setOrigin((img.originX * W + pd) / (W + 2 * pd), (img.originY * H + pd) / (H + 2 * pd)).setPosition(o.x, o.y)
+        .setDepth((o.depth != null ? o.depth : img.depth) + 0.01).setTint(HD.glowColor(gdef, this.t))
+        .setAlpha((o.alpha == null ? 1 : o.alpha) * (gdef.min + (gdef.max - gdef.min) * pulse));
+      if (gdef.sparks && scene.fx && !scene.fx.quiet && dt > 0 && Math.floor(this.t * gdef.sparks) !== Math.floor((this.t - dt) * gdef.sparks))
+          if (meta.head) scene.fx.burst(o.x + ((flip ? W - meta.head[0] : meta.head[0]) - img.originX * W) * img.scaleX + Math.sin(this.t * 37) * 1.5,
+          o.y + (meta.head[1] - img.originY * H) * img.scaleY, gdef.spark || 'gold', 1, 14, 0.45);      // from the weapon's head
+    } else if (gi) gi.setVisible(false);
     // soft contact shadow: as wide as the feet, smaller while the body is up
     var fw = Math.max(8, ((meta.foot || W * 0.6) / D) * 1.15 + 4), lift = 1 - Math.max(0, -oyq) * 0.04;
     var sw = Math.round(fw * lift / 2) * 2;

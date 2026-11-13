@@ -491,13 +491,16 @@ def pack():
         print('no HD frames'); return
     W = 512
     order = sorted(items, key=lambda k: (-items[k].shape[0], k))
-    x = y = 1; rowh = 0; place = []; frames = {}
+    x = y = 1; rowh = 0; place = []; points = json.load(open(os.path.join(HD, 'fx_points.json'))) if os.path.exists(os.path.join(HD, 'fx_points.json')) else {}
+    frames = {}
     for k in order:
         h, w = items[k].shape[:2]
         if x + w + 1 > W:
             x = 1; y += rowh + 1; rowh = 0
         place.append((k, x, y))
         frames[k] = {'frame': {'x': x, 'y': y, 'w': w, 'h': h}, 'anchor': {'x': anchor(items[k]), 'y': 1}, 'foot': foot(items[k])}
+        if k in points:
+            frames[k]['head'] = points[k]      # the weapon's glowing head, px from the frame's top left (tools/weapon_fx.py)
         rowh = max(rowh, h); x += w + 1
     H = 1
     while H < y + rowh + 1:

@@ -103,7 +103,7 @@
     // debug
     'dbg.title': 'DEBUG', 'dbg.god': 'GOD {s}', 'dbg.noCd': 'NO CD {s}', 'dbg.on': 'ON', 'dbg.off': 'OFF', 'dbg.speed': 'SPEED x{n}', 'dbg.killAll': 'KILL ALL',
     'dbg.skip': 'SKIP PHASE', 'dbg.level': 'LEVEL UP', 'dbg.restart': 'RESTART ROOM', 'dbg.next': 'NEXT ROOM', 'dbg.boss': 'BOSS ROOM', 'dbg.loot': 'GIVE LOOT',
-    'dbg.doors': 'DOORS', 'dbg.merchant': 'MERCHANT', 'dbg.cage': 'CAGE', 'dbg.abilities': 'ABILITIES', 'dbg.resume': 'RESUME',
+    'dbg.doors': 'DOORS', 'dbg.merchant': 'MERCHANT', 'dbg.cage': 'CAGE', 'dbg.abilities': 'ABILITIES', 'dbg.glow': 'GLOW: {s}',
     'dbg.info': 'Room {n}  {phase}  seed {s}',
     // result
     'res.won': 'RIFT SEALED', 'res.left': 'YOU LEFT', 'res.dead': 'YOU DIED',
@@ -219,7 +219,7 @@
     'set.music': 'Música', 'set.sfx': 'Efectos', 'set.shake': 'Temblor', 'set.shakeHint': 'Pon 0% para quitar el temblor.', 'set.resume': 'SEGUIR', 'set.close': 'CERRAR', 'set.quit': 'ABANDONAR', 'set.reset': 'BORRAR DATOS',
     'dbg.title': 'DEPURAR', 'dbg.god': 'DIOS {s}', 'dbg.noCd': 'SIN RECARGA {s}', 'dbg.on': 'SÍ', 'dbg.off': 'NO', 'dbg.speed': 'VELOCIDAD x{n}', 'dbg.killAll': 'MATAR TODO',
     'dbg.skip': 'SALTAR FASE', 'dbg.level': 'SUBIR NIVEL', 'dbg.restart': 'REINICIAR SALA', 'dbg.next': 'SIGUIENTE SALA', 'dbg.boss': 'SALA DEL JEFE', 'dbg.loot': 'DAR BOTÍN',
-    'dbg.doors': 'PUERTAS', 'dbg.merchant': 'MERCADER', 'dbg.cage': 'JAULA', 'dbg.abilities': 'HABILIDADES', 'dbg.resume': 'SEGUIR',
+    'dbg.doors': 'PUERTAS', 'dbg.merchant': 'MERCADER', 'dbg.cage': 'JAULA', 'dbg.abilities': 'HABILIDADES', 'dbg.glow': 'BRILLO: {s}',
     'dbg.info': 'Sala {n}  {phase}  semilla {s}',
     'res.won': 'BRECHA SELLADA', 'res.left': 'SALISTE', 'res.dead': 'MORISTE',
     'res.allCleared': 'Las {n} salas limpias', 'res.leftAfter': 'Saliste tras la sala {a} de {b}', 'res.fellTest': 'Caíste en la sala de prueba (limpias: {n})', 'res.fell': 'Caíste en la sala {a} de {b}',
