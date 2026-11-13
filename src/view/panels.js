@@ -649,7 +649,7 @@
     function css(el, o) { for (var k in o) el.style[k] = [].concat(o[k]).join(' '); }
     var font = ['14px', 'monospace'];
     box.id = 'manual_copy';
-    css(box, { position: 'fixed', left: '50%', top: '50%', transform: ['translate(-50%,-50%)'], zIndex: '20', width: 'min(92vw,440px)', boxSizing: 'border-box', padding: '12px',
+    css(box, { position: 'absolute', pointerEvents: 'auto', left: '50%', top: '50%', transform: ['translate(-50%,-50%)'], zIndex: '20', width: 'min(92%,440px)', boxSizing: 'border-box', padding: '12px',
       background: pal.ui_bg, border: ['3px', 'solid', pal.ui_dim], color: pal.ui_text, font: font, textAlign: 'center' });
     lab.textContent = G.t('daily.manual');
     ta.value = text; ta.readOnly = true; ta.rows = 3;
@@ -658,7 +658,7 @@
     css(btn, { font: ['bold'].concat(font), minHeight: '44px', padding: ['0', '18px'], background: pal.ui_bg2, color: pal.ui_text, border: ['2px', 'solid', pal.ui_dim], cursor: 'pointer' });
     btn.onclick = function () { G.closeManualCopy(); };
     box.onkeydown = function (e) { if (e.key === 'Escape') G.closeManualCopy(); e.stopPropagation(); };
-    box.appendChild(lab); box.appendChild(ta); box.appendChild(btn); document.body.appendChild(box);
+    box.appendChild(lab); box.appendChild(ta); box.appendChild(btn); G.domLayer().appendChild(box);
     ta.focus(); ta.select();
     G.manualCopy = box;
   };

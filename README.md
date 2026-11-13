@@ -70,6 +70,7 @@ node qa/test_room.js [dir]                  # test room: edge, blocked step, dod
 node qa/session.js --minutes 10             # scripted real-time session with rotation, menus, restarts
 node qa/hd.js                               # HD art pilot: test room, boss, city, cage, both sizes, ?hd=1 and 0, the toggle
 node qa/rooms.js [dir] [ui|rooms|all] [WxH ...]  # big rooms: HUD and panels at 1640x922 / 1920x1080, zoom steps, old-save zoom; a room, the boss room and the test room at five sizes
+node qa/rotate.js [dir]                             # phones are landscape only: an upright touch window gets the game turned a quarter (layout, taps, stick)
 node tools/run_length.js [--class C] [--md]  # run and room times of the Node bot per class: fresh, career, and a hero who cannot die (10 seeds per command)
 ```
 

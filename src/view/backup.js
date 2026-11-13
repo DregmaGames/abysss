@@ -15,10 +15,10 @@
   }
   function hexCss(key) { return '#' + ('000000' + UI.hex(key).toString(16)).slice(-6); }
   function box(scene, x, y, w, h, readonly, value) {
-    var S = G.view.S, r = scene.game.canvas.getBoundingClientRect(), el = document.createElement('textarea');
+    var S = G.view.S, el = document.createElement('textarea');      // in the DOM layer (src/main.js): game CSS px, turned with the game
     el.value = value; el.readOnly = readonly; el.spellcheck = false; el.setAttribute('autocomplete', 'off'); el.setAttribute('aria-label', G.t('bak.label'));
     var st = el.style;
-    st.position = 'fixed'; st.left = Math.round(r.left + x * S) + 'px'; st.top = Math.round(r.top + y * S) + 'px';
+    st.position = 'absolute'; st.pointerEvents = 'auto'; st.left = Math.round(x * S) + 'px'; st.top = Math.round(y * S) + 'px';
     st.width = Math.round(w * S) + 'px'; st.height = Math.round(h * S) + 'px'; st.boxSizing = 'border-box'; st.margin = '0'; st.padding = Math.round(2 * S) + 'px';
     st.background = hexCss('ui_bg'); st.color = hexCss('ui_text'); st.border = Math.max(1, S) + 'px solid ' + hexCss('ui_line');
     st.font = Math.max(11, 4 * S) + 'px monospace'; st.resize = 'none'; st.outline = 'none'; st.overflowY = 'auto';
@@ -27,7 +27,7 @@
     // keys typed or pasted here belong to the box, never to the game (I, WASD, ESC and 1-3 are bound)
     ['keydown', 'keyup', 'keypress'].forEach(function (k) { el.addEventListener(k, function (e) { e.stopPropagation(); }); });
     el.addEventListener('focus', function () { if (readonly) el.select(); });
-    document.body.appendChild(el);
+    G.domLayer().appendChild(el);
     if (!readonly && !G.touch) el.focus();
     return el;
   }

@@ -23,7 +23,10 @@ async function open(browser, query, size, opts) {
   const errors = [];
   page.on('console', m => { if (m.type() === 'error' && !NOISE.some(r => r.test(m.text()))) errors.push('console: ' + m.text()); });
   page.on('pageerror', e => errors.push('uncaught: ' + e.message));
-  await page.goto(GAME + (query || ''));
+  // the QA sizes are windows, not phones: no quarter turn (src/main.js) unless the test asks for it
+  query = query || '';
+  if (!/[?&]rotate=/.test(query)) query += (query.indexOf('?') < 0 ? '?' : '&') + 'rotate=0';
+  await page.goto(GAME + query);
   await page.waitForFunction(() => window.G && G.ready, null, { timeout: 20000 });
   page.errors = errors;
   return page;

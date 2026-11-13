@@ -600,3 +600,21 @@ URL parameters: `seed`, `tier`, `class`, `build`, `speed`, `bot=1`, `manual=1`, 
 ## Planned later
 
 - A dagger class (daguero), after the first public version's three classes. It may take the Venom family.
+
+## Phones: landscape only (branch `step-landscape`, on top of `step-big-rooms`; 2026-11-13, not merged)
+The user: on a phone the game is played in landscape and should get there by itself. A page cannot turn the device, so
+`src/main.js` turns the game: on a touch device (coarse pointer) whose window is taller than wide, the game is laid out
+for the long side and drawn rotated 90 degrees clockwise (`G.rot`), upright once the phone lies on its left side; when the
+browser itself goes landscape the turn is off. `#game` (what Phaser measures) has the swapped size and is not rotated;
+the canvas and the DOM layer `G.domLayer()` (the save-code box of `src/view/backup.js`, the manual-copy box of
+`src/view/panels.js`) carry the rotation; `game.input.transformPointer` turns pointer positions back. It also asks for
+`screen.orientation.lock('landscape')` on the first touch (works only where the browser allows: installed / fullscreen).
+`?rotate=0` never, `?rotate=1` on any upright window; `qa/lib.js` opens every page with `rotate=0` unless the query sets it.
+A tall DESKTOP window still gets the portrait layout (kept, not removed).
+Checked: build; `qa/rotate.js` (new: layout 844x390 on a 390x844 touch window, canvas turned, tap on the turned bag button
+opens the inventory, stick direction, window turned to 844x390 and back, city, rotate=0) PASS; `qa/daily.js` 32 checks;
+`qa/touch.js landscape` 35/35 (one run gave 34/35, the next 35/35: a timing check of the headless browser, not looked into);
+the save-code box sits inside its panel, normal and turned. The sim is untouched (determinism not rerun).
+Not tested: a real phone (iOS Safari and Android Chrome, the Claude app's artifact viewer), the browser bars changing the
+window height, typing into the turned import box (the keyboard opens upright), tablets (a tablet held upright is turned too).
+
