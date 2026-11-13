@@ -262,6 +262,27 @@
       // how much one "base unit" of each stat is worth to the bot / item score
       weight: { hp: 1, dmgPct: 1.3, atkPct: 1.2, movePct: 0.9, armor: 1, crit: 0.9, rangePct: 0.6, pulsePct: 0.5, cdrPct: 0.6, regen: 0.9, expPct: 0.5 },
       cap: { movePct: 30, cdrPct: 45, crit: 60 },
+      // MATERIAL of the armour pieces (step gear data). item.mat = 0 light (leather), 1 medium (chainmail), 2 heavy (plate): how the piece
+      // is drawn on the hero (the view reads it through G.gearLook). The same three for every class; rarity only colours trim and glow.
+      // slots: the slots whose items have one (belt and weapon have none). weights: chance of each when an item is generated (and of the
+      // default an old item gets on load). base: the item's English base name by slot and material (Spanish: 'mbase.*' in src/i18n.js).
+      // TUNING HOOK, NOT USED YET: the user has not decided any stat difference, so every multiplier is 1 and materials are cosmetic.
+      //   statMult[mat] multiplies every stat the generator rolls for the piece; statMultBy[mat] = { armor: 1.2, movePct: 0.8 }
+      //   overrides it for single stats (G.matStatMult). It acts when an item is generated: items that already exist keep their stats.
+      material: {
+        slots: ['helmet', 'armor', 'shield', 'gloves', 'boots'],
+        ids: ['light', 'medium', 'heavy'],
+        weights: [1, 1, 1],
+        base: {
+          helmet: ['Leather Cap', 'Chainmail Coif', 'Plate Helm'],
+          armor:  ['Leather Jerkin', 'Chainmail Hauberk', 'Plate Cuirass'],
+          shield: ['Leather Buckler', 'Chainmail Targe', 'Plate Shield'],
+          gloves: ['Leather Gloves', 'Chainmail Mitts', 'Plate Gauntlets'],
+          boots:  ['Leather Boots', 'Chainmail Boots', 'Plate Greaves']
+        },
+        statMult: [1, 1, 1],
+        statMultBy: [{}, {}, {}]
+      },
       // The starter weapon (step gear data): every new character starts with one common weapon of its class's own type (the class's
       // defaultWeapon, else its first loot.weaponTypes entry), identified and worn, and no armour. Fixed, not rolled: `stats` is the
       // weakest roll the generator gives a common weapon of item level 1 (implicit dmgPct 5 x 0.85, rounded = 4). names: the item's
@@ -782,6 +803,7 @@
     'stat.hp': 'Max HP', 'stat.dmgPct': 'Damage', 'stat.atkPct': 'Atk speed', 'stat.movePct': 'Move speed', 'stat.armor': 'Armor', 'stat.crit': 'Crit chance',
     'stat.rangePct': 'Range', 'stat.pulsePct': 'Skill dmg', 'stat.cdrPct': 'Cooldowns', 'stat.regen': 'HP regen', 'stat.expPct': 'EXP gain',
     'rar.0': 'Common', 'rar.1': 'Magic', 'rar.2': 'Rare', 'rar.3': 'Epic', 'rar.4': 'Legendary',
+    'mat.0': 'Light (leather)', 'mat.1': 'Medium (chainmail)', 'mat.2': 'Heavy (plate)',
     'mob.imp': 'Imp', 'mob.bat': 'Bat', 'mob.skeleton': 'Skeleton', 'mob.hound': 'Hound', 'mob.cultist': 'Cultist', 'mob.warden': 'Warden', 'mob.tyrant': 'Rift Tyrant'
   };
 
@@ -897,6 +919,7 @@
     'stat.hp': 'Vida máx.', 'stat.dmgPct': 'Daño', 'stat.atkPct': 'Vel. de ataque', 'stat.movePct': 'Vel. de mov.', 'stat.armor': 'Armadura', 'stat.crit': 'Prob. de crítico',
     'stat.rangePct': 'Alcance', 'stat.pulsePct': 'Daño de hab.', 'stat.cdrPct': 'Recargas', 'stat.regen': 'Regen. de vida', 'stat.expPct': 'EXP ganada',
     'rar.0': 'Común', 'rar.1': 'Mágico', 'rar.2': 'Raro', 'rar.3': 'Épico', 'rar.4': 'Legendario',
+    'mat.0': 'Ligero (cuero)', 'mat.1': 'Medio (malla)', 'mat.2': 'Pesado (placas)',
     'mob.imp': 'Diablillo', 'mob.bat': 'Murciélago', 'mob.skeleton': 'Esqueleto', 'mob.hound': 'Sabueso', 'mob.cultist': 'Cultista', 'mob.warden': 'Guardián', 'mob.tyrant': 'Tirano de la Brecha'
   };
 
@@ -1012,6 +1035,17 @@
     en['wbase.' + w.id] = w.item; es['wbase.' + w.id] = esWbase[w.id];
     if (w.itemRare) { en['wbase.' + w.id + '.rare'] = w.itemRare; es['wbase.' + w.id + '.rare'] = esWbase[w.id + '.rare']; }
   });
+  // armour pieces by material (B.items.material.base): 'mbase.<slot>.<mat>', the same 'Noun;gender;adjective;complement' form in Spanish
+  var esMbase = {
+    helmet: ['Gorro;ms;;de Cuero', 'Cofia;fs;;de Malla', 'Yelmo;ms;;de Placas'],
+    armor: ['Jubón;ms;;de Cuero', 'Cota;fs;;de Malla', 'Coraza;fs;;de Placas'],
+    shield: ['Broquel;ms;;de Cuero', 'Rodela;fs;;de Malla', 'Escudo;ms;;de Placas'],
+    gloves: ['Guantes;mp;;de Cuero', 'Manoplas;fp;;de Malla', 'Guanteletes;mp;;de Placas'],
+    boots: ['Botas;fp;;de Cuero', 'Botas;fp;;de Malla', 'Grebas;fp;;de Placas']
+  };
+  B.items.material.slots.forEach(function (sl) {
+    B.items.material.base[sl].forEach(function (nm, m) { en['mbase.' + sl + '.' + m] = nm; es['mbase.' + sl + '.' + m] = esMbase[sl][m]; });
+  });
   // the starter weapons (B.items.starter.names): their own names, the same 'Noun;gender;adjective;complement' form in Spanish
   var esStarter = { staff: 'Bastón;ms;;de Aprendiz', sword: 'Espada;fs;Gastado;', bow: 'Arco;ms;;de Práctica' };
   Object.keys(B.items.starter.names).forEach(function (w) { en['starter.' + w] = B.items.starter.names[w]; es['starter.' + w] = esStarter[w]; });
@@ -1077,6 +1111,7 @@
     if (it.starter && wd && G.LANG.en['starter.' + wd.id]) return { adj: null, base: 'starter.' + wd.id };      // the starter weapon has its own name
     if (it.rarity === 0) { if (!wd || wd.worn) adj = 'adj.worn'; } else adj = 'adj.' + keys[1];
     var base = wd ? 'wbase.' + wd.id + (it.rarity >= 2 && wd.itemRare ? '.rare' : '') : 'base.' + it.slot;
+    if (!wd && G.LANG.en['mbase.' + it.slot + '.' + it.mat]) base = 'mbase.' + it.slot + '.' + it.mat;      // an armour piece: its base name says the material
     return { adj: adj && G.LANG.en[adj] ? adj : null, base: base };
   }
   var NAME_RULE = {
@@ -1097,6 +1132,8 @@
     return r + ' ' + G.t(key);
   };
   G.rarityName = function (r) { return G.t('rar.' + r); };
+  // "Light (leather)": the material line of an armour piece's card ('' for a belt, a weapon, or an item without one)
+  G.itemMat = function (it) { return it && G.hasMat(B, it.slot) && G.LANG.en['mat.' + it.mat] ? G.t('mat.' + it.mat) : ''; };
   // "+12% Damage"
   G.statLine = function (k, v) {
     var unit = G.STAT_LABEL[k][1];
@@ -1760,6 +1797,54 @@
     return rng.weighted(w);
   };
 
+  // ---- material of the armour pieces (step gear data; table and tuning hook: B.items.material)
+  var MAT_ROLL = 0x4d415431, MAT_OLD = 0x4d415430;      // salts of the two side streams
+  function matOk(m) { return m === 0 || m === 1 || m === 2; }
+  G.hasMat = function (B, slot) { return B.items.material.slots.indexOf(slot) >= 0; };
+  // The material of a new item. It is NOT drawn from the item's stream: it comes from a side stream seeded with the stream's state at
+  // that moment (hash of rng.s), so the stream does not advance and every other roll of every existing seed stays what it was.
+  G.rollMat = function (rng, B) { return new G.RNG(G.hash32(rng.s >>> 0, MAT_ROLL)).weighted(B.items.material.weights); };
+  // The material of an item from before materials existed: from its id (stable across loads; written into the item on load).
+  G.matOfId = function (id, B) { return new G.RNG(G.hash32(id >>> 0, MAT_OLD)).weighted(B.items.material.weights); };
+  // the stat multiplier of a material (all 1 today: cosmetic)
+  G.matStatMult = function (B, mat, stat) {
+    var M = B.items.material, by = M.statMultBy[mat];
+    return by && by[stat] !== undefined ? by[stat] : M.statMult[mat];
+  };
+  // the English name an item is stored with (the same parts G.itemName assembles in src/i18n.js): [adjective] base
+  function storedName(it, B, noMat) {
+    var wd = null, WT = B.loot.weaponTypes, i, keys = Object.keys(it.stats || {});
+    for (i = 0; i < WT.length; i++) if (it.wtype && WT[i].id === it.wtype) wd = WT[i];
+    var base = wd ? (it.rarity >= 2 && wd.itemRare ? wd.itemRare : wd.item) : (!noMat && matOk(it.mat) && G.hasMat(B, it.slot) ? B.items.material.base[it.slot][it.mat] : BASE_NAME[it.slot]);
+    return (it.rarity === 0 ? (!wd || wd.worn ? 'Worn ' : '') : (PREFIX[keys[1]] ? PREFIX[keys[1]] + ' ' : '')) + base;
+  }
+  // An item from an old save, an old export code or old shop stock: gives it its material (helmet, armor, shield, gloves, boots) from its
+  // id, and its stored English name when that was the generator's old name. Other slots never carry one. Returns true when it changed.
+  G.fillMat = function (it, B) {
+    if (!it) return false;
+    if (!G.hasMat(B, it.slot)) { if (it.mat === undefined) return false; delete it.mat; return true; }
+    if (matOk(it.mat)) return false;
+    var old = storedName(it, B, true);
+    it.mat = G.matOfId(it.id, B);
+    if (it.name === old) it.name = storedName(it, B);
+    return true;
+  };
+  // What the view draws on the hero (pure): the material and rarity of each visible piece that is worn, and the weapon.
+  //   { armor, helmet, shield, gloves, boots: mat (0 | 1 | 2) or null when the slot is empty,
+  //     rarity: { armor, helmet, shield, gloves, boots: rarity or null }, weapon: { wtype, rarity } or null }
+  // A worn piece always has a material here (an item without the field gets the default of its id).
+  G.LOOK_SLOTS = ['armor', 'helmet', 'shield', 'gloves', 'boots'];
+  G.gearLook = function (equipped) {
+    var out = { rarity: {} }, eq = equipped || {}, w = eq.weapon;
+    G.LOOK_SLOTS.forEach(function (k) {
+      var it = eq[k];
+      out[k] = it ? (matOk(it.mat) ? it.mat : G.matOfId(it.id, G.BAL)) : null;
+      out.rarity[k] = it ? it.rarity : null;
+    });
+    out.weapon = w ? { wtype: w.wtype || null, rarity: w.rarity } : null;
+    return out;
+  };
+
   G.rollItem = function (rng, ilvl, luck, B, gear, cls) {
     var slot = rng.pick(ITEM_SLOTS), rarity = G.rollRarity(rng, luck, B);
     // weapon drops pick their type from all types, equal weight, whatever class is played (one extra draw)
@@ -1770,18 +1855,21 @@
   // The stat roll shared by drops and the shop (step 7): shuffle, ranges, name, id. `wd`: the weapon type entry (weapons only).
   G.makeItem = function (rng, slot, rarity, wd, ilvl, B, gear) {
     var I = B.items, wtype = wd ? wd.id : null;
+    var mat = G.hasMat(B, slot) ? G.rollMat(rng, B) : null;      // a side stream: the rolls below are the ones they always were
     var pool = Object.keys(I.stat), imp = I.implicit[slot], stats = {}, keys = [imp];
     pool = pool.filter(function (k) { return k !== imp; });
     rng.shuffle(pool);
     for (var i = 0; i < rarity; i++) keys.push(pool[i]);
     keys.forEach(function (k) {
       var v = I.stat[k] * (1 + I.ilvlGrow * (ilvl - 1)) * I.rarityMult[rarity] * rng.range(0.85, 1.15);
+      if (mat !== null) v *= G.matStatMult(B, mat, k);      // the material hook (1 today)
       stats[k] = k === 'regen' ? Math.max(0.1, Math.round(v * 10) / 10) : Math.max(1, Math.round(v));
     });
-    var base = wd ? (rarity >= 2 && wd.itemRare ? wd.itemRare : wd.item) : BASE_NAME[slot];
+    var base = wd ? (rarity >= 2 && wd.itemRare ? wd.itemRare : wd.item) : (mat !== null ? I.material.base[slot][mat] : BASE_NAME[slot]);
     var name = (rarity === 0 ? (!wd || wd.worn ? 'Worn ' : '') : PREFIX[keys[1]] + ' ') + base;
     var it = { id: gear.nextId++, slot: slot, rarity: rarity, ilvl: ilvl, name: name, stats: stats, power: ilvl * (2 + rarity) };
     if (wtype) it.wtype = wtype;
+    if (mat !== null) it.mat = mat;
     if (rarity >= B.loot.unidentifiedFrom) it.unid = true;      // stats are rolled now, only hidden until identified (no reroll)
     return it;
   };
@@ -4886,6 +4974,8 @@
             // either way the flag is set, so it is decided once (a starter sold or dropped later does not come back).
             n.starter = g.starter === true;
             G.giveStarter(n, B, id);
+            // v9: the material of armour pieces. Items from before it (worn, kept bag, shop stock) get theirs from their id, written here so it stays.
+            n.bag.concat(SLOTS.map(function (k) { return n.equipped[k]; }), n.shop ? n.shop.stock : []).forEach(function (it) { G.fillMat(it, B); });
             s.gears[id] = n;
           });
           s.v = 9;
@@ -4913,6 +5003,7 @@
           g0.bag.concat(SLOTS.map(function (k) { return g0.equipped[k]; })).forEach(function (it) { if (it && it.id >= top) top = it.id + 1; });
           g0.nextId = top;
           G.giveStarter(g0, B, cls);      // v9: no weapon at all -> the starter weapon (the other classes get theirs when first played)
+          g0.bag.concat(SLOTS.map(function (k) { return g0.equipped[k]; })).forEach(function (it) { G.fillMat(it, B); });      // v9: materials
           d.gears[cls] = g0;
           d.settings = Object.assign(d.settings, s.settings || {});
           d.settings.zoomRule = s.settings && s.settings.zoomRule >= 2 ? 2 : 1;
@@ -8807,6 +8898,8 @@
       var nm = L.text(ix + 5, ty, G.itemName(item), col).setMaxWidth(iw - 10); ty += nm.height + 3;
       var foreign = G.foreignClass(item, B, cls);
       L.text(ix + 5, ty, G.itemType(item), col); ty += 10;
+      var matLine = G.itemMat(item);      // an armour piece: light / medium / heavy
+      if (matLine) { L.text(ix + 5, ty, matLine, 'ui_dim'); ty += 10; }
       if (foreign) { L.text(ix + 5, ty, G.t('inv.foreign', { cls: G.t('cls.' + G.weaponClass(B, item.wtype)) }), 'ui_warn'); ty += 10; }
       L.text(ix + 5, ty, G.t('inv.itemLevel', { n: item.ilvl }), 'ui_dim'); ty += 12;
       if (item.unid) {

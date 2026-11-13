@@ -252,6 +252,27 @@
       // how much one "base unit" of each stat is worth to the bot / item score
       weight: { hp: 1, dmgPct: 1.3, atkPct: 1.2, movePct: 0.9, armor: 1, crit: 0.9, rangePct: 0.6, pulsePct: 0.5, cdrPct: 0.6, regen: 0.9, expPct: 0.5 },
       cap: { movePct: 30, cdrPct: 45, crit: 60 },
+      // MATERIAL of the armour pieces (step gear data). item.mat = 0 light (leather), 1 medium (chainmail), 2 heavy (plate): how the piece
+      // is drawn on the hero (the view reads it through G.gearLook). The same three for every class; rarity only colours trim and glow.
+      // slots: the slots whose items have one (belt and weapon have none). weights: chance of each when an item is generated (and of the
+      // default an old item gets on load). base: the item's English base name by slot and material (Spanish: 'mbase.*' in src/i18n.js).
+      // TUNING HOOK, NOT USED YET: the user has not decided any stat difference, so every multiplier is 1 and materials are cosmetic.
+      //   statMult[mat] multiplies every stat the generator rolls for the piece; statMultBy[mat] = { armor: 1.2, movePct: 0.8 }
+      //   overrides it for single stats (G.matStatMult). It acts when an item is generated: items that already exist keep their stats.
+      material: {
+        slots: ['helmet', 'armor', 'shield', 'gloves', 'boots'],
+        ids: ['light', 'medium', 'heavy'],
+        weights: [1, 1, 1],
+        base: {
+          helmet: ['Leather Cap', 'Chainmail Coif', 'Plate Helm'],
+          armor:  ['Leather Jerkin', 'Chainmail Hauberk', 'Plate Cuirass'],
+          shield: ['Leather Buckler', 'Chainmail Targe', 'Plate Shield'],
+          gloves: ['Leather Gloves', 'Chainmail Mitts', 'Plate Gauntlets'],
+          boots:  ['Leather Boots', 'Chainmail Boots', 'Plate Greaves']
+        },
+        statMult: [1, 1, 1],
+        statMultBy: [{}, {}, {}]
+      },
       // The starter weapon (step gear data): every new character starts with one common weapon of its class's own type (the class's
       // defaultWeapon, else its first loot.weaponTypes entry), identified and worn, and no armour. Fixed, not rolled: `stats` is the
       // weakest roll the generator gives a common weapon of item level 1 (implicit dmgPct 5 x 0.85, rounded = 4). names: the item's

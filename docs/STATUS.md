@@ -784,3 +784,30 @@ mage "Apprentice Staff" / "Bastón de Aprendiz", warrior "Worn Sword" / "Espada 
   there that are not from this step: `mod longCracks ... crack cells 12956 -> 12623` FAILS on the untouched branch too (left alone);
   the "changed checksum" test flipped a hex digit to 'A'/'B', which is no change when the digit was 'a' (the decoder lower-cases): it
   now flips to '0'/'1'.
+### Part 2: the material of armour pieces
+Items of `helmet`, `armor`, `shield`, `gloves`, `boots` carry `mat`: 0 light (leather), 1 medium (chainmail), 2 heavy (plate); `belt` and
+`weapon` never do. Table: `BAL.items.material` (`slots`, `ids`, `weights` 1:1:1, `base` = the English base names).
+- How it is rolled: NOT from the item's stream. `G.rollMat` seeds a side stream with a hash of the stream's state when `G.makeItem`
+  starts (`new G.RNG(G.hash32(rng.s, salt)).weighted(weights)`), so the item stream does not advance: every other roll of every
+  existing seed is what it was (0 rolls shifted). Checked: 3000 items with and without materials have the same slots, rarities, stats
+  and ids and leave the stream in the same state; the mage's Node bot runs of seeds 1-3 are byte-identical before and after part 2.
+  Drops, the tutorial's item, shop stock and the daily kit all go through `G.makeItem`, so all of them have it.
+- Cosmetic: no stat difference. THE HOOK: `BAL.items.material.statMult` (per material, all 1) and `statMultBy` (per material and stat,
+  empty), read by `G.matStatMult` inside `G.makeItem`. It acts on generation only: existing items keep their stats.
+- Names: the base name says the material (`mbase.<slot>.<mat>`; English from the balance table, Spanish in `src/i18n.js`):
+  Leather Cap / Chainmail Coif / Plate Helm; Leather Jerkin / Chainmail Hauberk / Plate Cuirass; Leather Buckler / Chainmail Targe /
+  Plate Shield; Leather Gloves / Chainmail Mitts / Plate Gauntlets; Leather Boots / Chainmail Boots / Plate Greaves. Spanish: Gorro de
+  Cuero / Cofia de Malla / Yelmo de Placas; Jubón / Cota / Coraza; Broquel / Rodela / Escudo; Guantes / Manoplas / Guanteletes; Botas /
+  Botas / Grebas. The old bases (Cowl, Robe, Wraps, Treads, Ward) are gone from those five slots; the belt is still a Sash. Longest
+  names now: "Stalwart Chainmail Hauberk" (26), "Guanteletes Resonantes de Placas" (32; was 21 / 28): every card wraps the name
+  (two lines), nothing is cut. The inventory card has one more line under the type: "Light (leather)" / "Ligero (cuero)", `mat.0..2`,
+  `G.itemMat`. The shop, upgrade and Don Montoto cards show it through the name only.
+- Old items (worn, kept bag, shop stock; saves and export codes of v2..v8): `G.fillMat` in `G.parseSave` gives each armour piece
+  `G.matOfId(id)` (a side stream seeded with the id, same weights), writes it into the item, and renames the stored English name when
+  it was the generator's old one ("Keen Cowl" -> "Keen Chainmail Coif"); an invalid `mat` is replaced, one on a belt or weapon removed.
+  Same save version as part 1 (v9): the fill does not look at the version, it fills whatever lacks the field.
+- For the view: `G.gearLook(equipped)` (`src/sim/items.js`, pure) -> `{ armor, helmet, shield, gloves, boots: 0|1|2|null,
+  rarity: { armor, helmet, shield, gloves, boots: rarity|null }, weapon: { wtype, rarity } | null }`; slot list `G.LOOK_SLOTS`. A worn
+  piece always has a number (an item without the field gets its id's default; nothing is written). `src/view/hd.js` does not call it yet.
+- New: `qa/gear.js` (the inventory at 960x540 and 1640x922, en and es: starter worn, card shows name + material line, texts on screen,
+  0 console errors) and the `materials` block of `tools/check_bag.js` (23 checks).

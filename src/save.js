@@ -54,6 +54,8 @@
             // either way the flag is set, so it is decided once (a starter sold or dropped later does not come back).
             n.starter = g.starter === true;
             G.giveStarter(n, B, id);
+            // v9: the material of armour pieces. Items from before it (worn, kept bag, shop stock) get theirs from their id, written here so it stays.
+            n.bag.concat(SLOTS.map(function (k) { return n.equipped[k]; }), n.shop ? n.shop.stock : []).forEach(function (it) { G.fillMat(it, B); });
             s.gears[id] = n;
           });
           s.v = 9;
@@ -81,6 +83,7 @@
           g0.bag.concat(SLOTS.map(function (k) { return g0.equipped[k]; })).forEach(function (it) { if (it && it.id >= top) top = it.id + 1; });
           g0.nextId = top;
           G.giveStarter(g0, B, cls);      // v9: no weapon at all -> the starter weapon (the other classes get theirs when first played)
+          g0.bag.concat(SLOTS.map(function (k) { return g0.equipped[k]; })).forEach(function (it) { G.fillMat(it, B); });      // v9: materials
           d.gears[cls] = g0;
           d.settings = Object.assign(d.settings, s.settings || {});
           d.settings.zoomRule = s.settings && s.settings.zoomRule >= 2 ? 2 : 1;

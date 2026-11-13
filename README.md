@@ -15,6 +15,8 @@ file: `dist/riftscar.html`. No bundler, no package installs.
    tomes. Gear found in a run goes into the sealed bag (the HUD shows only its count and best rarity): leaving or winning
    keeps it, dying loses it (worn gear is kept). Between runs you walk the city (title -> class -> city): the Blacksmith buys, sells, upgrades and sells scrolls, the Trainer sells permanent ranks, Don Montoto (rescued from a cage in room 5 of a run once it is clear) tells stories and identifies kept items for free, and the Rift portal starts a run. Equip from the inventory button; the gear you start with stays on all run.
    Difficulty comes from the room number and the doors; the gear score also scales the monsters a little (`run.gearK`).
+   A new character starts with one common weapon of its class and no armour (`BAL.items.starter`). Helmets, body armour, shields, gloves
+   and boots have a material (`item.mat`: 0 leather, 1 chainmail, 2 plate; cosmetic, `BAL.items.material`); `G.gearLook(equipped)` tells the view what is worn.
 
 Controls: WASD / arrows move, SPACE dodge, Q or E pulse, I inventory, ESC settings.
 Touch: drag on the left to move, two buttons on the right (they appear after the first touch).
@@ -58,7 +60,7 @@ layouts are computed from the art-pixel viewport and rebuilt on resize or rotati
 ```
 node tools/contrast.js                      # text contrast, fails under 4.5:1
 node tools/sim_bot.js --seeds 1-10 [--leave N]  # bot win rate in the Node sim (at most 10 seeds); --leave N: leaves after room N
-node tools/check_bag.js                     # die / leave / win bag outcomes, doors and modifiers, save migration, hints state, tutorial flags, gentle first run, save backup codes
+node tools/check_bag.js                     # die / leave / win bag outcomes, doors and modifiers, save migration, hints state, tutorial flags, gentle first run, save backup codes, starter weapon, materials, G.gearLook
 node tools/check_tutorial.js                # the tutorial room in the Node sim: a scripted player walks all 13 steps for every class
 node tools/sim_bot.js --career 14           # consecutive runs keeping gear
 node qa/bot.js --seeds 1-12                 # bot plays the real game in headless Chromium:
@@ -71,6 +73,7 @@ node qa/test_room.js [dir]                  # test room: edge, blocked step, dod
 node qa/session.js --minutes 10             # scripted real-time session with rotation, menus, restarts
 node qa/hd.js                               # HD art pilot: test room, boss, city, cage, both sizes, ?hd=1 and 0, the toggle
 node qa/rooms.js [dir] [ui|rooms|all] [WxH ...]  # big rooms: HUD and panels at 1640x922 / 1920x1080, zoom steps, old-save zoom; a room, the boss room and the test room at five sizes
+node qa/gear.js [dir]                               # gear data: a new character's inventory at 960x540 and 1640x922, both languages: starter weapon worn, the card shows the material
 node qa/rotate.js [dir]                             # phones are landscape only: an upright touch window gets the game turned a quarter (layout, taps, stick)
 node tools/run_length.js [--class C] [--md]  # run and room times of the Node bot per class: fresh, career, and a hero who cannot die (10 seeds per command)
 ```
