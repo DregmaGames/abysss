@@ -40,6 +40,9 @@ Object.keys(G.BAL.monsters).forEach(m => need.push('mob.' + m));
 Object.keys(G.BAL.classes).forEach(c => need.push('cls.' + c, 'skill.' + c));
 Object.keys(G.BAL.economy.ranks).forEach(r => need.push('rank.' + r + '.name', 'rank.' + r + '.text'));
 G.BAL.loot.weaponTypes.forEach(w => need.push('wt.' + w.id, 'wbase.' + w.id));
+Object.keys(G.BAL.items.starter.names).forEach(w => need.push('starter.' + w));
+G.BAL.items.material.slots.forEach(sl => { for (let m = 0; m < 3; m++) need.push('mbase.' + sl + '.' + m); });
+for (let m = 0; m < 3; m++) need.push('mat.' + m);
 G.ITEM_SLOTS.forEach(s => need.push('slot.' + s, 'base.' + s));
 Object.keys(G.BAL.items.stat).forEach(s => need.push('stat.' + s, 'adj.' + s));
 for (let i = 0; i < 5; i++) need.push('rar.' + i);
@@ -65,17 +68,26 @@ check('English ability name, family and description = the sim card (all ranks)',
 bad = []; Object.keys(bal.doors.mods).forEach(d => { if (G.doorLines(bal, d).join('|').toLowerCase() !== G.doorEffects(bal, d).join('|').toLowerCase()) bad.push(d); });
 check('English door lines = G.doorEffects', !bad.length, bad.join(','));
 // items: English name = the stored name; Spanish names assemble
-const gear = G.newGear(), rng = new G.RNG(99); bad = []; const esNames = new Set(), samples = {};
+const gear = G.newGear(), rng = new G.RNG(99); bad = []; const esNames = new Set(), samples = {}, longest = { en: '', es: '' };
 for (let i = 0; i < 600; i++) {
   const cls = ['mage', 'warrior', 'archer'][i % 3], it = G.rollItem(rng, 1 + (i % 5), 0.5, bal, gear, cls);
   G.setLang('en'); if (G.itemName(it) !== it.name) bad.push(it.name + ' != ' + G.itemName(it));
   G.setLang('es'); const n = G.itemName(it); esNames.add(n); if (!/^[A-ZÁÉÍÓÚÑ][A-Za-zÁÉÍÓÚÑáéíóúñü ]+$/.test(n)) bad.push('es? ' + n);
-  samples[it.slot + (it.wtype || '') + it.rarity] = n + ' / ' + G.itemType(it);
+  samples[it.slot + (it.wtype || '') + it.rarity + (it.mat === undefined ? '' : 'm' + it.mat)] = it.name + ' / ' + n + ' / ' + G.itemType(it) + (G.itemMat(it) ? ' / ' + G.itemMat(it) : '');
+  if (it.name.length > longest.en.length) longest.en = it.name; if (n.length > longest.es.length) longest.es = n;
+  if ((it.mat !== undefined) !== G.hasMat(bal, it.slot) || (it.mat !== undefined && !it.name.endsWith(bal.items.material.base[it.slot][it.mat]))) bad.push('material? ' + it.name);
+}
+for (const cls of Object.keys(bal.classes)) {      // the starter weapons: their own names in both languages
+  const it = G.newGear(cls).equipped.weapon;
+  G.setLang('en'); if (!it || G.itemName(it) !== it.name) bad.push('starter ' + cls + ': ' + (it && it.name) + ' != ' + (it && G.itemName(it)));
+  G.setLang('es'); const n = it ? G.itemName(it) : ''; if (!/^[A-ZÁÉÍÓÚÑ][A-Za-zÁÉÍÓÚÑáéíóúñü ]+$/.test(n)) bad.push('es? ' + n);
+  console.log('       starter ' + cls + ': ' + (it && it.name) + ' / ' + n + ' / ' + (it ? G.itemType(it) : ''));
 }
 G.setLang('en');
 check('English item names assembled = the names the sim stores (600 items)', !bad.length, bad.slice(0, 3).join(' | '));
 check('Spanish item names: ' + esNames.size + ' distinct, letters only', esNames.size > 50);
-['helmet1', 'boots2', 'gloves3', 'weaponsword2', 'weaponbow2', 'weaponhammer1', 'weaponmace0', 'weaponstaff0', 'armor0', 'weaponbow0'].forEach(k => { const s = Object.keys(samples).find(x => x.startsWith(k)); if (s) console.log('       ' + s + ': ' + samples[s]); });
+console.log('       longest names: ' + longest.en + ' (' + longest.en.length + ') / ' + longest.es + ' (' + longest.es.length + ')');
+['helmet0', 'helmet1', 'armor1', 'shield2', 'boots2', 'gloves3', 'belt1', 'weaponsword2', 'weaponbow2', 'weaponhammer1', 'weaponmace0', 'weaponstaff0', 'armor0', 'weaponbow0'].forEach(k => { const s = Object.keys(samples).find(x => x.startsWith(k)); if (s) console.log('       ' + s + ': ' + samples[s]); });
 // agreement unit tests
 const A = G.agree; check('Spanish agreement: Raro/Rara/Raros/Raras, Veloz/Veloces, Ágil/Ágiles, Sanador/Sanadora/Sanadoras, Común/Comunes',
   A('Raro', 'ms') === 'Raro' && A('Raro', 'fs') === 'Rara' && A('Raro', 'mp') === 'Raros' && A('Raro', 'fp') === 'Raras' && A('Veloz', 'fp') === 'Veloces' && A('Ágil', 'mp') === 'Ágiles' && A('Sanador', 'fs') === 'Sanadora' && A('Sanador', 'fp') === 'Sanadoras' && A('Común', 'fp') === 'Comunes');

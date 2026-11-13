@@ -575,7 +575,7 @@ Sim (no Phaser, deterministic, runs in Node):
 - `src/sim/fissures.js`: the crack network (`setupFissures`, `networkKill`, `darkenSeg`,
   `spawnFromCluster`, `crackHits`, `crackOnLine`), super fissure, chest, exit, objective.
 - `src/sim/combat.js`: auto-attack (`shootBolts` or `swing`, event `swing`), `castSkill` -> pulse, monster AI (`casterAI` = the cultist), `steer`, projectiles, telegraphs (`teles`), rift pools (`pools`), pickups, kills.
-- `src/sim/boss.js`, `src/sim/items.js` (also `bankItems`, `doorsFor`, `doorEffects`), `src/save.js` (v3, migration). Run end and doors: `Sim.finishRun`, `enterChoice`, `leave`, `takeDoor` in `core.js`.
+- `src/sim/boss.js`, `src/sim/items.js` (also `bankItems`, `doorsFor`, `doorEffects`; the starter weapon `giveStarter`; materials `rollMat`, `fillMat`; `G.gearLook` for the view), `src/save.js` (v9, migration). Run end and doors: `Sim.finishRun`, `enterChoice`, `leave`, `takeDoor` in `core.js`.
 - `src/sim/abilities.js`: pool, offers, family tiers, stats, card info. `src/sim/effects.js`: statuses, triggers, effect kinds, orbit, zones, echoes.
 - `src/qa/bot.js`: the bot (`G.Bot(sim, buildId)`, `G.botRun`); `crossDir` dodges across cracks; `pickAbility` follows a build.
 - Test room: `Sim({ testRoom: true })` loads `B.run.testRoom`; `restartTestRoom` reloads it on clear.
@@ -765,3 +765,97 @@ finds the cyan trim in the full-size source and carries it through the same impo
 rarity (G.ANIM.trimByRarity; ?arar=N previews). The plate sheet came without cyan trim (no trim frames: its rarity shows only as glow).
 Checked: `qa/equip.js` 8 cases PASS, close-ups looked at. Rough: the trim is only 4-15 px a frame at this size; helmets and shields
 (sheets received, in /home/claude/builds/piezas) need a head point and an off-hand point per frame: not done.
+## Gear data for visible equipment (branch `step-gear-data`, on top of `step-weapon-glow`; 2026-11-13, not merged; brief `docs/steps/step-gear-data.md`)
+Data and rules only; the art that draws the pieces is another session's work.
+### Part 1: the starter weapon
+Every new character starts with one common weapon worn and no armour. `BAL.items.starter` (`src/balance.js`): item level 1, common,
+`stats: { dmgPct: 4 }` = the weakest roll the generator gives a common weapon of item level 1 (implicit 5 x 0.85, rounded), fixed, no rng.
+Type: the class's `defaultWeapon`, else its first `loot.weaponTypes` entry (`G.starterType`). Names (`starter.<type>` keys):
+mage "Apprentice Staff" / "Bastón de Aprendiz", warrior "Worn Sword" / "Espada Gastada", archer "Training Bow" / "Arco de Práctica".
+- Code: `G.starterType`, `G.starterWeapon`, `G.giveStarter` (`src/sim/items.js`); `G.newGear(clsId)` = a new character with the starter,
+  `G.newGear()` = an empty set (tools, the daily kit, the base the migration fills); `G.gearOf` makes new characters. The item carries
+  `starter: true` (its name rule); the gear set carries `starter: true` = "decided for this character" (never given twice).
+- Save v9 (`src/save.js`, export codes accept v2..v9): a character from an older save with no weapon worn AND no weapon its class can
+  use in the kept bag gets the starter on load, with an id above every id it has; every other character is only flagged. A v2 / v3
+  save: the class that receives the old gear, same rule. A starter sold or dropped does not come back.
+- Decisions (nobody was asked): (1) the archer's starter is "Training Bow" because "Short Bow" is already the name of every common
+  bow, and the mage's is "Apprentice Staff" because "Worn Staff" is every common staff; (2) "owns no weapon in the bag" counts only
+  weapons the class can equip (a mage holding a warrior's axe as loot still gets the staff), unidentified ones included; (3) the
+  tutorial's gift stays, as the first upgrade: it is magic, item level 2 (+6..9 % damage against +4 %); equipping it puts the starter in
+  the run's bag and the end of the tutorial banks it into the kept bag (it can be sold); a replay puts the worn weapon back as before;
+  (4) the daily challenge keeps its own fixed kit (no starter in it); (5) the Node bot's "no gear" run (`G.botRun` without `gear`,
+  `tools/sim_bot.js`, careers) is now a new character, so it wears the starter, like `?fresh=1` in the browser.
+- `qa/equip.js`: the `fresh` case now asserts something (it asserted nothing): a fresh warrior shows the bare sheet WITH the weapon
+  drawn in the fist, weapon equipped, no armour.
+- `tools/check_bag.js`: save version 9 everywhere, new characters count their starter, a `starter` block (19 checks). Two things found
+  there that are not from this step: `mod longCracks ... crack cells 12956 -> 12623` FAILS on the untouched branch too (left alone);
+  the "changed checksum" test flipped a hex digit to 'A'/'B', which is no change when the digit was 'a' (the decoder lower-cases): it
+  now flips to '0'/'1'.
+### Part 2: the material of armour pieces
+Items of `helmet`, `armor`, `shield`, `gloves`, `boots` carry `mat`: 0 light (leather), 1 medium (chainmail), 2 heavy (plate); `belt` and
+`weapon` never do. Table: `BAL.items.material` (`slots`, `ids`, `weights` 1:1:1, `base` = the English base names).
+- How it is rolled: NOT from the item's stream. `G.rollMat` seeds a side stream with a hash of the stream's state when `G.makeItem`
+  starts (`new G.RNG(G.hash32(rng.s, salt)).weighted(weights)`), so the item stream does not advance: every other roll of every
+  existing seed is what it was (0 rolls shifted). Checked: 3000 items with and without materials have the same slots, rarities, stats
+  and ids and leave the stream in the same state; the mage's Node bot runs of seeds 1-3 are byte-identical before and after part 2.
+  Drops, the tutorial's item, shop stock and the daily kit all go through `G.makeItem`, so all of them have it.
+- Cosmetic: no stat difference. THE HOOK: `BAL.items.material.statMult` (per material, all 1) and `statMultBy` (per material and stat,
+  empty), read by `G.matStatMult` inside `G.makeItem`. It acts on generation only: existing items keep their stats.
+- Names: the base name says the material (`mbase.<slot>.<mat>`; English from the balance table, Spanish in `src/i18n.js`):
+  Leather Cap / Chainmail Coif / Plate Helm; Leather Jerkin / Chainmail Hauberk / Plate Cuirass; Leather Buckler / Chainmail Targe /
+  Plate Shield; Leather Gloves / Chainmail Mitts / Plate Gauntlets; Leather Boots / Chainmail Boots / Plate Greaves. Spanish: Gorro de
+  Cuero / Cofia de Malla / Yelmo de Placas; Jubón / Cota / Coraza; Broquel / Rodela / Escudo; Guantes / Manoplas / Guanteletes; Botas /
+  Botas / Grebas. The old bases (Cowl, Robe, Wraps, Treads, Ward) are gone from those five slots; the belt is still a Sash. Longest
+  names now: "Stalwart Chainmail Hauberk" (26), "Guanteletes Resonantes de Placas" (32; was 21 / 28): every card wraps the name
+  (two lines), nothing is cut. The inventory card has one more line under the type: "Light (leather)" / "Ligero (cuero)", `mat.0..2`,
+  `G.itemMat`. The shop, upgrade and Don Montoto cards show it through the name only.
+- Old items (worn, kept bag, shop stock; saves and export codes of v2..v8): `G.fillMat` in `G.parseSave` gives each armour piece
+  `G.matOfId(id)` (a side stream seeded with the id, same weights), writes it into the item, and renames the stored English name when
+  it was the generator's old one ("Keen Cowl" -> "Keen Chainmail Coif"); an invalid `mat` is replaced, one on a belt or weapon removed.
+  Same save version as part 1 (v9): the fill does not look at the version, it fills whatever lacks the field.
+- For the view: `G.gearLook(equipped)` (`src/sim/items.js`, pure) -> `{ armor, helmet, shield, gloves, boots: 0|1|2|null,
+  rarity: { armor, helmet, shield, gloves, boots: rarity|null }, weapon: { wtype, rarity } | null }`; slot list `G.LOOK_SLOTS`. A worn
+  piece always has a number (an item without the field gets its id's default; nothing is written). `src/view/hd.js` does not call it yet.
+- New: `qa/gear.js` (the inventory at 960x540 and 1640x922, en and es: starter worn, card shows name + material line, texts on screen,
+  0 console errors) and the `materials` block of `tools/check_bag.js` (23 checks).
+### Part 3: measured, not retuned (2026-11-13)
+Node bot, `node tools/sim_bot.js --seeds 1-10 --class <c>` (a new character each run: before = bare hands, after = the starter
+weapon, +4 % damage) and one career per class (`--career 10 --seeds 1-10`: 10 runs in a row keeping gear). "Before" = the untouched
+`step-weapon-glow`. Minutes = average over all 10 runs. Rooms 1-3 = time to clear the first three rooms / lowest share of HP in them.
+
+| 10 fresh runs | wins | avg min | deaths by room 1..10 | rooms 1-3 |
+|---|---|---|---|---|
+| mage, before | 5 | 10.4 | 0,0,0,0,0,0,0,2,3,0 | 149 s / 0.89 |
+| mage, after | 6 | 10.7 | 0,0,0,0,0,1,0,0,2,1 | 149 s / 0.89 |
+| warrior, before | 0 | 7.8 | 0,0,0,0,0,3,2,3,2,0 | 124 s / 0.94 |
+| warrior, after | 1 | 8.2 | 0,0,0,0,0,2,2,2,3,0 | 123 s / 0.94 |
+| archer, before | 2 | 7.1 | 0,0,0,1,1,2,0,0,4,0 | 131 s / 0.88 |
+| archer, after | 3 | 8.5 | 0,0,0,0,1,0,1,2,2,1 | 134 s / 0.82 |
+
+| one career of 10 runs | wins | left | avg min | deaths by room 1..10 | runs (l = left, d = died, w = won, room) |
+|---|---|---|---|---|---|
+| mage, before | 6 | 3 | 8.0 | 0,0,0,0,0,0,1,0,0,0 | l3 l5 d7 l9 w10 w10 w10 w10 w10 w10 |
+| mage, after | 1 | 5 | 8.6 | 0,0,0,0,0,0,0,1,1,2 | l3 l5 l7 l9 w10 l9 d9 d10 d8 d10 |
+| warrior, before | 0 | 7 | 7.5 | 0,0,0,0,0,0,0,1,2,0 | l3 l5 l7 d9 l9 d8 l8 d9 l8 l9 |
+| warrior, after | 3 | 4 | 8.4 | 0,0,0,0,0,1,0,0,2,0 | l3 l5 d6 l7 w10 d9 d9 l9 w10 w10 |
+| archer, before | 3 | 4 | 7.1 | 0,0,0,0,0,0,0,1,2,0 | l3 l5 l7 d9 d8 l9 d9 w10 w10 w10 |
+| archer, after | 5 | 4 | 7.5 | 0,0,0,0,0,0,0,1,0,0 | l3 l5 l7 l9 w10 w10 w10 w10 d8 w10 |
+
+In one line: the starter weapon does NOT make the early rooms visibly easier (rooms 1-3 take the same time and cost the same HP;
+nobody died before room 5 before or after). Fresh runs go one win up per class and about a room further (8.8 -> 9.0, 6.4 -> 7.0,
+6.9 -> 7.9 rooms cleared), which is the size of the noise at 10 seeds. The careers moved both ways (mage 6 -> 1 wins, warrior
+0 -> 3, archer 3 -> 5): one career is one chain of 10 dependent runs, and the starter changes the first run, so the whole chain is a
+different sample; it says nothing about +4 % damage. Nothing was retuned. Part 2 changes no run (materials do not touch the stream).
+Checks of this step (final build): `tools/build.py`; `tools/determinism.js` (500 rooms, every class and build, economy, cage, daily:
+identical); `tools/check_i18n.js` all passed (613 keys, both fonts); `tools/check_tutorial.js` all passed; `tools/check_bag.js`: all
+pass except `mod longCracks` (fails the same way on the untouched branch); `tools/contrast.js` 0 failing; browser: `qa/gear.js` PASS
+(4 cases), `qa/equip.js` PASS, `qa/glow.js` PASS, `qa/daily.js` 32 checks 0 failing, `qa/tutorial.js land_en` 131 of 131
+(its "no kept items" check now expects the starter as the one kept item), `qa/bot.js --seeds 3,4,5` (mage, 960x540): 3 runs, 2 wins, 0 console errors, 0 softlocks, 0 mismatches with Node.
+Not checked: the in-run inventory card (same code path as the city's), the shop / upgrade / Don Montoto cards with the long names
+(they wrap the name the same way; not looked at), `qa/screens.js`, `qa/touch.js`, `qa/session.js`, `qa/city.js`, the tutorial in
+Spanish or portrait, a real v8 save from a player's browser (only built ones), Firefox / Safari.
+Rough: (1) a fresh mage or archer does not SHOW the starter (only the warrior has a bare sheet with hands; `G.gearLook` is not wired
+into `src/view/hd.js`); (2) "Chainmail Targe" / "Rodela de Malla" for a medium shield is a made-up fit of the three materials to a
+shield: the user may want other words; (3) materials are the same for every class, so a mage can find and wear plate (as decided;
+no class limit exists); (4) item icons do not show the material; (5) the career bot values the starter like any item and may sell it
+when it finds a better weapon (as a player would); (6) `BAL.daily` kit items now carry materials, which changes nothing in the run.

@@ -4,18 +4,22 @@
   var SLOTS = ['helmet', 'armor', 'gloves', 'boots', 'belt', 'weapon', 'shield'];
   G.SLOTS = SLOTS;
   // One gear set per class: { equipped: {slot: item|null}, bag: [kept items], nextId }. Created on first use for any class id.
-  G.newGear = function () {
+  // G.newGear(clsId): a new character of that class, with its starter weapon worn (B.items.starter; `starter` = it was handed out, never twice).
+  // G.newGear(): an empty set with no starter (the daily kit, tools, the base the save migration fills).
+  G.newGear = function (clsId) {
     var eq = {};
     SLOTS.forEach(function (s) { eq[s] = null; });
-    return { equipped: eq, bag: [], nextId: 1, scrolls: 0, gold: 0, ranks: {}, shop: null, city: { montoto: false, story: 0 }, ux: { runs: 0 } };
+    var g = { equipped: eq, bag: [], nextId: 1, scrolls: 0, gold: 0, ranks: {}, shop: null, city: { montoto: false, story: 0 }, ux: { runs: 0 }, starter: false };
+    if (clsId) G.giveStarter(g, G.BAL, clsId);
+    return g;
   };
   G.newSave = function () {
-    return { v: 8, gears: {}, settings: { zoom: 0, zoomRule: 2, shake: 100, lang: null, music: 50, sfx: 70, hd: true }, stats: { runs: 0, wins: 0, best: 0 }, hints: G.cleanHints(null) };
+    return { v: 9, gears: {}, settings: { zoom: 0, zoomRule: 2, shake: 100, lang: null, music: 50, sfx: 70, hd: true }, stats: { runs: 0, wins: 0, best: 0 }, hints: G.cleanHints(null) };
   };
   // the gear (worn items and kept bag) of a class; the sim takes this object as its `gear` option
   G.gearOf = function (save, clsId) {
     var id = G.classDef(G.BAL, clsId).id;
-    if (!save.gears[id]) save.gears[id] = G.newGear();
+    if (!save.gears[id]) save.gears[id] = G.newGear(id);
     return save.gears[id];
   };
   G.loadSave = function () { return G.parseSave(globalThis.localStorage && localStorage.getItem(KEY)); };
@@ -25,7 +29,7 @@
       if (raw) {
         var s = JSON.parse(raw), d = G.newSave(), B = G.BAL;
         var ok = function (it) { return it && typeof it === 'object' && SLOTS.indexOf(it.slot) >= 0 && it.stats && typeof it.rarity === 'number'; };
-        if (s && (s.v === 4 || s.v === 5 || s.v === 6 || s.v === 7 || s.v === 8) && s.gears && typeof s.gears === 'object') {
+        if (s && (s.v === 4 || s.v === 5 || s.v === 6 || s.v === 7 || s.v === 8 || s.v === 9) && s.gears && typeof s.gears === 'object') {
           Object.keys(s.gears).forEach(function (id) {       // v4: sanitize each class's gear
             var g = s.gears[id], n = G.newGear();
             if (!B.classes[id] || !g || typeof g !== 'object') { delete s.gears[id]; return; }
@@ -46,9 +50,15 @@
             n.city.montoto = ct.montoto === true || ct.appraiser === true;      // older than v7: not rescued yet; nothing else changes
             n.city.story = ct.story >= 0 && isFinite(ct.story) ? Math.floor(ct.story) % G.MONTOTO_STORIES.length : 0;
             n.ux = G.cleanUx(g, n);      // first-run flag (step UX)
+            // v9 (step gear data): the starter weapon. A character from before it with no weapon worn and none its class can use in the bag gets it now;
+            // either way the flag is set, so it is decided once (a starter sold or dropped later does not come back).
+            n.starter = g.starter === true;
+            G.giveStarter(n, B, id);
+            // v9: the material of armour pieces. Items from before it (worn, kept bag, shop stock) get theirs from their id, written here so it stays.
+            n.bag.concat(SLOTS.map(function (k) { return n.equipped[k]; }), n.shop ? n.shop.stock : []).forEach(function (it) { G.fillMat(it, B); });
             s.gears[id] = n;
           });
-          s.v = 8;
+          s.v = 9;
           var zr = s.settings && s.settings.zoomRule >= 2 ? 2 : 1;      // 1: the zoom offset counts from the old, closer default (G.migrateZoom converts it at boot, where the screen is known)
           s.settings = Object.assign(d.settings, s.settings || {});
           s.settings.zoomRule = zr;
@@ -72,6 +82,8 @@
           var top = old.nextId > 0 ? old.nextId : 1;
           g0.bag.concat(SLOTS.map(function (k) { return g0.equipped[k]; })).forEach(function (it) { if (it && it.id >= top) top = it.id + 1; });
           g0.nextId = top;
+          G.giveStarter(g0, B, cls);      // v9: no weapon at all -> the starter weapon (the other classes get theirs when first played)
+          g0.bag.concat(SLOTS.map(function (k) { return g0.equipped[k]; })).forEach(function (it) { G.fillMat(it, B); });      // v9: materials
           d.gears[cls] = g0;
           d.settings = Object.assign(d.settings, s.settings || {});
           d.settings.zoomRule = s.settings && s.settings.zoomRule >= 2 ? 2 : 1;

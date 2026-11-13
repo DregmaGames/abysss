@@ -133,6 +133,7 @@
     'stat.hp': 'Max HP', 'stat.dmgPct': 'Damage', 'stat.atkPct': 'Atk speed', 'stat.movePct': 'Move speed', 'stat.armor': 'Armor', 'stat.crit': 'Crit chance',
     'stat.rangePct': 'Range', 'stat.pulsePct': 'Skill dmg', 'stat.cdrPct': 'Cooldowns', 'stat.regen': 'HP regen', 'stat.expPct': 'EXP gain',
     'rar.0': 'Common', 'rar.1': 'Magic', 'rar.2': 'Rare', 'rar.3': 'Epic', 'rar.4': 'Legendary',
+    'mat.0': 'Light (leather)', 'mat.1': 'Medium (chainmail)', 'mat.2': 'Heavy (plate)',
     'mob.imp': 'Imp', 'mob.bat': 'Bat', 'mob.skeleton': 'Skeleton', 'mob.hound': 'Hound', 'mob.cultist': 'Cultist', 'mob.warden': 'Warden', 'mob.tyrant': 'Rift Tyrant'
   };
 
@@ -248,6 +249,7 @@
     'stat.hp': 'Vida máx.', 'stat.dmgPct': 'Daño', 'stat.atkPct': 'Vel. de ataque', 'stat.movePct': 'Vel. de mov.', 'stat.armor': 'Armadura', 'stat.crit': 'Prob. de crítico',
     'stat.rangePct': 'Alcance', 'stat.pulsePct': 'Daño de hab.', 'stat.cdrPct': 'Recargas', 'stat.regen': 'Regen. de vida', 'stat.expPct': 'EXP ganada',
     'rar.0': 'Común', 'rar.1': 'Mágico', 'rar.2': 'Raro', 'rar.3': 'Épico', 'rar.4': 'Legendario',
+    'mat.0': 'Ligero (cuero)', 'mat.1': 'Medio (malla)', 'mat.2': 'Pesado (placas)',
     'mob.imp': 'Diablillo', 'mob.bat': 'Murciélago', 'mob.skeleton': 'Esqueleto', 'mob.hound': 'Sabueso', 'mob.cultist': 'Cultista', 'mob.warden': 'Guardián', 'mob.tyrant': 'Tirano de la Brecha'
   };
 
@@ -363,6 +365,20 @@
     en['wbase.' + w.id] = w.item; es['wbase.' + w.id] = esWbase[w.id];
     if (w.itemRare) { en['wbase.' + w.id + '.rare'] = w.itemRare; es['wbase.' + w.id + '.rare'] = esWbase[w.id + '.rare']; }
   });
+  // armour pieces by material (B.items.material.base): 'mbase.<slot>.<mat>', the same 'Noun;gender;adjective;complement' form in Spanish
+  var esMbase = {
+    helmet: ['Gorro;ms;;de Cuero', 'Cofia;fs;;de Malla', 'Yelmo;ms;;de Placas'],
+    armor: ['Jubón;ms;;de Cuero', 'Cota;fs;;de Malla', 'Coraza;fs;;de Placas'],
+    shield: ['Broquel;ms;;de Cuero', 'Rodela;fs;;de Malla', 'Escudo;ms;;de Placas'],
+    gloves: ['Guantes;mp;;de Cuero', 'Manoplas;fp;;de Malla', 'Guanteletes;mp;;de Placas'],
+    boots: ['Botas;fp;;de Cuero', 'Botas;fp;;de Malla', 'Grebas;fp;;de Placas']
+  };
+  B.items.material.slots.forEach(function (sl) {
+    B.items.material.base[sl].forEach(function (nm, m) { en['mbase.' + sl + '.' + m] = nm; es['mbase.' + sl + '.' + m] = esMbase[sl][m]; });
+  });
+  // the starter weapons (B.items.starter.names): their own names, the same 'Noun;gender;adjective;complement' form in Spanish
+  var esStarter = { staff: 'Bastón;ms;;de Aprendiz', sword: 'Espada;fs;Gastado;', bow: 'Arco;ms;;de Práctica' };
+  Object.keys(B.items.starter.names).forEach(function (w) { en['starter.' + w] = B.items.starter.names[w]; es['starter.' + w] = esStarter[w]; });
   Object.keys(B.families).forEach(function (f) {
     var F = B.families[f];
     en['fam.' + f + '.name'] = F.name; en['fam.' + f + '.t2'] = F.t2.desc; en['fam.' + f + '.t4'] = F.t4.desc;
@@ -422,8 +438,10 @@
   // name parts: the bonus adjective key (null for none) and the base key
   function nameParts(it) {
     var wd = wtypeOf(it), keys = Object.keys(it.stats || {}), adj = null;
+    if (it.starter && wd && G.LANG.en['starter.' + wd.id]) return { adj: null, base: 'starter.' + wd.id };      // the starter weapon has its own name
     if (it.rarity === 0) { if (!wd || wd.worn) adj = 'adj.worn'; } else adj = 'adj.' + keys[1];
     var base = wd ? 'wbase.' + wd.id + (it.rarity >= 2 && wd.itemRare ? '.rare' : '') : 'base.' + it.slot;
+    if (!wd && G.LANG.en['mbase.' + it.slot + '.' + it.mat]) base = 'mbase.' + it.slot + '.' + it.mat;      // an armour piece: its base name says the material
     return { adj: adj && G.LANG.en[adj] ? adj : null, base: base };
   }
   var NAME_RULE = {
@@ -444,6 +462,8 @@
     return r + ' ' + G.t(key);
   };
   G.rarityName = function (r) { return G.t('rar.' + r); };
+  // "Light (leather)": the material line of an armour piece's card ('' for a belt, a weapon, or an item without one)
+  G.itemMat = function (it) { return it && G.hasMat(B, it.slot) && G.LANG.en['mat.' + it.mat] ? G.t('mat.' + it.mat) : ''; };
   // "+12% Damage"
   G.statLine = function (k, v) {
     var unit = G.STAT_LABEL[k][1];

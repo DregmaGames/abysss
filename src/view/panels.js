@@ -194,6 +194,8 @@
       var nm = L.text(ix + 5, ty, G.itemName(item), col).setMaxWidth(iw - 10); ty += nm.height + 3;
       var foreign = G.foreignClass(item, B, cls);
       L.text(ix + 5, ty, G.itemType(item), col); ty += 10;
+      var matLine = G.itemMat(item);      // an armour piece: light / medium / heavy
+      if (matLine) { L.text(ix + 5, ty, matLine, 'ui_dim'); ty += 10; }
       if (foreign) { L.text(ix + 5, ty, G.t('inv.foreign', { cls: G.t('cls.' + G.weaponClass(B, item.wtype)) }), 'ui_warn'); ty += 10; }
       L.text(ix + 5, ty, G.t('inv.itemLevel', { n: item.ilvl }), 'ui_dim'); ty += 12;
       if (item.unid) {

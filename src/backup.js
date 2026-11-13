@@ -82,7 +82,7 @@
     if (json === null) return { ok: false, err: 'data' };
     try { s = JSON.parse(json); } catch (e) { return { ok: false, err: 'data' }; }
     if (!s || typeof s !== 'object' || typeof s.v !== 'number' || !s.gears || typeof s.gears !== 'object') return { ok: false, err: 'shape' };
-    if (s.v > 8 || s.v < 2 || s.v !== Math.floor(s.v)) return { ok: false, err: 'version' };
+    if (s.v > 9 || s.v < 2 || s.v !== Math.floor(s.v)) return { ok: false, err: 'version' };
     var save = G.parseSave(json);      // the normal migration and sanitizing
     return { ok: true, save: save, from: s.v, info: G.saveSummary(save) };
   };

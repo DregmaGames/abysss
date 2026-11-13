@@ -261,7 +261,33 @@
       implicit: { helmet: 'hp', armor: 'armor', gloves: 'atkPct', boots: 'movePct', belt: 'hp', weapon: 'dmgPct', shield: 'armor' },
       // how much one "base unit" of each stat is worth to the bot / item score
       weight: { hp: 1, dmgPct: 1.3, atkPct: 1.2, movePct: 0.9, armor: 1, crit: 0.9, rangePct: 0.6, pulsePct: 0.5, cdrPct: 0.6, regen: 0.9, expPct: 0.5 },
-      cap: { movePct: 30, cdrPct: 45, crit: 60 }
+      cap: { movePct: 30, cdrPct: 45, crit: 60 },
+      // MATERIAL of the armour pieces (step gear data). item.mat = 0 light (leather), 1 medium (chainmail), 2 heavy (plate): how the piece
+      // is drawn on the hero (the view reads it through G.gearLook). The same three for every class; rarity only colours trim and glow.
+      // slots: the slots whose items have one (belt and weapon have none). weights: chance of each when an item is generated (and of the
+      // default an old item gets on load). base: the item's English base name by slot and material (Spanish: 'mbase.*' in src/i18n.js).
+      // TUNING HOOK, NOT USED YET: the user has not decided any stat difference, so every multiplier is 1 and materials are cosmetic.
+      //   statMult[mat] multiplies every stat the generator rolls for the piece; statMultBy[mat] = { armor: 1.2, movePct: 0.8 }
+      //   overrides it for single stats (G.matStatMult). It acts when an item is generated: items that already exist keep their stats.
+      material: {
+        slots: ['helmet', 'armor', 'shield', 'gloves', 'boots'],
+        ids: ['light', 'medium', 'heavy'],
+        weights: [1, 1, 1],
+        base: {
+          helmet: ['Leather Cap', 'Chainmail Coif', 'Plate Helm'],
+          armor:  ['Leather Jerkin', 'Chainmail Hauberk', 'Plate Cuirass'],
+          shield: ['Leather Buckler', 'Chainmail Targe', 'Plate Shield'],
+          gloves: ['Leather Gloves', 'Chainmail Mitts', 'Plate Gauntlets'],
+          boots:  ['Leather Boots', 'Chainmail Boots', 'Plate Greaves']
+        },
+        statMult: [1, 1, 1],
+        statMultBy: [{}, {}, {}]
+      },
+      // The starter weapon (step gear data): every new character starts with one common weapon of its class's own type (the class's
+      // defaultWeapon, else its first loot.weaponTypes entry), identified and worn, and no armour. Fixed, not rolled: `stats` is the
+      // weakest roll the generator gives a common weapon of item level 1 (implicit dmgPct 5 x 0.85, rounded = 4). names: the item's
+      // English name by weapon type (Spanish: 'starter.<type>' in src/i18n.js); a type without a name gets the generator's common name.
+      starter: { ilvl: 1, rarity: 0, stats: { dmgPct: 4 }, names: { staff: 'Apprentice Staff', sword: 'Worn Sword', bow: 'Training Bow' } }
     },
 
     // ---------------------------------------------------------------- economy (step 7)
@@ -777,6 +803,7 @@
     'stat.hp': 'Max HP', 'stat.dmgPct': 'Damage', 'stat.atkPct': 'Atk speed', 'stat.movePct': 'Move speed', 'stat.armor': 'Armor', 'stat.crit': 'Crit chance',
     'stat.rangePct': 'Range', 'stat.pulsePct': 'Skill dmg', 'stat.cdrPct': 'Cooldowns', 'stat.regen': 'HP regen', 'stat.expPct': 'EXP gain',
     'rar.0': 'Common', 'rar.1': 'Magic', 'rar.2': 'Rare', 'rar.3': 'Epic', 'rar.4': 'Legendary',
+    'mat.0': 'Light (leather)', 'mat.1': 'Medium (chainmail)', 'mat.2': 'Heavy (plate)',
     'mob.imp': 'Imp', 'mob.bat': 'Bat', 'mob.skeleton': 'Skeleton', 'mob.hound': 'Hound', 'mob.cultist': 'Cultist', 'mob.warden': 'Warden', 'mob.tyrant': 'Rift Tyrant'
   };
 
@@ -892,6 +919,7 @@
     'stat.hp': 'Vida máx.', 'stat.dmgPct': 'Daño', 'stat.atkPct': 'Vel. de ataque', 'stat.movePct': 'Vel. de mov.', 'stat.armor': 'Armadura', 'stat.crit': 'Prob. de crítico',
     'stat.rangePct': 'Alcance', 'stat.pulsePct': 'Daño de hab.', 'stat.cdrPct': 'Recargas', 'stat.regen': 'Regen. de vida', 'stat.expPct': 'EXP ganada',
     'rar.0': 'Común', 'rar.1': 'Mágico', 'rar.2': 'Raro', 'rar.3': 'Épico', 'rar.4': 'Legendario',
+    'mat.0': 'Ligero (cuero)', 'mat.1': 'Medio (malla)', 'mat.2': 'Pesado (placas)',
     'mob.imp': 'Diablillo', 'mob.bat': 'Murciélago', 'mob.skeleton': 'Esqueleto', 'mob.hound': 'Sabueso', 'mob.cultist': 'Cultista', 'mob.warden': 'Guardián', 'mob.tyrant': 'Tirano de la Brecha'
   };
 
@@ -1007,6 +1035,20 @@
     en['wbase.' + w.id] = w.item; es['wbase.' + w.id] = esWbase[w.id];
     if (w.itemRare) { en['wbase.' + w.id + '.rare'] = w.itemRare; es['wbase.' + w.id + '.rare'] = esWbase[w.id + '.rare']; }
   });
+  // armour pieces by material (B.items.material.base): 'mbase.<slot>.<mat>', the same 'Noun;gender;adjective;complement' form in Spanish
+  var esMbase = {
+    helmet: ['Gorro;ms;;de Cuero', 'Cofia;fs;;de Malla', 'Yelmo;ms;;de Placas'],
+    armor: ['Jubón;ms;;de Cuero', 'Cota;fs;;de Malla', 'Coraza;fs;;de Placas'],
+    shield: ['Broquel;ms;;de Cuero', 'Rodela;fs;;de Malla', 'Escudo;ms;;de Placas'],
+    gloves: ['Guantes;mp;;de Cuero', 'Manoplas;fp;;de Malla', 'Guanteletes;mp;;de Placas'],
+    boots: ['Botas;fp;;de Cuero', 'Botas;fp;;de Malla', 'Grebas;fp;;de Placas']
+  };
+  B.items.material.slots.forEach(function (sl) {
+    B.items.material.base[sl].forEach(function (nm, m) { en['mbase.' + sl + '.' + m] = nm; es['mbase.' + sl + '.' + m] = esMbase[sl][m]; });
+  });
+  // the starter weapons (B.items.starter.names): their own names, the same 'Noun;gender;adjective;complement' form in Spanish
+  var esStarter = { staff: 'Bastón;ms;;de Aprendiz', sword: 'Espada;fs;Gastado;', bow: 'Arco;ms;;de Práctica' };
+  Object.keys(B.items.starter.names).forEach(function (w) { en['starter.' + w] = B.items.starter.names[w]; es['starter.' + w] = esStarter[w]; });
   Object.keys(B.families).forEach(function (f) {
     var F = B.families[f];
     en['fam.' + f + '.name'] = F.name; en['fam.' + f + '.t2'] = F.t2.desc; en['fam.' + f + '.t4'] = F.t4.desc;
@@ -1066,8 +1108,10 @@
   // name parts: the bonus adjective key (null for none) and the base key
   function nameParts(it) {
     var wd = wtypeOf(it), keys = Object.keys(it.stats || {}), adj = null;
+    if (it.starter && wd && G.LANG.en['starter.' + wd.id]) return { adj: null, base: 'starter.' + wd.id };      // the starter weapon has its own name
     if (it.rarity === 0) { if (!wd || wd.worn) adj = 'adj.worn'; } else adj = 'adj.' + keys[1];
     var base = wd ? 'wbase.' + wd.id + (it.rarity >= 2 && wd.itemRare ? '.rare' : '') : 'base.' + it.slot;
+    if (!wd && G.LANG.en['mbase.' + it.slot + '.' + it.mat]) base = 'mbase.' + it.slot + '.' + it.mat;      // an armour piece: its base name says the material
     return { adj: adj && G.LANG.en[adj] ? adj : null, base: base };
   }
   var NAME_RULE = {
@@ -1088,6 +1132,8 @@
     return r + ' ' + G.t(key);
   };
   G.rarityName = function (r) { return G.t('rar.' + r); };
+  // "Light (leather)": the material line of an armour piece's card ('' for a belt, a weapon, or an item without one)
+  G.itemMat = function (it) { return it && G.hasMat(B, it.slot) && G.LANG.en['mat.' + it.mat] ? G.t('mat.' + it.mat) : ''; };
   // "+12% Damage"
   G.statLine = function (k, v) {
     var unit = G.STAT_LABEL[k][1];
@@ -1751,6 +1797,54 @@
     return rng.weighted(w);
   };
 
+  // ---- material of the armour pieces (step gear data; table and tuning hook: B.items.material)
+  var MAT_ROLL = 0x4d415431, MAT_OLD = 0x4d415430;      // salts of the two side streams
+  function matOk(m) { return m === 0 || m === 1 || m === 2; }
+  G.hasMat = function (B, slot) { return B.items.material.slots.indexOf(slot) >= 0; };
+  // The material of a new item. It is NOT drawn from the item's stream: it comes from a side stream seeded with the stream's state at
+  // that moment (hash of rng.s), so the stream does not advance and every other roll of every existing seed stays what it was.
+  G.rollMat = function (rng, B) { return new G.RNG(G.hash32(rng.s >>> 0, MAT_ROLL)).weighted(B.items.material.weights); };
+  // The material of an item from before materials existed: from its id (stable across loads; written into the item on load).
+  G.matOfId = function (id, B) { return new G.RNG(G.hash32(id >>> 0, MAT_OLD)).weighted(B.items.material.weights); };
+  // the stat multiplier of a material (all 1 today: cosmetic)
+  G.matStatMult = function (B, mat, stat) {
+    var M = B.items.material, by = M.statMultBy[mat];
+    return by && by[stat] !== undefined ? by[stat] : M.statMult[mat];
+  };
+  // the English name an item is stored with (the same parts G.itemName assembles in src/i18n.js): [adjective] base
+  function storedName(it, B, noMat) {
+    var wd = null, WT = B.loot.weaponTypes, i, keys = Object.keys(it.stats || {});
+    for (i = 0; i < WT.length; i++) if (it.wtype && WT[i].id === it.wtype) wd = WT[i];
+    var base = wd ? (it.rarity >= 2 && wd.itemRare ? wd.itemRare : wd.item) : (!noMat && matOk(it.mat) && G.hasMat(B, it.slot) ? B.items.material.base[it.slot][it.mat] : BASE_NAME[it.slot]);
+    return (it.rarity === 0 ? (!wd || wd.worn ? 'Worn ' : '') : (PREFIX[keys[1]] ? PREFIX[keys[1]] + ' ' : '')) + base;
+  }
+  // An item from an old save, an old export code or old shop stock: gives it its material (helmet, armor, shield, gloves, boots) from its
+  // id, and its stored English name when that was the generator's old name. Other slots never carry one. Returns true when it changed.
+  G.fillMat = function (it, B) {
+    if (!it) return false;
+    if (!G.hasMat(B, it.slot)) { if (it.mat === undefined) return false; delete it.mat; return true; }
+    if (matOk(it.mat)) return false;
+    var old = storedName(it, B, true);
+    it.mat = G.matOfId(it.id, B);
+    if (it.name === old) it.name = storedName(it, B);
+    return true;
+  };
+  // What the view draws on the hero (pure): the material and rarity of each visible piece that is worn, and the weapon.
+  //   { armor, helmet, shield, gloves, boots: mat (0 | 1 | 2) or null when the slot is empty,
+  //     rarity: { armor, helmet, shield, gloves, boots: rarity or null }, weapon: { wtype, rarity } or null }
+  // A worn piece always has a material here (an item without the field gets the default of its id).
+  G.LOOK_SLOTS = ['armor', 'helmet', 'shield', 'gloves', 'boots'];
+  G.gearLook = function (equipped) {
+    var out = { rarity: {} }, eq = equipped || {}, w = eq.weapon;
+    G.LOOK_SLOTS.forEach(function (k) {
+      var it = eq[k];
+      out[k] = it ? (matOk(it.mat) ? it.mat : G.matOfId(it.id, G.BAL)) : null;
+      out.rarity[k] = it ? it.rarity : null;
+    });
+    out.weapon = w ? { wtype: w.wtype || null, rarity: w.rarity } : null;
+    return out;
+  };
+
   G.rollItem = function (rng, ilvl, luck, B, gear, cls) {
     var slot = rng.pick(ITEM_SLOTS), rarity = G.rollRarity(rng, luck, B);
     // weapon drops pick their type from all types, equal weight, whatever class is played (one extra draw)
@@ -1761,19 +1855,52 @@
   // The stat roll shared by drops and the shop (step 7): shuffle, ranges, name, id. `wd`: the weapon type entry (weapons only).
   G.makeItem = function (rng, slot, rarity, wd, ilvl, B, gear) {
     var I = B.items, wtype = wd ? wd.id : null;
+    var mat = G.hasMat(B, slot) ? G.rollMat(rng, B) : null;      // a side stream: the rolls below are the ones they always were
     var pool = Object.keys(I.stat), imp = I.implicit[slot], stats = {}, keys = [imp];
     pool = pool.filter(function (k) { return k !== imp; });
     rng.shuffle(pool);
     for (var i = 0; i < rarity; i++) keys.push(pool[i]);
     keys.forEach(function (k) {
       var v = I.stat[k] * (1 + I.ilvlGrow * (ilvl - 1)) * I.rarityMult[rarity] * rng.range(0.85, 1.15);
+      if (mat !== null) v *= G.matStatMult(B, mat, k);      // the material hook (1 today)
       stats[k] = k === 'regen' ? Math.max(0.1, Math.round(v * 10) / 10) : Math.max(1, Math.round(v));
     });
-    var base = wd ? (rarity >= 2 && wd.itemRare ? wd.itemRare : wd.item) : BASE_NAME[slot];
+    var base = wd ? (rarity >= 2 && wd.itemRare ? wd.itemRare : wd.item) : (mat !== null ? I.material.base[slot][mat] : BASE_NAME[slot]);
     var name = (rarity === 0 ? (!wd || wd.worn ? 'Worn ' : '') : PREFIX[keys[1]] + ' ') + base;
     var it = { id: gear.nextId++, slot: slot, rarity: rarity, ilvl: ilvl, name: name, stats: stats, power: ilvl * (2 + rarity) };
     if (wtype) it.wtype = wtype;
+    if (mat !== null) it.mat = mat;
     if (rarity >= B.loot.unidentifiedFrom) it.unid = true;      // stats are rolled now, only hidden until identified (no reroll)
+    return it;
+  };
+
+  // ---- the starter weapon (step gear data; numbers and names: B.items.starter)
+  // the weapon type entry a class starts with: its defaultWeapon, else its first own type (null: the class has no weapon type)
+  G.starterType = function (B, clsId) {
+    var C = G.classDef(B, clsId), own = B.loot.weaponTypes.filter(function (w) { return w.cls === C.id; }), i;
+    for (i = 0; i < own.length; i++) if (own[i].id === C.defaultWeapon) return own[i];
+    return own[0] || null;
+  };
+  // the item itself: fixed (no rng), common, identified, flagged `starter` (its name comes from B.items.starter.names)
+  G.starterWeapon = function (B, clsId, gear) {
+    var S = B.items.starter, wd = G.starterType(B, clsId), stats = {}, k;
+    if (!wd) return null;
+    for (k in S.stats) stats[k] = S.stats[k];
+    return { id: gear.nextId++, slot: 'weapon', rarity: S.rarity, ilvl: S.ilvl, name: S.names[wd.id] || ((wd.worn ? 'Worn ' : '') + wd.item), stats: stats,
+      power: S.ilvl * (2 + S.rarity), wtype: wd.id, starter: true };
+  };
+  // Gives a character its starter weapon, once: gear.starter says the question is settled (so a sold or dropped starter never comes back).
+  // A character that already wears a weapon, or keeps one its class can use in the bag (an old save), gets nothing. Returns the item or null.
+  G.giveStarter = function (gear, B, clsId) {
+    if (gear.starter) return null;
+    gear.starter = true;
+    if (gear.equipped.weapon || gear.bag.some(function (it) { return it.slot === 'weapon' && G.canEquip(it, B, clsId); })) return null;
+    var top = gear.nextId > 0 ? gear.nextId : 1;      // an id no item of this character has (old saves: nextId is not trusted)
+    gear.bag.concat(Object.keys(gear.equipped).map(function (k) { return gear.equipped[k]; }), gear.shop && gear.shop.stock ? gear.shop.stock : [])
+      .forEach(function (it) { if (it && it.id >= top) top = it.id + 1; });
+    gear.nextId = top;
+    var it = G.starterWeapon(B, clsId, gear);
+    if (it) gear.equipped.weapon = it;
     return it;
   };
 
@@ -4763,7 +4890,7 @@
   // Headless run of one seed (Node or browser console). Returns a summary.
   G.botRun = function (seed, opts) {
     opts = opts || {};
-    var gear = opts.gear || G.newGear();
+    var gear = opts.gear || G.newGear(G.classDef(opts.bal || G.BAL, opts.cls).id);      // no gear given: a new character (its starter weapon, nothing else)
     var sim = new G.Sim({ seed: seed, gear: gear, bal: opts.bal, cls: opts.cls, daily: opts.daily }), bot = new Bot(sim, opts.build, { leave: opts.leave, lowHp: opts.lowHp, pushHp: opts.pushHp, pushGear: opts.pushGear, rescue: opts.rescue });
     var maxTicks = (opts.maxSeconds || 1200) * 60, softlock = false, worstStuck = 0, roomTicks = [], last = 0, lastRoom = 0, minHp = sim.B.run.roomMult.map(function () { return 1; });
     while (sim.tick < maxTicks && (sim.state === 'play' || sim.state === 'levelup' || sim.state === 'choice' || sim.state === 'merchant')) {
@@ -4797,18 +4924,22 @@
   var SLOTS = ['helmet', 'armor', 'gloves', 'boots', 'belt', 'weapon', 'shield'];
   G.SLOTS = SLOTS;
   // One gear set per class: { equipped: {slot: item|null}, bag: [kept items], nextId }. Created on first use for any class id.
-  G.newGear = function () {
+  // G.newGear(clsId): a new character of that class, with its starter weapon worn (B.items.starter; `starter` = it was handed out, never twice).
+  // G.newGear(): an empty set with no starter (the daily kit, tools, the base the save migration fills).
+  G.newGear = function (clsId) {
     var eq = {};
     SLOTS.forEach(function (s) { eq[s] = null; });
-    return { equipped: eq, bag: [], nextId: 1, scrolls: 0, gold: 0, ranks: {}, shop: null, city: { montoto: false, story: 0 }, ux: { runs: 0 } };
+    var g = { equipped: eq, bag: [], nextId: 1, scrolls: 0, gold: 0, ranks: {}, shop: null, city: { montoto: false, story: 0 }, ux: { runs: 0 }, starter: false };
+    if (clsId) G.giveStarter(g, G.BAL, clsId);
+    return g;
   };
   G.newSave = function () {
-    return { v: 8, gears: {}, settings: { zoom: 0, zoomRule: 2, shake: 100, lang: null, music: 50, sfx: 70, hd: true }, stats: { runs: 0, wins: 0, best: 0 }, hints: G.cleanHints(null) };
+    return { v: 9, gears: {}, settings: { zoom: 0, zoomRule: 2, shake: 100, lang: null, music: 50, sfx: 70, hd: true }, stats: { runs: 0, wins: 0, best: 0 }, hints: G.cleanHints(null) };
   };
   // the gear (worn items and kept bag) of a class; the sim takes this object as its `gear` option
   G.gearOf = function (save, clsId) {
     var id = G.classDef(G.BAL, clsId).id;
-    if (!save.gears[id]) save.gears[id] = G.newGear();
+    if (!save.gears[id]) save.gears[id] = G.newGear(id);
     return save.gears[id];
   };
   G.loadSave = function () { return G.parseSave(globalThis.localStorage && localStorage.getItem(KEY)); };
@@ -4818,7 +4949,7 @@
       if (raw) {
         var s = JSON.parse(raw), d = G.newSave(), B = G.BAL;
         var ok = function (it) { return it && typeof it === 'object' && SLOTS.indexOf(it.slot) >= 0 && it.stats && typeof it.rarity === 'number'; };
-        if (s && (s.v === 4 || s.v === 5 || s.v === 6 || s.v === 7 || s.v === 8) && s.gears && typeof s.gears === 'object') {
+        if (s && (s.v === 4 || s.v === 5 || s.v === 6 || s.v === 7 || s.v === 8 || s.v === 9) && s.gears && typeof s.gears === 'object') {
           Object.keys(s.gears).forEach(function (id) {       // v4: sanitize each class's gear
             var g = s.gears[id], n = G.newGear();
             if (!B.classes[id] || !g || typeof g !== 'object') { delete s.gears[id]; return; }
@@ -4839,9 +4970,15 @@
             n.city.montoto = ct.montoto === true || ct.appraiser === true;      // older than v7: not rescued yet; nothing else changes
             n.city.story = ct.story >= 0 && isFinite(ct.story) ? Math.floor(ct.story) % G.MONTOTO_STORIES.length : 0;
             n.ux = G.cleanUx(g, n);      // first-run flag (step UX)
+            // v9 (step gear data): the starter weapon. A character from before it with no weapon worn and none its class can use in the bag gets it now;
+            // either way the flag is set, so it is decided once (a starter sold or dropped later does not come back).
+            n.starter = g.starter === true;
+            G.giveStarter(n, B, id);
+            // v9: the material of armour pieces. Items from before it (worn, kept bag, shop stock) get theirs from their id, written here so it stays.
+            n.bag.concat(SLOTS.map(function (k) { return n.equipped[k]; }), n.shop ? n.shop.stock : []).forEach(function (it) { G.fillMat(it, B); });
             s.gears[id] = n;
           });
-          s.v = 8;
+          s.v = 9;
           var zr = s.settings && s.settings.zoomRule >= 2 ? 2 : 1;      // 1: the zoom offset counts from the old, closer default (G.migrateZoom converts it at boot, where the screen is known)
           s.settings = Object.assign(d.settings, s.settings || {});
           s.settings.zoomRule = zr;
@@ -4865,6 +5002,8 @@
           var top = old.nextId > 0 ? old.nextId : 1;
           g0.bag.concat(SLOTS.map(function (k) { return g0.equipped[k]; })).forEach(function (it) { if (it && it.id >= top) top = it.id + 1; });
           g0.nextId = top;
+          G.giveStarter(g0, B, cls);      // v9: no weapon at all -> the starter weapon (the other classes get theirs when first played)
+          g0.bag.concat(SLOTS.map(function (k) { return g0.equipped[k]; })).forEach(function (it) { G.fillMat(it, B); });      // v9: materials
           d.gears[cls] = g0;
           d.settings = Object.assign(d.settings, s.settings || {});
           d.settings.zoomRule = s.settings && s.settings.zoomRule >= 2 ? 2 : 1;
@@ -5005,7 +5144,7 @@
     if (json === null) return { ok: false, err: 'data' };
     try { s = JSON.parse(json); } catch (e) { return { ok: false, err: 'data' }; }
     if (!s || typeof s !== 'object' || typeof s.v !== 'number' || !s.gears || typeof s.gears !== 'object') return { ok: false, err: 'shape' };
-    if (s.v > 8 || s.v < 2 || s.v !== Math.floor(s.v)) return { ok: false, err: 'version' };
+    if (s.v > 9 || s.v < 2 || s.v !== Math.floor(s.v)) return { ok: false, err: 'version' };
     var save = G.parseSave(json);      // the normal migration and sanitizing
     return { ok: true, save: save, from: s.v, info: G.saveSummary(save) };
   };
@@ -8808,6 +8947,8 @@
       var nm = L.text(ix + 5, ty, G.itemName(item), col).setMaxWidth(iw - 10); ty += nm.height + 3;
       var foreign = G.foreignClass(item, B, cls);
       L.text(ix + 5, ty, G.itemType(item), col); ty += 10;
+      var matLine = G.itemMat(item);      // an armour piece: light / medium / heavy
+      if (matLine) { L.text(ix + 5, ty, matLine, 'ui_dim'); ty += 10; }
       if (foreign) { L.text(ix + 5, ty, G.t('inv.foreign', { cls: G.t('cls.' + G.weaponClass(B, item.wtype)) }), 'ui_warn'); ty += 10; }
       L.text(ix + 5, ty, G.t('inv.itemLevel', { n: item.ilvl }), 'ui_dim'); ty += 12;
       if (item.unid) {

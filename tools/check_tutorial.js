@@ -17,7 +17,7 @@ const check = (name, ok, detail) => { if (!ok) fails++; console.log((ok ? 'PASS 
 // a player: what a person would do at each step, through the sim's own inputs
 function play(cls, opts) {
   opts = opts || {};
-  const gear = opts.gear || G.newGear();
+  const gear = opts.gear || G.newGear(cls);      // a new character: its starter weapon worn
   const s = new G.Sim({ seed: opts.seed || 1, gear, cls, tutorial: { reward: opts.reward !== false }, events: true });
   const R = s.room.tut, log = [], idleBad = [];
   let idleDone = {}, ticks = 0, diedBelow1 = false;
@@ -70,9 +70,9 @@ for (const cls of ['mage', 'warrior', 'archer']) {
   check(cls + ': all 13 steps were passed in order', r.log.map(l => l[0]).join() === G.TUT_STEPS.slice(0, 12).join(), r.log.map(l => l[0]).join());
   check(cls + ': no step advanced while the hero did nothing', r.idleBad.length === 0, r.idleBad.join('; '));
   check(cls + ': the hero never dropped below 1 HP and the run did not end', !r.diedBelow1 && s.result == null);
-  check(cls + ': no exp, level, gold or kept items from the tutorial', s.player.level === 1 && s.player.exp === 0 && s.gold === 0 && r.gear.gold === 0 && r.gear.bag.length === 0 && r.gear.scrolls === 0);
+  check(cls + ': no exp, level, gold or scrolls from the tutorial; the kept bag holds only the starter weapon the tutorial one replaced', s.player.level === 1 && s.player.exp === 0 && s.gold === 0 && r.gear.gold === 0 && r.gear.bag.length === 1 && r.gear.bag[0].starter === true && r.gear.scrolls === 0, JSON.stringify(r.gear.bag));
   const w = r.gear.equipped.weapon;
-  check(cls + ': the first time the tutorial weapon stays equipped, identified, of the hero\'s class', !!w && w === s.tut.item && !w.unid && G.canEquip(w, s.B, cls), JSON.stringify(w));
+  check(cls + ': the first time the tutorial weapon stays equipped, identified, of the hero\'s class, and it is better than the starter', !!w && w === s.tut.item && !w.unid && G.canEquip(w, s.B, cls) && G.itemValue(w, s.B) > G.itemValue(r.gear.bag[0], s.B), JSON.stringify(w));
   check(cls + ': the sealed bag and scrolls are empty at the end (nothing carried out)', s.bag.length === 0 && s.scrolls === 0);
   const r2 = play(cls);
   check(cls + ': deterministic (same ticks, same kills, same item)', r2.ticks === r.ticks && r2.s.kills === s.kills && JSON.stringify(r2.s.tut.item.stats) === JSON.stringify(s.tut.item.stats));
@@ -87,6 +87,13 @@ for (const cls of ['mage', 'warrior', 'archer']) {
   const g2 = G.newGear(); g2.equipped.weapon = worn;
   const r3 = play('mage', { gear: g2, reward: true });
   check('first time with a weapon already worn: the old one goes to the kept bag', r3.s.tut.done && g2.bag.length === 1 && g2.bag[0] === worn && g2.equipped.weapon === r3.s.tut.item);
+}
+// a character with no weapon at all (the starter was sold before a replay, or an old empty set): the item step still works
+{
+  const g = G.newGear(), r = play('archer', { gear: g, reward: true });
+  check('no weapon worn at the start: the tutorial weapon is equipped and kept, the kept bag stays empty', r.s.tut.done && g.equipped.weapon === r.s.tut.item && g.bag.length === 0);
+  const g2 = G.newGear('warrior'), st = g2.equipped.weapon, r2 = play('warrior', { gear: g2, reward: false });
+  check('replay with the starter worn: the starter is back in the hand, the tutorial weapon is gone', r2.s.tut.done && g2.equipped.weapon === st && g2.bag.length === 0);
 }
 // a dropped tutorial item comes back
 {
