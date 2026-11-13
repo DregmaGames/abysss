@@ -274,8 +274,8 @@ async function run(name, cfg, browser) {
     await until(async () => (await S()).tut.done, 6000, 'the Well done pop-up');
     check('exit: the walk through the gate ends the tutorial with a Well done pop-up', true);
     await shot(path.join(OUTDIR, `${name}_14_done.png`));
-    const fin = await page.evaluate(() => { const g = G.gearOf(G.save, G.cls); const sim = G.gameScene.sim; return { state: G.save.hints.tut.state, got: G.save.hints.tut.got, weapon: g.equipped.weapon && { unid: !!g.equipped.weapon.unid, rarity: g.equipped.weapon.rarity }, gold: g.gold, bag: g.bag.length, level: sim.player.level, runs: g.ux.runs, stats: G.save.stats.runs }; });
-    check('save: tutorial done, the weapon was given once, identified and worn; no gold, kept items, runs or stats', fin.state === 'done' && fin.got === true && fin.weapon && !fin.weapon.unid && fin.gold === 0 && fin.bag === 0 && fin.runs === 0 && fin.stats === 0, JSON.stringify(fin));
+    const fin = await page.evaluate(() => { const g = G.gearOf(G.save, G.cls); const sim = G.gameScene.sim; return { state: G.save.hints.tut.state, got: G.save.hints.tut.got, weapon: g.equipped.weapon && { unid: !!g.equipped.weapon.unid, rarity: g.equipped.weapon.rarity }, gold: g.gold, bag: g.bag.length, starterKept: g.bag.length === 1 && g.bag[0].starter === true, level: sim.player.level, runs: g.ux.runs, stats: G.save.stats.runs }; });
+    check('save: tutorial done, the weapon was given once, identified and worn; the starter weapon it replaced is the only kept item; no gold, runs or stats', fin.state === 'done' && fin.got === true && fin.weapon && !fin.weapon.unid && fin.weapon.rarity === 1 && fin.gold === 0 && fin.starterKept && fin.runs === 0 && fin.stats === 0, JSON.stringify(fin));
     await clickHit('tut_done');
     await until(async () => (await S()).screen === 'city', 8000, 'the city after the tutorial');
     await wait(500);

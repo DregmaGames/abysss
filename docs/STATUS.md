@@ -575,7 +575,7 @@ Sim (no Phaser, deterministic, runs in Node):
 - `src/sim/fissures.js`: the crack network (`setupFissures`, `networkKill`, `darkenSeg`,
   `spawnFromCluster`, `crackHits`, `crackOnLine`), super fissure, chest, exit, objective.
 - `src/sim/combat.js`: auto-attack (`shootBolts` or `swing`, event `swing`), `castSkill` -> pulse, monster AI (`casterAI` = the cultist), `steer`, projectiles, telegraphs (`teles`), rift pools (`pools`), pickups, kills.
-- `src/sim/boss.js`, `src/sim/items.js` (also `bankItems`, `doorsFor`, `doorEffects`), `src/save.js` (v3, migration). Run end and doors: `Sim.finishRun`, `enterChoice`, `leave`, `takeDoor` in `core.js`.
+- `src/sim/boss.js`, `src/sim/items.js` (also `bankItems`, `doorsFor`, `doorEffects`; the starter weapon `giveStarter`; materials `rollMat`, `fillMat`; `G.gearLook` for the view), `src/save.js` (v9, migration). Run end and doors: `Sim.finishRun`, `enterChoice`, `leave`, `takeDoor` in `core.js`.
 - `src/sim/abilities.js`: pool, offers, family tiers, stats, card info. `src/sim/effects.js`: statuses, triggers, effect kinds, orbit, zones, echoes.
 - `src/qa/bot.js`: the bot (`G.Bot(sim, buildId)`, `G.botRun`); `crossDir` dodges across cracks; `pickAbility` follows a build.
 - Test room: `Sim({ testRoom: true })` loads `B.run.testRoom`; `restartTestRoom` reloads it on clear.
@@ -811,3 +811,44 @@ Items of `helmet`, `armor`, `shield`, `gloves`, `boots` carry `mat`: 0 light (le
   piece always has a number (an item without the field gets its id's default; nothing is written). `src/view/hd.js` does not call it yet.
 - New: `qa/gear.js` (the inventory at 960x540 and 1640x922, en and es: starter worn, card shows name + material line, texts on screen,
   0 console errors) and the `materials` block of `tools/check_bag.js` (23 checks).
+### Part 3: measured, not retuned (2026-11-13)
+Node bot, `node tools/sim_bot.js --seeds 1-10 --class <c>` (a new character each run: before = bare hands, after = the starter
+weapon, +4 % damage) and one career per class (`--career 10 --seeds 1-10`: 10 runs in a row keeping gear). "Before" = the untouched
+`step-weapon-glow`. Minutes = average over all 10 runs. Rooms 1-3 = time to clear the first three rooms / lowest share of HP in them.
+
+| 10 fresh runs | wins | avg min | deaths by room 1..10 | rooms 1-3 |
+|---|---|---|---|---|
+| mage, before | 5 | 10.4 | 0,0,0,0,0,0,0,2,3,0 | 149 s / 0.89 |
+| mage, after | 6 | 10.7 | 0,0,0,0,0,1,0,0,2,1 | 149 s / 0.89 |
+| warrior, before | 0 | 7.8 | 0,0,0,0,0,3,2,3,2,0 | 124 s / 0.94 |
+| warrior, after | 1 | 8.2 | 0,0,0,0,0,2,2,2,3,0 | 123 s / 0.94 |
+| archer, before | 2 | 7.1 | 0,0,0,1,1,2,0,0,4,0 | 131 s / 0.88 |
+| archer, after | 3 | 8.5 | 0,0,0,0,1,0,1,2,2,1 | 134 s / 0.82 |
+
+| one career of 10 runs | wins | left | avg min | deaths by room 1..10 | runs (l = left, d = died, w = won, room) |
+|---|---|---|---|---|---|
+| mage, before | 6 | 3 | 8.0 | 0,0,0,0,0,0,1,0,0,0 | l3 l5 d7 l9 w10 w10 w10 w10 w10 w10 |
+| mage, after | 1 | 5 | 8.6 | 0,0,0,0,0,0,0,1,1,2 | l3 l5 l7 l9 w10 l9 d9 d10 d8 d10 |
+| warrior, before | 0 | 7 | 7.5 | 0,0,0,0,0,0,0,1,2,0 | l3 l5 l7 d9 l9 d8 l8 d9 l8 l9 |
+| warrior, after | 3 | 4 | 8.4 | 0,0,0,0,0,1,0,0,2,0 | l3 l5 d6 l7 w10 d9 d9 l9 w10 w10 |
+| archer, before | 3 | 4 | 7.1 | 0,0,0,0,0,0,0,1,2,0 | l3 l5 l7 d9 d8 l9 d9 w10 w10 w10 |
+| archer, after | 5 | 4 | 7.5 | 0,0,0,0,0,0,0,1,0,0 | l3 l5 l7 l9 w10 w10 w10 w10 d8 w10 |
+
+In one line: the starter weapon does NOT make the early rooms visibly easier (rooms 1-3 take the same time and cost the same HP;
+nobody died before room 5 before or after). Fresh runs go one win up per class and about a room further (8.8 -> 9.0, 6.4 -> 7.0,
+6.9 -> 7.9 rooms cleared), which is the size of the noise at 10 seeds. The careers moved both ways (mage 6 -> 1 wins, warrior
+0 -> 3, archer 3 -> 5): one career is one chain of 10 dependent runs, and the starter changes the first run, so the whole chain is a
+different sample; it says nothing about +4 % damage. Nothing was retuned. Part 2 changes no run (materials do not touch the stream).
+Checks of this step (final build): `tools/build.py`; `tools/determinism.js` (500 rooms, every class and build, economy, cage, daily:
+identical); `tools/check_i18n.js` all passed (613 keys, both fonts); `tools/check_tutorial.js` all passed; `tools/check_bag.js`: all
+pass except `mod longCracks` (fails the same way on the untouched branch); `tools/contrast.js` 0 failing; browser: `qa/gear.js` PASS
+(4 cases), `qa/equip.js` PASS, `qa/glow.js` PASS, `qa/daily.js` 32 checks 0 failing, `qa/tutorial.js land_en` 131 of 131
+(its "no kept items" check now expects the starter as the one kept item), `qa/bot.js --seeds 3,4,5` (mage, 960x540): 3 runs, 2 wins, 0 console errors, 0 softlocks, 0 mismatches with Node.
+Not checked: the in-run inventory card (same code path as the city's), the shop / upgrade / Don Montoto cards with the long names
+(they wrap the name the same way; not looked at), `qa/screens.js`, `qa/touch.js`, `qa/session.js`, `qa/city.js`, the tutorial in
+Spanish or portrait, a real v8 save from a player's browser (only built ones), Firefox / Safari.
+Rough: (1) a fresh mage or archer does not SHOW the starter (only the warrior has a bare sheet with hands; `G.gearLook` is not wired
+into `src/view/hd.js`); (2) "Chainmail Targe" / "Rodela de Malla" for a medium shield is a made-up fit of the three materials to a
+shield: the user may want other words; (3) materials are the same for every class, so a mage can find and wear plate (as decided;
+no class limit exists); (4) item icons do not show the material; (5) the career bot values the starter like any item and may sell it
+when it finds a better weapon (as a player would); (6) `BAL.daily` kit items now carry materials, which changes nothing in the run.
