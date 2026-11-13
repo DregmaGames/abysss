@@ -31,6 +31,25 @@
       deathKeepsEquipped: true
     },
 
+    // Rooms (step big rooms; src/mapgen.js). Sizes in tiles of 16 px. A room fills a 16:9 view at pixel scale 2 on a 922-1080 px high
+    // window (820x461 to 960x540 art px): about twice the floor of the old 30-36 x 20-24 rooms. On a smaller view the camera follows the hero.
+    room: {
+      w: [52, 58], h: [30, 33],       // normal rooms
+      boss: { w: 54, h: 32 },         // the boss room: eight pillars in two rows
+      startMargin: 12,                // the start and the exit are at least this many tiles from the side walls
+      // tiles that never become wall: +-start round the start tile (the merchant and Don Montoto's cage stand there), exitW either side of
+      // the exit down to row exitH (the chest), centreW x centreH round the super fissure
+      reserve: { start: 2, exitW: 2, exitH: 6, centreW: 6, centreH: 5 },
+      corner: { chance: 0.8, w: [5, 11], h: [3, 6], step: 0.5 },      // cut corners; `step`: chance of a second, narrower and deeper step
+      bumps: [5, 9], bossBumps: 4, bumpLen: [3, 7], bumpDepth: [1, 3],      // buttresses along the walls (two deep ones make an alcove)
+      blocks: [11, 17], blockGap: 2,  // pillars and wall blocks inside a normal room; free tiles kept round each
+      blockKinds: { pillar: 9, wide: 4, tall: 3, big: 2, ell: 2 },      // weights: 2-3 square | 4-7 x 2 | 2 x 4-6 | 4-5 x 3-4 | an L of two walls
+      // no crack centre this close (tiles: x, y) to the start, the exit column (down to row y) and the room centre
+      site: { start: [6, 5], exit: [4, 8], centre: [9, 7] },
+      decals: 0.06,                   // floor marks per floor tile
+      torchGap: 5, torchTop: 0.6, torchIn: 0.3      // wall torches: min tiles apart, chance per face tile on the top wall / on inner walls
+    },
+
     // Doors (step 6). After every room but the last: leave with the sealed bag, or go on through one of two doors.
     // The two doors after room N depend only on the run seed and N (G.doorsFor); each is a fissure modifier for the
     // next room and pays `loot`: +that share of gear drop chances and +that much rarity luck (0.25 = +25 %).
@@ -131,17 +150,17 @@
                   summonEvery: 7, summon: 2, summonType: 'imp' },
       tyrant:   { ai: 'boss', r: 14, hp: 1200, speed: 32, dmg: 14, exp: 120, threat: 40, shadow: 'l', boss: true,
                   chaseTime: 2.4, enrageAt: 0.4, enrageRate: 0.7,
-                  slamRadius: 56, slamWindup: 0.95, slamDmg: 22,
+                  slamRadius: 66, slamWindup: 0.95, slamDmg: 22,      // step big rooms: radius 56 -> 66 for the 54 x 32 arena
                   burstShots: 12, burstDmg: 9, burstSpeed: 70, burstGap: 0.55, burstWindup: 0.6,
-                  summon: 3,
-                  chargeWindup: 0.75, chargeSpeed: 180, chargeTime: 0.6, chargeDmg: 18 }
+                  summon: 4,                                           // step big rooms: was 3
+                  chargeWindup: 0.75, chargeSpeed: 180, chargeTime: 0.8, chargeDmg: 18 }      // step big rooms: the charge runs 144 px (was 0.6 s, 108 px)
     },
     contactCd: 0.6,
 
     // The interactive tutorial (src/sim/tutorial.js, src/view/tutorial.js): a small fixed room, weak monsters, a hero that cannot die.
     // Nothing in it is banked: no exp, gold, drops or progress. The tutorial's one item (own-class weapon) is the only thing it leaves on the character.
     tutorial: {
-      w: 24, h: 26,                   // room size in tiles
+      w: 38, h: 26,                   // room size in tiles (step big rooms: was 24 wide; every position in it is relative to the room)
       crackRow: 14, pitRow: 8,        // the crack runs wall to wall on this tile row; the super fissure is on that row, in the middle
       moveDist: 60,                   // step 1: px the hero must move
       hpMult: 0.8, dmgMult: 0.25,     // monster hp and damage (x the base numbers; the room multipliers are not used)
@@ -155,8 +174,10 @@
     },
 
     fissure: {
-      count:  [2, 3, 3, 3, 4, 4, 4, 4, 5, 2],             // normal fissures per room
-      budget: [5, 6, 7, 8, 9, 10, 11, 12, 13, 9],         // threat points per normal fissure
+      // step big rooms: about +45 % monsters per room in a room of twice the floor: one more crack per room (was 2, 3, 3, 3, 4, 4, 4, 4, 5, 2)
+      // and a bigger budget per crack (was 5 .. 13, 9); count x budget = 15, 24, 32, 36, 50, 60, 65, 70, 96, 27 (was 10, 18, 21, 24, 36, 40, 44, 48, 65, 18)
+      count:  [3, 4, 4, 4, 5, 5, 5, 5, 6, 3],             // normal fissures per room
+      budget: [5, 6, 8, 9, 10, 12, 13, 14, 16, 9],        // threat points per normal fissure
       pool: [                                             // spawn weights, by room
         { imp: 8, bat: 3 },
         { imp: 6, bat: 3, skeleton: 2 },
@@ -169,29 +190,35 @@
         { imp: 4, bat: 3, skeleton: 4, hound: 4, cultist: 3 },
         { imp: 6, bat: 3, skeleton: 3, hound: 1 }
       ],
-      superWave: [
-        ['warden', 'imp', 'imp', 'imp'],
-        ['warden', 'imp', 'imp', 'bat', 'bat', 'skeleton'],
-        ['warden', 'hound', 'imp', 'imp', 'skeleton', 'skeleton'],
-        ['warden', 'hound', 'hound', 'bat', 'bat', 'bat', 'imp', 'imp'],
-        ['warden', 'warden', 'imp', 'imp', 'imp', 'skeleton'],
-        ['warden', 'warden', 'hound', 'hound', 'bat', 'bat'],
-        ['warden', 'warden', 'hound', 'skeleton', 'skeleton', 'imp', 'imp', 'imp'],
-        ['warden', 'warden', 'hound', 'hound', 'hound', 'skeleton', 'skeleton'],
-        ['warden', 'warden', 'warden', 'hound', 'hound', 'bat', 'bat', 'bat', 'bat'],
+      superWave: [                                        // step big rooms: about +45 % monsters (was 4, 6, 6, 8, 6, 6, 8, 7, 9), the same wardens
+        ['warden', 'imp', 'imp', 'imp', 'imp', 'bat'],
+        ['warden', 'imp', 'imp', 'imp', 'bat', 'bat', 'bat', 'skeleton', 'skeleton'],
+        ['warden', 'hound', 'hound', 'imp', 'imp', 'imp', 'skeleton', 'skeleton', 'bat'],
+        ['warden', 'hound', 'hound', 'hound', 'bat', 'bat', 'bat', 'bat', 'imp', 'imp', 'imp', 'skeleton'],
+        ['warden', 'warden', 'imp', 'imp', 'imp', 'imp', 'skeleton', 'skeleton', 'bat'],
+        ['warden', 'warden', 'hound', 'hound', 'hound', 'bat', 'bat', 'bat', 'imp'],
+        ['warden', 'warden', 'hound', 'hound', 'skeleton', 'skeleton', 'skeleton', 'imp', 'imp', 'imp', 'imp', 'bat'],
+        ['warden', 'warden', 'hound', 'hound', 'hound', 'hound', 'skeleton', 'skeleton', 'skeleton', 'imp'],
+        ['warden', 'warden', 'warden', 'hound', 'hound', 'hound', 'bat', 'bat', 'bat', 'bat', 'bat', 'imp', 'imp'],
         ['tyrant']
       ],
       // the crack network: all cracks open when the room starts and go dark segment by segment as
       // their monsters die. An open crack is a wall for walkers; the player crosses it with the dodge.
-      crackLen: [90, 130],            // px per arm (two arms per crack; a branch has one)
+      crackLen: [150, 215],           // px per arm (two arms per crack; a branch has one). Step big rooms: was 90-130; the network spans the room
+      fork: 0.035,                    // chance per px of arm that a side crack forks off (was 0.07 on the shorter arms)
+      bend: 3,                        // times an arm may turn to run past a pillar, a wall or a reserved zone instead of ending there
+      minCells: 260,                  // a crack with fewer px than this (rim included) is a stub: the generator tries again (was 12)
+      aim: 6,                         // headings tried for a new crack: it takes the one with the most free floor along both arms
+      thirdArm: [0.5, 0.5, 0.8],      // chance that a crack grows a third arm at about a right angle; its length = lo..hi x the arm length
+      superPit: { r: 16, arms: [7, 8], armLen: [50, 72], keep: 40 },      // the super fissure: pit radius, arms, px per arm; normal cracks keep `keep` px from its centre
       segments: 4,                    // dark bands per crack, the tips go dark first
       joinChance: 0.45,               // chance that a crack branches off an earlier one (joined = shared kill meter)
-      siteGap: 8,                     // min tiles (manhattan) between separate crack centres
+      siteGap: 14,                    // min tiles (manhattan) between separate crack centres (was 8 in the smaller rooms)
       segHeal: 0.01,                  // heal (fraction of max HP) each time a segment goes dark
-      aliveThreat: 1.4,               // monsters alive from the network at once: up to this x one crack's budget
+      aliveThreat: 1.85,              // monsters alive from the network at once: up to this x one crack's budget (step big rooms: was 1.4; with the bigger budgets about +45 % alive at once)
       firstDelay: 1.2,
       openTime: 1.0, closeTime: 1.0, superOpenTime: 1.8, superCloseTime: 1.6,
-      spawnEvery: 1.3, superSpawnEvery: 0.5,       // s between two network spawns (step 10: was 0.3, a burst; slower spawns = longer rooms for a strong hero)
+      spawnEvery: 0.9, superSpawnEvery: 0.35,      // s between two network spawns (step 10: 0.3 -> 1.3; step big rooms: 1.3 -> 0.9 and 0.5 -> 0.35, so +45 % monsters come in about the same time)
       closeExp: 5, closeHeal: 0.03, superHeal: 0.08
     },
 
@@ -1364,19 +1391,25 @@
   // `len` px long. Every cell gets a segment index (band of `order`): the crack goes dark band by band.
   // `ok(x, y)` (optional, crack-local px): false where no crack may run. An arm that reaches such a
   // place ends there and tapers to a point, instead of being cut off along the zone's edge.
-  function genFissure(rng, big, len, oneArm, ang0, ok) {
-    var core = {}, maxO = 0;
+  // `P` (optional): { r, arms: [lo, hi], armLen: [lo, hi] } sizes the super fissure's pit (default: the small pit of the
+  // tutorial room); { fork, third: [chance, lo, hi] } for a normal crack: fork chance per px of arm, and a third arm at about
+  // a right angle, `lo`..`hi` x the arm length (BAL.fissure).
+  var KO = 2048, KW = 4096;      // a crack px (x, y) relative to its centre is the number (y + KO) * KW + x + KO
+  var LOOK = 9, TURNS = [0.6, 1.0, 1.4], MAXTURN = 1.5;      // px an arm looks ahead; the turns it tries (rad, either side); how far it may end up from its first heading
+  function genFissure(rng, big, len, oneArm, ang0, ok, P) {
+    P = P || {};
+    var core = new Map(), maxO = 0, forkP = P.fork || (big ? 0.08 : 0.07);
     function stamp(x, y, w, o) {
       var h = Math.floor(w / 2);
       for (var dy = -h; dy <= h; dy++) for (var dx = -h; dx <= h; dx++) {
         if (w > 2 && Math.abs(dx) === h && Math.abs(dy) === h) continue;
-        var k = (Math.round(x) + dx) + ',' + (Math.round(y) + dy);
-        if (!(k in core) || core[k] > o) core[k] = o;
+        var k = (Math.round(y) + dy + KO) * KW + Math.round(x) + dx + KO, v = core.get(k);
+        if (v === undefined || v > o) core.set(k, o);
       }
       if (o > maxO) maxO = o;
     }
     function walk(x, y, a, len, w0, o0, depth) {
-      var base = a, pts = [], forks = [], k, n;
+      var base = a, first = a, pts = [], forks = [], k, n, bends = ok && P.bend && !depth ? P.bend : 0, j;
       for (k = 0; k < len; k++) {                      // pass 1: the path, until it ends or is stopped
         if (ok && !ok(x, y)) break;
         pts.push(x, y);
@@ -1384,8 +1417,18 @@
         a += rng.range(-0.6, 0.6);
         if (a > base + 0.8) a = base + 0.8;
         if (a < base - 0.8) a = base - 0.8;
+        // something in the way a few px ahead (a pillar, a wall, a reserved zone): the arm turns to run past it instead of ending there,
+        // at most P.bend times; with no free side it goes on and ends in a point as before
+        if (bends > 0 && !ok(x + G.M.cos(a) * LOOK, y + G.M.sin(a) * 0.8 * LOOK)) {
+          var sgn = rng.chance(0.5) ? 1 : -1;
+          for (j = 0; j < TURNS.length * 2; j++) {
+            var a2 = base + TURNS[j >> 1] * (j % 2 ? -sgn : sgn), c2 = G.M.cos(a2), s2 = G.M.sin(a2) * 0.8;
+            if (Math.abs(a2 - first) > MAXTURN) continue;      // it winds past things but keeps its heading: no curling up in a pocket
+            if (ok(x + c2 * LOOK, y + s2 * LOOK) && ok(x + c2 * LOOK * 2, y + s2 * LOOK * 2) && ok(x + c2 * LOOK * 3, y + s2 * LOOK * 3)) { a = base = a2; bends--; break; }
+          }
+        }
         x += G.M.cos(a); y += G.M.sin(a) * 0.8;
-        if (depth < 2 && t > 0.2 && t < 0.75 && rng.chance(big ? 0.08 : 0.07)) {
+        if (depth < 2 && t > 0.2 && t < 0.75 && rng.chance(forkP)) {
           forks.push([k, x, y, a + (rng.chance(0.5) ? 1 : -1) * rng.range(0.7, 1.2)]);
         }
       }
@@ -1400,35 +1443,48 @@
     }
     var i, ang;
     if (big) {
-      var R = 13, arms = rng.int(6, 7), a0 = rng.range(0, 6.283);
+      var R = P.r || 13, pa = P.arms || [6, 7], pl = P.armLen || [34, 50], arms = rng.int(pa[0], pa[1]), a0 = rng.range(0, 6.283);
       for (var py = -R; py <= R; py++) for (var px = -R - 2; px <= R + 2; px++) {      // the pit
         var d = Math.sqrt(px * px * 0.72 + py * py * 1.25) + G.M.sin(G.M.atan2(py, px) * 5 + a0) * 1.2;
         if (d <= R) stamp(px, py, 1, d * 0.8);
       }
       for (i = 0; i < arms; i++) {
         ang = a0 + i / arms * 6.283 + rng.range(-0.25, 0.25);
-        walk(G.M.cos(ang) * (R - 3), G.M.sin(ang) * (R - 3) * 0.8, ang, rng.int(34, 50), 6, R * 0.8, 1);
+        walk(G.M.cos(ang) * (R - 3), G.M.sin(ang) * (R - 3) * 0.8, ang, rng.int(pl[0], pl[1]), 6, R * 0.8, 1);
       }
     } else if (oneArm) {
       walk(0, 0, ang0, len, 6, 0, 0);
     } else {
       ang = rng.range(0, Math.PI);
+      if (ok && P.aim) {      // of P.aim headings, the one with the most free floor along both arms: cracks run where the room is open
+        var bestA = ang, bestRun = -1, q, run, st;
+        for (q = 0; q < P.aim; q++) {
+          var ta = ang + q * Math.PI / P.aim, tc = G.M.cos(ta), ts = G.M.sin(ta) * 0.8;
+          for (run = 0, st = 4; st <= len && ok(tc * st, ts * st); st += 4) run++;
+          for (st = 4; st <= len && ok(-tc * st, -ts * st); st += 4) run++;
+          if (run > bestRun) { bestRun = run; bestA = ta; }
+        }
+        ang = bestA;
+      }
       walk(0, 0, ang, len, 7, 0, 0);
       walk(0, 0, ang + Math.PI + rng.range(-0.3, 0.3), len - rng.int(0, 8), 7, 0, 0);
+      if (P.third && rng.chance(P.third[0])) {      // a third arm: the crack reaches across more of the room without being one more crack
+        walk(0, 0, ang + (rng.chance(0.5) ? 1 : -1) * Math.PI / 2 + rng.range(-0.4, 0.4), Math.round(len * rng.range(P.third[1], P.third[2])), 6, 0, 0);
+      }
     }
-    var cells = [], k, p;
-    for (k in core) { p = k.split(','); cells.push({ x: +p[0], y: +p[1], o: core[k] / maxO, core: true }); }
-    var edge = {};
+    var cells = [], edge = new Map();
+    core.forEach(function (o, k) { cells.push({ x: k % KW - KO, y: Math.floor(k / KW) - KO, o: o / maxO, core: true }); });
     for (i = 0; i < cells.length; i++) {
       var c = cells[i];
       for (var dy = -1; dy <= 1; dy++) for (var dx = -1; dx <= 1; dx++) {
         if (!dx && !dy) continue;
-        k = (c.x + dx) + ',' + (c.y + dy);
-        if (k in core) continue;
-        if (!(k in edge) || edge[k] > c.o) edge[k] = c.o;
+        var ek = (c.y + dy + KO) * KW + c.x + dx + KO, ev;
+        if (core.has(ek)) continue;
+        ev = edge.get(ek);
+        if (ev === undefined || ev > c.o) edge.set(ek, c.o);
       }
     }
-    for (k in edge) { p = k.split(','); cells.push({ x: +p[0], y: +p[1], o: edge[k], core: false }); }
+    edge.forEach(function (o, k) { cells.push({ x: k % KW - KO, y: Math.floor(k / KW) - KO, o: o, core: false }); });
     cells.sort(function (a, b) { return a.o - b.o || a.y - b.y || a.x - b.x; });
     return cells;
   }
@@ -1440,20 +1496,22 @@
     var seed = G.hash32(runSeed >>> 0, index * 7919 + 13);
     var rng = new G.RNG(seed);
     var boss = index === B.run.rooms - 1;
-    var W = boss ? 34 : rng.int(30, 36), H = boss ? 24 : rng.int(20, 24);
+    var R = B.room, RV = R.reserve;
+    var W = boss ? R.boss.w : rng.int(R.w[0], R.w[1]), H = boss ? R.boss.h : rng.int(R.h[0], R.h[1]);
     var tiles = new Uint8Array(W * H), x, y, i;
     function at(tx, ty) { return tx < 0 || ty < 0 || tx >= W || ty >= H ? 1 : tiles[ty * W + tx]; }
     for (y = 0; y < H; y++) for (x = 0; x < W; x++) {
       if (x === 0 || x === W - 1 || y < 2 || y === H - 1) tiles[y * W + x] = 1;
     }
-    var sx = rng.int(9, W - 10), sy = H - 3;
-    var ex = rng.int(9, W - 10);
+    var sx = rng.int(R.startMargin, W - 1 - R.startMargin), sy = H - 3;
+    var ex = rng.int(R.startMargin, W - 1 - R.startMargin);
     var cx = Math.floor(W / 2), cy = Math.floor(H / 2) + 1;
     var chest = { tx: ex, ty: 4 };
+    // tiles that never become wall: round the start (the merchant and the cage stand there), under the exit (the chest), round the super fissure
     function reserved(tx, ty) {
-      if (Math.abs(tx - sx) <= 2 && Math.abs(ty - sy) <= 2) return true;
-      if (Math.abs(tx - ex) <= 2 && ty <= 6) return true;
-      if (Math.abs(tx - cx) <= 5 && Math.abs(ty - cy) <= 4) return true;
+      if (Math.abs(tx - sx) <= RV.start && Math.abs(ty - sy) <= RV.start) return true;
+      if (Math.abs(tx - ex) <= RV.exitW && ty <= RV.exitH) return true;
+      if (Math.abs(tx - cx) <= RV.centreW && Math.abs(ty - cy) <= RV.centreH) return true;
       return false;
     }
     function fill(bx, by, bw, bh) {
@@ -1461,34 +1519,49 @@
         if (xx > 0 && yy > 1 && xx < W - 1 && yy < H - 1 && !reserved(xx, yy)) tiles[yy * W + xx] = 1;
       }
     }
-    // irregular outline: cut corners and add buttresses along the walls
-    var cw, ch;
-    if (rng.chance(0.8)) { cw = rng.int(3, 7); ch = rng.int(2, 4); fill(1, 2, cw, ch); }
-    if (rng.chance(0.8)) { cw = rng.int(3, 7); ch = rng.int(2, 4); fill(W - 1 - cw, 2, cw, ch); }
-    if (rng.chance(0.8)) { cw = rng.int(3, 7); ch = rng.int(2, 4); fill(1, H - 1 - ch, cw, ch); }
-    if (rng.chance(0.8)) { cw = rng.int(3, 7); ch = rng.int(2, 4); fill(W - 1 - cw, H - 1 - ch, cw, ch); }
-    var bumps = boss ? 2 : rng.int(2, 5);
-    for (i = 0; i < bumps; i++) {
-      var side = rng.int(0, 3), bl = rng.int(2, 4), bd = rng.int(1, 2);
-      if (side === 0) fill(rng.int(8, W - 12), 2, bl, bd);
-      else if (side === 1) fill(rng.int(8, W - 12), H - 1 - bd, bl, bd);
-      else if (side === 2) fill(1, rng.int(7, H - 10), bd, bl);
-      else fill(W - 1 - bd, rng.int(7, H - 10), bd, bl);
+    // irregular outline: cut corners (some in two steps) and buttresses along the walls
+    var cw, ch, CN = R.corner, k0;
+    for (k0 = 0; k0 < 4; k0++) {
+      if (!rng.chance(CN.chance)) continue;
+      cw = rng.int(CN.w[0], CN.w[1]); ch = rng.int(CN.h[0], CN.h[1]);
+      var left = k0 % 2 === 0, top = k0 < 2, c2 = rng.chance(CN.step) ? Math.max(2, cw >> 1) : 0, h2 = c2 ? ch + rng.int(1, 3) : 0;
+      fill(left ? 1 : W - 1 - cw, top ? 2 : H - 1 - ch, cw, ch);
+      if (c2) fill(left ? 1 : W - 1 - c2, top ? 2 : H - 1 - h2, c2, h2);
     }
-    // pillars and wall blocks inside the room (always at least 2 tall, so they show a top and a face)
+    var bumps = boss ? R.bossBumps : rng.int(R.bumps[0], R.bumps[1]);
+    for (i = 0; i < bumps; i++) {
+      var side = rng.int(0, 3), bl = rng.int(R.bumpLen[0], R.bumpLen[1]), bd = rng.int(R.bumpDepth[0], R.bumpDepth[1]);
+      if (side === 0) fill(rng.int(8, W - 9 - bl), 2, bl, bd);
+      else if (side === 1) fill(rng.int(8, W - 9 - bl), H - 1 - bd, bl, bd);
+      else if (side === 2) fill(1, rng.int(6, H - 7 - bl), bd, bl);
+      else fill(W - 1 - bd, rng.int(6, H - 7 - bl), bd, bl);
+    }
+    // pillars and wall blocks inside the room (always at least 2 tall, so they show a top and a face). Kinds: pillar (2-3 square),
+    // wide wall, tall wall, big block, and an L (a wide and a tall wall sharing a corner). Every block keeps `blockGap` free tiles round it.
     var blocks = [];
     if (boss) {
-      blocks = [[7, 6, 2, 2], [W - 9, 6, 2, 2], [7, H - 8, 2, 2], [W - 9, H - 8, 2, 2]];
+      var px0 = [9, 18, W - 20, W - 11];
+      for (i = 0; i < px0.length; i++) blocks.push([px0[i], 7, 2, 2], [px0[i], H - 10, 2, 2]);
     } else {
-      var n = rng.int(4, 8), tries = 0;
-      while (blocks.length < n && tries++ < 300) {
-        var bw = rng.int(2, 3), bh = rng.int(2, 3);
-        if (rng.chance(0.2)) bw = rng.int(4, 5);
+      var n = rng.int(R.blocks[0], R.blocks[1]), tries = 0, BK = R.blockKinds, gp = R.blockGap;
+      while (blocks.length < n && tries++ < 600) {
+        var kd = rng.weighted([BK.pillar, BK.wide, BK.tall, BK.big, BK.ell]), bw, bh, ell = 0;
+        if (kd === 0) { bw = rng.int(2, 3); bh = rng.int(2, 3); }
+        else if (kd === 1) { bw = rng.int(4, 7); bh = 2; }
+        else if (kd === 2) { bw = 2; bh = rng.int(4, 6); }
+        else if (kd === 3) { bw = rng.int(4, 5); bh = rng.int(3, 4); }
+        else { bw = rng.int(4, 6); bh = rng.int(4, 5); ell = rng.int(1, 4); }
         var bx = rng.int(4, W - 5 - bw), by = rng.int(5, H - 5 - bh), ok = true;
-        for (y = by - 2; y < by + bh + 2 && ok; y++) for (x = bx - 2; x < bx + bw + 2 && ok; x++) {
+        for (y = by - gp; y < by + bh + gp && ok; y++) for (x = bx - gp; x < bx + bw + gp && ok; x++) {
           if (reserved(x, y) || at(x, y)) ok = false;
         }
-        if (ok) { blocks.push([bx, by, bw, bh]); fill(bx, by, bw, bh); }
+        if (!ok) continue;
+        blocks.push([bx, by, bw, bh]);
+        if (!ell) fill(bx, by, bw, bh);
+        else {      // the L: a horizontal bar on the top or bottom row pair, a vertical bar on the left or right column pair
+          fill(bx, ell <= 2 ? by : by + bh - 2, bw, 2);
+          fill(ell % 2 ? bx : bx + bw - 2, by, 2, bh);
+        }
       }
     }
     if (boss) for (i = 0; i < blocks.length; i++) fill(blocks[i][0], blocks[i][1], blocks[i][2], blocks[i][3]);
@@ -1519,17 +1592,25 @@
     for (i = 0; i < W * H; i++) if (!seen[i]) tiles[i] = 1;
 
     // fissure sites: open floor, away from the start, the exit and the centre
-    var cand = [];
+    var cand = [], ST = R.site;
     for (y = 4; y < H - 3; y++) for (x = 3; x < W - 3; x++) {
       var clear = true;
       for (var dy = -1; dy <= 1 && clear; dy++) for (var dx = -2; dx <= 2 && clear; dx++) if (at(x + dx, y + dy)) clear = false;
       if (!clear) continue;
-      if (Math.abs(x - sx) <= 5 && Math.abs(y - sy) <= 4) continue;
-      if (Math.abs(x - ex) <= 3 && y <= 7) continue;
-      if (Math.abs(x - cx) <= 7 && Math.abs(y - cy) <= 5) continue;
+      if (Math.abs(x - sx) <= ST.start[0] && Math.abs(y - sy) <= ST.start[1]) continue;
+      if (Math.abs(x - ex) <= ST.exit[0] && y <= ST.exit[1]) continue;
+      if (Math.abs(x - cx) <= ST.centre[0] && Math.abs(y - cy) <= ST.centre[1]) continue;
       cand.push([x, y]);
     }
     rng.shuffle(cand);
+    // open sites first (no wall within 3 tiles), keeping the shuffled order inside each group
+    var openC = [], tightC = [];
+    for (i = 0; i < cand.length; i++) {
+      var op = true;
+      for (dy = -3; dy <= 3 && op; dy++) for (dx = -3; dx <= 3 && op; dx++) if (at(cand[i][0] + dx, cand[i][1] + dy)) op = false;
+      (op ? openC : tightC).push(cand[i]);
+    }
+    cand = openC.concat(tightC);
     // The crack network: `count` long cracks, closer together than single fissures used to be.
     // Some branch off an earlier crack: joined cracks form a cluster that shares one kill meter.
     var F = B.fissure, dm = (mod && B.doors.mods[mod]) || {}, want = F.count[index] + (dm.extraCracks || 0), fissures = [];
@@ -1539,7 +1620,7 @@
       if (Math.abs(px - sxp) <= 40 + m && Math.abs(py - syp) <= 34 + m) return true;   // start
       if (Math.abs(px - exp_) <= 30 + m && py <= 8 * T + m) return true;               // chest and exit
       var qx = px - cxp, qy = py - cyp;
-      return qx * qx + qy * qy < (30 + m) * (30 + m);                                  // super fissure pit
+      return qx * qx + qy * qy < (F.superPit.keep + m) * (F.superPit.keep + m);        // super fissure pit
     }
     function keepOut(px, py) {                     // art pixels that never hold a crack
       return at(Math.floor(px / T), Math.floor(py / T)) || zone(px, py, 0);
@@ -1561,7 +1642,8 @@
       for (var oy = -1; oy <= 1; oy++) for (var ox = -1; ox <= 1; ox++) if (at(tx + ox, ty + oy)) return false;
       return !keepOut(px, py);
     }
-    var gap = F.siteGap, ci = 0, tries = 0;
+    var SECT = [0, 5, 2, 3, 1, 4], flipX = rng.chance(0.5), flipY = rng.chance(0.5), nSite = 0;
+    var gap = F.siteGap, ci = 0, tries = 0, CP = { fork: F.fork, third: F.thirdArm, bend: F.bend, aim: F.aim };
     while (fissures.length < want && tries++ < 200) {
       var made = null, k2;
       if (fissures.length && rng.chance(F.joinChance)) {
@@ -1574,31 +1656,42 @@
         if (mids.length) {
           var m0 = mids[rng.int(0, mids.length - 1)], away = G.M.atan2(m0.y, m0.x) + (rng.chance(0.5) ? 1 : -1) * rng.range(0.7, 1.3);
           var bxp = par.x + m0.x, byp = par.y + m0.y;
-          made = { x: bxp, y: byp, cl: par.cl, cells: place(bxp, byp, genFissure(rng, false, rng.int(cLo, cHi), true, away, clearOf(bxp, byp))) };
+          made = { x: bxp, y: byp, cl: par.cl, cells: place(bxp, byp, genFissure(rng, false, rng.int(cLo, cHi), true, away, clearOf(bxp, byp), CP)) };
         }
       }
       if (!made) {
-        for (; ci < cand.length && !made; ci++) {
-          var fx = cand[ci][0] * T + 8, fy = cand[ci][1] * T + 8, far = true;
-          for (k2 = 0; k2 < fissures.length; k2++) if (Math.abs(fissures[k2].x - fx) + Math.abs(fissures[k2].y - fy) < gap * T) far = false;
-          if (far && siteFree(fx, fy)) made = { x: fx, y: fy, cl: -1, cells: place(fx, fy, genFissure(rng, false, rng.int(cLo, cHi), false, 0, clearOf(fx, fy))) };
+        // a new crack centre. The room is cut into 3 x 2 sectors and each new crack goes to the next sector of a diagonal order
+        // (mirrored at random), so the network spreads over the whole room; inside the sector: the first candidate (shuffled; the
+        // open ones, 3 tiles from any wall, come first) at least `gap` tiles from every other centre. No candidate there: any sector.
+        for (var pass = 0; pass < 2 && !made; pass++) {
+          var sec = SECT[nSite % 6], scx = flipX ? 2 - sec % 3 : sec % 3, scy = flipY ? 1 - (sec / 3 | 0) : sec / 3 | 0;
+          for (ci = 0; ci < cand.length && !made; ci++) {
+            var cd0 = cand[ci], fx = cd0[0] * T + 8, fy = cd0[1] * T + 8, far = true;
+            if (cd0[2]) continue;
+            if (!pass && (Math.min(2, Math.floor(cd0[0] * 3 / W)) !== scx || Math.min(1, Math.floor((cd0[1] - 2) * 2 / (H - 3))) !== scy)) continue;
+            for (k2 = 0; k2 < fissures.length; k2++) if (Math.abs(fissures[k2].x - fx) + Math.abs(fissures[k2].y - fy) < gap * T) far = false;
+            if (!far || !siteFree(fx, fy)) continue;
+            cd0[2] = 1;
+            made = { x: fx, y: fy, cl: -1, cells: place(fx, fy, genFissure(rng, false, rng.int(cLo, cHi), false, 0, clearOf(fx, fy), CP)) };
+          }
         }
-        if (!made) { if (gap > 3) { gap--; ci = 0; continue; } break; }
+        nSite++;
+        if (!made) { if (gap > 3) { gap--; continue; } break; }
       }
-      if (made.cells.length < 12) continue;                     // clipped to almost nothing: try again
+      if (made.cells.length < F.minCells) continue;             // stopped or clipped to a stub: try again
       if (made.cl < 0) made.cl = fissures.length;
       made.big = false;
       for (k2 = 0; k2 < made.cells.length; k2++) made.cells[k2].seg = Math.min(F.segments - 1, Math.floor(made.cells[k2].o * F.segments));
       fissures.push(made);
     }
     var bx2 = cx * T + 8, by2 = cy * T + 8;
-    var pit = genFissure(rng, true).filter(function (c) { return !at(Math.floor((bx2 + c.x) / T), Math.floor((by2 + c.y) / T)); });
+    var pit = genFissure(rng, true, 0, false, 0, null, F.superPit).filter(function (c) { return !at(Math.floor((bx2 + c.x) / T), Math.floor((by2 + c.y) / T)); });
     fissures.push({ x: bx2, y: by2, big: true, cl: -1, cells: pit });
 
     // dressing: floor decals, wall torches on south-facing wall faces
     var decals = [], torches = [];
     for (y = 2; y < H - 1; y++) for (x = 1; x < W - 1; x++) {
-      if (!at(x, y) && rng.chance(0.06) && !(x === chest.tx && y === chest.ty)) {
+      if (!at(x, y) && rng.chance(R.decals) && !(x === chest.tx && y === chest.ty)) {
         decals.push({ x: x * T + rng.int(3, 12), y: y * T + rng.int(4, 12), k: rng.int(0, 5) });
       }
     }
@@ -1608,7 +1701,7 @@
       for (x = 1; x < W - 1; x++) {
         if (!at(x, y) || at(x, y + 1)) continue;
         if (y === 1 && Math.abs(x - ex) <= 1) continue;
-        if (x - lastT >= 5 && rng.chance(y === 1 ? 0.6 : 0.3)) { torches.push({ x: x * T + 8, y: y * T + 8 }); lastT = x; }
+        if (x - lastT >= R.torchGap && rng.chance(y === 1 ? R.torchTop : R.torchIn)) { torches.push({ x: x * T + 8, y: y * T + 8 }); lastT = x; }
       }
     }
 
@@ -3857,7 +3950,7 @@
 })(globalThis.G = globalThis.G || {});
 
 // ---- src/sim/tutorial.js
-// The interactive tutorial (sim side): a small fixed room and a director that moves through 13 steps, each finished by something the player does.
+// The interactive tutorial (sim side): a fixed room and a director that moves through 13 steps, each finished by something the player does.
 // Built after fissures.js. Everything here is deterministic (no wall clock, no Math.random) and only runs when the Sim was built with `tutorial` (a hand-made
 // room, weak monsters, a hero that cannot die, no exp / gold / drops / banking). The view (src/view/tutorial.js) only reads `sim.tut` and the 'tutstep' /
 // 'tutdone' events. Normal runs, the test room, the bots and the daily challenge never have `sim.tut`, so nothing in them changes.
@@ -3869,12 +3962,14 @@
   G.TUT_STEPS.forEach(function (id, i) { IDX[id] = i; });
 
   // ------------------------------------------------------------------ the room
-  // 24 x 26 tiles: the hero starts at the bottom, a crack runs wall to wall across the middle (the only way on is a dodge across it),
+  // BAL.tutorial.w x h tiles (38 x 26; 24 x 26 before the big rooms): the hero starts at the bottom, a crack runs wall to wall across the middle (the only way on is a dodge across it),
   // the super fissure is above it, the chest and the exit at the top. Pure function of the balance numbers: the same room every time.
   G.tutorialRoom = function (B) {
     var TB = B.tutorial, F = B.fissure, W = TB.w, H = TB.h, tiles = new Uint8Array(W * H), x, y, i, k;
     for (y = 0; y < H; y++) for (x = 0; x < W; x++) if (x === 0 || x === W - 1 || y < 2 || y === H - 1) tiles[y * W + x] = 1;
-    [[3, 17, 2, 2], [W - 5, 17, 2, 2], [3, 6, 2, 2], [W - 5, 6, 2, 2]].forEach(function (b) {      // four small pillars
+    var pillars = [[3, 17, 2, 2], [W - 5, 17, 2, 2], [3, 6, 2, 2], [W - 5, 6, 2, 2]];      // four small pillars near the side walls
+    if (W >= 34) pillars.push([9, 10, 2, 2], [W - 11, 10, 2, 2]);      // the wider room (step big rooms): two more, beside the super fissure
+    pillars.forEach(function (b) {
       for (var yy = b[1]; yy < b[1] + b[3]; yy++) for (var xx = b[0]; xx < b[0] + b[2]; xx++) tiles[yy * W + xx] = 1;
     });
     function at(tx, ty) { return tx < 0 || ty < 0 || tx >= W || ty >= H ? 1 : tiles[ty * W + tx]; }
@@ -3911,7 +4006,7 @@
     // dressing: a fixed handful of floor marks and torches on the top wall
     var rng = new G.RNG(0x7071), decals = [], torches = [];
     for (y = 2; y < H - 1; y++) for (x = 1; x < W - 1; x++) if (!at(x, y) && rng.chance(0.06)) decals.push({ x: x * T + rng.int(3, 12), y: y * T + rng.int(4, 12), k: rng.int(0, 5) });
-    [4, 8, 16, 20].forEach(function (tx) { torches.push({ x: tx * T + 8, y: 1 * T + 8 }); });
+    for (k = 4; ex - k >= 3; k += 4) torches.push({ x: (ex - k) * T + 8, y: 1 * T + 8 }, { x: (ex + k) * T + 8, y: 1 * T + 8 });      // every 4 tiles either side of the exit
     var h = 2166136261;
     for (i = 0; i < W * H; i++) h = Math.imul(h ^ tiles[i], 16777619);
     for (i = 0; i < fissures.length; i++) h = Math.imul(h ^ (fissures[i].x * 31 + fissures[i].y * 17 + fissures[i].cells.length), 16777619);
@@ -6119,6 +6214,7 @@
 (function (G) {
   var UI = G.UI, T = 16, fissSeq = 0;
   var FLASH_T = 24, FLASH_R = 18;        // bump flare: sim ticks, px radius
+  var ARM_GLOW = 52;                     // px between the lights along a crack's arms
 
   G.RoomView = function (scene, room) {
     var W = room.w, H = room.h, ground = [], shade = [], x, y, i;
@@ -6273,6 +6369,23 @@
     this.sprite = scene.add.image(f.x + minX, f.y + minY, this.key).setOrigin(0, 0).setDepth(-800);
     this.glow = scene.add.image(f.x, f.y, 'atlas', 'glow').setDepth(-790).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0);
     this.glow2 = f.big ? scene.add.image(f.x, f.y, 'atlas', 'glow').setDepth(-789).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0) : null;
+    // long cracks (step big rooms): one light in the middle no longer reaches the arms, so smaller lights sit along them,
+    // ARM_GLOW px apart, each tied to the segment (band) of the crack px under it: it goes out with that band
+    this.armGlows = [];
+    if (!f.big) {
+      for (i = 0; i < n; i++) {
+        var gc = cells[i], far = gc.core && this.depth[i] >= 2 && gc.x * gc.x + gc.y * gc.y >= ARM_GLOW * ARM_GLOW;
+        for (var g0 = 0; far && g0 < this.armGlows.length; g0++) {
+          var ag = this.armGlows[g0];
+          if ((ag.lx - gc.x) * (ag.lx - gc.x) + (ag.ly - gc.y) * (ag.ly - gc.y) < ARM_GLOW * ARM_GLOW) far = false;
+        }
+        if (!far) continue;
+        var gi2 = scene.add.image(f.x + gc.x, f.y + gc.y, 'atlas', 'glow').setDepth(-790).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0).setScale(0.6);
+        this.armGlows.push({ img: gi2, lx: gc.x, ly: gc.y, seg: gc.seg | 0, o: gc.o });
+      }
+    }
+    // a big crack is a big texture to upload: its shimmer and its opening are redrawn half as often
+    this.slow = this.w * this.h > 60000;
     this.last = '';
     this.C = {};
     var self = this;
@@ -6280,10 +6393,10 @@
   }
   // a crack of the network: each segment is open (rift light) or dark (a scar that cools)
   FissureView.prototype.updateNet = function (f, tick) {
-    var st = f.state, sh = tick >> 3, s, cool = [], minCool = 1, opening = st === 'opening';
+    var st = f.state, sh = this.slow ? (tick >> 4) : (tick >> 3), s, cool = [], minCool = 1, opening = st === 'opening';
     var fl = this.flash, flA = fl ? 1 - (tick - fl.tick) / FLASH_T : 0;
     if (flA <= 0) { flA = 0; this.flash = fl = null; }
-    var key = st + '|' + (opening ? Math.round(f.reveal * 80) : (f.litN ? sh : 0)) + '|' + Math.round(flA * 12);
+    var key = st + '|' + (opening ? Math.round(f.reveal * (this.slow ? 30 : 80)) : (f.litN ? sh : 0)) + '|' + Math.round(flA * 12);
     for (s = 0; s < f.nSeg; s++) {
       var cv = f.dark[s] ? Math.min(1, (tick - f.darkTick[s]) / 480) : -1;
       cool.push(cv);
@@ -6294,6 +6407,12 @@
     if (f.litN) { a = 0.5 * (opening ? f.reveal : 1) * (0.35 + 0.65 * litFrac) + ((tick >> 2) % 5) * 0.012; tint = 'rg2'; }
     else { a = 0.34 - minCool * 0.2; tint = 'em2'; }
     this.glow.setAlpha(a).setTint(UI.hex(tint));
+    for (s = 0; s < this.armGlows.length; s++) {
+      var ag = this.armGlows[s], cg = cool[ag.seg];
+      if (cg === undefined) ag.img.setAlpha(0);      // the title backdrop draws rooms without sim state
+      else if (cg < 0) ag.img.setAlpha(opening && ag.o > f.reveal ? 0 : 0.42 + ((tick >> 2) + s) % 5 * 0.012).setTint(UI.hex('rg2'));
+      else ag.img.setAlpha(Math.max(0, 0.3 - cg * 0.3)).setTint(UI.hex('em2'));
+    }
     if (key === this.last) return;
     this.last = key;
     var cells = this.cells, n = cells.length, d = this.img.data, C = this.C, w = this.w, ox = this.ox, oy = this.oy, i;
@@ -6380,6 +6499,7 @@
   FissureView.prototype.destroy = function () {
     this.sprite.destroy(); this.glow.destroy();
     if (this.glow2) this.glow2.destroy();
+    this.armGlows.forEach(function (g) { g.img.destroy(); });
     if (this.scene.textures.exists(this.key)) this.scene.textures.remove(this.key);
   };
   G.FissureView = FissureView;
@@ -6540,8 +6660,10 @@
       this.events.once('shutdown', function () { self.game.events.off('viewchange', self.applyView, self); self.roomView.destroy(); });
     },
     applyView: function () {
-      var f = this.room.fissures[1] || this.room.fissures[0];
-      this.cameras.main.setZoom(G.view.S).centerOn(f.x, f.y);
+      // centred on a crack, but never past the room's edge: on a big screen the room fills the view (it is centred when it is smaller)
+      var f = this.room.fissures[1] || this.room.fissures[0], V = G.view, rw = this.room.w * 16, rh = this.room.h * 16;
+      var cx = rw <= V.W ? rw / 2 : Math.max(V.W / 2, Math.min(rw - V.W / 2, f.x)), cy = rh <= V.H ? rh / 2 : Math.max(V.H / 2, Math.min(rh - V.H / 2, f.y));
+      this.cameras.main.setZoom(G.view.S).centerOn(Math.round(cx), Math.round(cy));
     },
     update: function () { this.frame++; this.roomView.tick(this.frame, this.fake, this.frame); }
   });

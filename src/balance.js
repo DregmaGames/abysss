@@ -21,6 +21,25 @@
       deathKeepsEquipped: true
     },
 
+    // Rooms (step big rooms; src/mapgen.js). Sizes in tiles of 16 px. A room fills a 16:9 view at pixel scale 2 on a 922-1080 px high
+    // window (820x461 to 960x540 art px): about twice the floor of the old 30-36 x 20-24 rooms. On a smaller view the camera follows the hero.
+    room: {
+      w: [52, 58], h: [30, 33],       // normal rooms
+      boss: { w: 54, h: 32 },         // the boss room: eight pillars in two rows
+      startMargin: 12,                // the start and the exit are at least this many tiles from the side walls
+      // tiles that never become wall: +-start round the start tile (the merchant and Don Montoto's cage stand there), exitW either side of
+      // the exit down to row exitH (the chest), centreW x centreH round the super fissure
+      reserve: { start: 2, exitW: 2, exitH: 6, centreW: 6, centreH: 5 },
+      corner: { chance: 0.8, w: [5, 11], h: [3, 6], step: 0.5 },      // cut corners; `step`: chance of a second, narrower and deeper step
+      bumps: [5, 9], bossBumps: 4, bumpLen: [3, 7], bumpDepth: [1, 3],      // buttresses along the walls (two deep ones make an alcove)
+      blocks: [11, 17], blockGap: 2,  // pillars and wall blocks inside a normal room; free tiles kept round each
+      blockKinds: { pillar: 9, wide: 4, tall: 3, big: 2, ell: 2 },      // weights: 2-3 square | 4-7 x 2 | 2 x 4-6 | 4-5 x 3-4 | an L of two walls
+      // no crack centre this close (tiles: x, y) to the start, the exit column (down to row y) and the room centre
+      site: { start: [6, 5], exit: [4, 8], centre: [9, 7] },
+      decals: 0.06,                   // floor marks per floor tile
+      torchGap: 5, torchTop: 0.6, torchIn: 0.3      // wall torches: min tiles apart, chance per face tile on the top wall / on inner walls
+    },
+
     // Doors (step 6). After every room but the last: leave with the sealed bag, or go on through one of two doors.
     // The two doors after room N depend only on the run seed and N (G.doorsFor); each is a fissure modifier for the
     // next room and pays `loot`: +that share of gear drop chances and +that much rarity luck (0.25 = +25 %).
@@ -121,17 +140,17 @@
                   summonEvery: 7, summon: 2, summonType: 'imp' },
       tyrant:   { ai: 'boss', r: 14, hp: 1200, speed: 32, dmg: 14, exp: 120, threat: 40, shadow: 'l', boss: true,
                   chaseTime: 2.4, enrageAt: 0.4, enrageRate: 0.7,
-                  slamRadius: 56, slamWindup: 0.95, slamDmg: 22,
+                  slamRadius: 66, slamWindup: 0.95, slamDmg: 22,      // step big rooms: radius 56 -> 66 for the 54 x 32 arena
                   burstShots: 12, burstDmg: 9, burstSpeed: 70, burstGap: 0.55, burstWindup: 0.6,
-                  summon: 3,
-                  chargeWindup: 0.75, chargeSpeed: 180, chargeTime: 0.6, chargeDmg: 18 }
+                  summon: 4,                                           // step big rooms: was 3
+                  chargeWindup: 0.75, chargeSpeed: 180, chargeTime: 0.8, chargeDmg: 18 }      // step big rooms: the charge runs 144 px (was 0.6 s, 108 px)
     },
     contactCd: 0.6,
 
     // The interactive tutorial (src/sim/tutorial.js, src/view/tutorial.js): a small fixed room, weak monsters, a hero that cannot die.
     // Nothing in it is banked: no exp, gold, drops or progress. The tutorial's one item (own-class weapon) is the only thing it leaves on the character.
     tutorial: {
-      w: 24, h: 26,                   // room size in tiles
+      w: 38, h: 26,                   // room size in tiles (step big rooms: was 24 wide; every position in it is relative to the room)
       crackRow: 14, pitRow: 8,        // the crack runs wall to wall on this tile row; the super fissure is on that row, in the middle
       moveDist: 60,                   // step 1: px the hero must move
       hpMult: 0.8, dmgMult: 0.25,     // monster hp and damage (x the base numbers; the room multipliers are not used)
@@ -145,8 +164,10 @@
     },
 
     fissure: {
-      count:  [2, 3, 3, 3, 4, 4, 4, 4, 5, 2],             // normal fissures per room
-      budget: [5, 6, 7, 8, 9, 10, 11, 12, 13, 9],         // threat points per normal fissure
+      // step big rooms: about +45 % monsters per room in a room of twice the floor: one more crack per room (was 2, 3, 3, 3, 4, 4, 4, 4, 5, 2)
+      // and a bigger budget per crack (was 5 .. 13, 9); count x budget = 15, 24, 32, 36, 50, 60, 65, 70, 96, 27 (was 10, 18, 21, 24, 36, 40, 44, 48, 65, 18)
+      count:  [3, 4, 4, 4, 5, 5, 5, 5, 6, 3],             // normal fissures per room
+      budget: [5, 6, 8, 9, 10, 12, 13, 14, 16, 9],        // threat points per normal fissure
       pool: [                                             // spawn weights, by room
         { imp: 8, bat: 3 },
         { imp: 6, bat: 3, skeleton: 2 },
@@ -159,29 +180,35 @@
         { imp: 4, bat: 3, skeleton: 4, hound: 4, cultist: 3 },
         { imp: 6, bat: 3, skeleton: 3, hound: 1 }
       ],
-      superWave: [
-        ['warden', 'imp', 'imp', 'imp'],
-        ['warden', 'imp', 'imp', 'bat', 'bat', 'skeleton'],
-        ['warden', 'hound', 'imp', 'imp', 'skeleton', 'skeleton'],
-        ['warden', 'hound', 'hound', 'bat', 'bat', 'bat', 'imp', 'imp'],
-        ['warden', 'warden', 'imp', 'imp', 'imp', 'skeleton'],
-        ['warden', 'warden', 'hound', 'hound', 'bat', 'bat'],
-        ['warden', 'warden', 'hound', 'skeleton', 'skeleton', 'imp', 'imp', 'imp'],
-        ['warden', 'warden', 'hound', 'hound', 'hound', 'skeleton', 'skeleton'],
-        ['warden', 'warden', 'warden', 'hound', 'hound', 'bat', 'bat', 'bat', 'bat'],
+      superWave: [                                        // step big rooms: about +45 % monsters (was 4, 6, 6, 8, 6, 6, 8, 7, 9), the same wardens
+        ['warden', 'imp', 'imp', 'imp', 'imp', 'bat'],
+        ['warden', 'imp', 'imp', 'imp', 'bat', 'bat', 'bat', 'skeleton', 'skeleton'],
+        ['warden', 'hound', 'hound', 'imp', 'imp', 'imp', 'skeleton', 'skeleton', 'bat'],
+        ['warden', 'hound', 'hound', 'hound', 'bat', 'bat', 'bat', 'bat', 'imp', 'imp', 'imp', 'skeleton'],
+        ['warden', 'warden', 'imp', 'imp', 'imp', 'imp', 'skeleton', 'skeleton', 'bat'],
+        ['warden', 'warden', 'hound', 'hound', 'hound', 'bat', 'bat', 'bat', 'imp'],
+        ['warden', 'warden', 'hound', 'hound', 'skeleton', 'skeleton', 'skeleton', 'imp', 'imp', 'imp', 'imp', 'bat'],
+        ['warden', 'warden', 'hound', 'hound', 'hound', 'hound', 'skeleton', 'skeleton', 'skeleton', 'imp'],
+        ['warden', 'warden', 'warden', 'hound', 'hound', 'hound', 'bat', 'bat', 'bat', 'bat', 'bat', 'imp', 'imp'],
         ['tyrant']
       ],
       // the crack network: all cracks open when the room starts and go dark segment by segment as
       // their monsters die. An open crack is a wall for walkers; the player crosses it with the dodge.
-      crackLen: [90, 130],            // px per arm (two arms per crack; a branch has one)
+      crackLen: [150, 215],           // px per arm (two arms per crack; a branch has one). Step big rooms: was 90-130; the network spans the room
+      fork: 0.035,                    // chance per px of arm that a side crack forks off (was 0.07 on the shorter arms)
+      bend: 3,                        // times an arm may turn to run past a pillar, a wall or a reserved zone instead of ending there
+      minCells: 260,                  // a crack with fewer px than this (rim included) is a stub: the generator tries again (was 12)
+      aim: 6,                         // headings tried for a new crack: it takes the one with the most free floor along both arms
+      thirdArm: [0.5, 0.5, 0.8],      // chance that a crack grows a third arm at about a right angle; its length = lo..hi x the arm length
+      superPit: { r: 16, arms: [7, 8], armLen: [50, 72], keep: 40 },      // the super fissure: pit radius, arms, px per arm; normal cracks keep `keep` px from its centre
       segments: 4,                    // dark bands per crack, the tips go dark first
       joinChance: 0.45,               // chance that a crack branches off an earlier one (joined = shared kill meter)
-      siteGap: 8,                     // min tiles (manhattan) between separate crack centres
+      siteGap: 14,                    // min tiles (manhattan) between separate crack centres (was 8 in the smaller rooms)
       segHeal: 0.01,                  // heal (fraction of max HP) each time a segment goes dark
-      aliveThreat: 1.4,               // monsters alive from the network at once: up to this x one crack's budget
+      aliveThreat: 1.85,              // monsters alive from the network at once: up to this x one crack's budget (step big rooms: was 1.4; with the bigger budgets about +45 % alive at once)
       firstDelay: 1.2,
       openTime: 1.0, closeTime: 1.0, superOpenTime: 1.8, superCloseTime: 1.6,
-      spawnEvery: 1.3, superSpawnEvery: 0.5,       // s between two network spawns (step 10: was 0.3, a burst; slower spawns = longer rooms for a strong hero)
+      spawnEvery: 0.9, superSpawnEvery: 0.35,      // s between two network spawns (step 10: 0.3 -> 1.3; step big rooms: 1.3 -> 0.9 and 0.5 -> 0.35, so +45 % monsters come in about the same time)
       closeExp: 5, closeHeal: 0.03, superHeal: 0.08
     },
 

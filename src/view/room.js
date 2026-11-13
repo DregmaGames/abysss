@@ -3,6 +3,7 @@
 (function (G) {
   var UI = G.UI, T = 16, fissSeq = 0;
   var FLASH_T = 24, FLASH_R = 18;        // bump flare: sim ticks, px radius
+  var ARM_GLOW = 52;                     // px between the lights along a crack's arms
 
   G.RoomView = function (scene, room) {
     var W = room.w, H = room.h, ground = [], shade = [], x, y, i;
@@ -157,6 +158,23 @@
     this.sprite = scene.add.image(f.x + minX, f.y + minY, this.key).setOrigin(0, 0).setDepth(-800);
     this.glow = scene.add.image(f.x, f.y, 'atlas', 'glow').setDepth(-790).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0);
     this.glow2 = f.big ? scene.add.image(f.x, f.y, 'atlas', 'glow').setDepth(-789).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0) : null;
+    // long cracks (step big rooms): one light in the middle no longer reaches the arms, so smaller lights sit along them,
+    // ARM_GLOW px apart, each tied to the segment (band) of the crack px under it: it goes out with that band
+    this.armGlows = [];
+    if (!f.big) {
+      for (i = 0; i < n; i++) {
+        var gc = cells[i], far = gc.core && this.depth[i] >= 2 && gc.x * gc.x + gc.y * gc.y >= ARM_GLOW * ARM_GLOW;
+        for (var g0 = 0; far && g0 < this.armGlows.length; g0++) {
+          var ag = this.armGlows[g0];
+          if ((ag.lx - gc.x) * (ag.lx - gc.x) + (ag.ly - gc.y) * (ag.ly - gc.y) < ARM_GLOW * ARM_GLOW) far = false;
+        }
+        if (!far) continue;
+        var gi2 = scene.add.image(f.x + gc.x, f.y + gc.y, 'atlas', 'glow').setDepth(-790).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0).setScale(0.6);
+        this.armGlows.push({ img: gi2, lx: gc.x, ly: gc.y, seg: gc.seg | 0, o: gc.o });
+      }
+    }
+    // a big crack is a big texture to upload: its shimmer and its opening are redrawn half as often
+    this.slow = this.w * this.h > 60000;
     this.last = '';
     this.C = {};
     var self = this;
@@ -164,10 +182,10 @@
   }
   // a crack of the network: each segment is open (rift light) or dark (a scar that cools)
   FissureView.prototype.updateNet = function (f, tick) {
-    var st = f.state, sh = tick >> 3, s, cool = [], minCool = 1, opening = st === 'opening';
+    var st = f.state, sh = this.slow ? (tick >> 4) : (tick >> 3), s, cool = [], minCool = 1, opening = st === 'opening';
     var fl = this.flash, flA = fl ? 1 - (tick - fl.tick) / FLASH_T : 0;
     if (flA <= 0) { flA = 0; this.flash = fl = null; }
-    var key = st + '|' + (opening ? Math.round(f.reveal * 80) : (f.litN ? sh : 0)) + '|' + Math.round(flA * 12);
+    var key = st + '|' + (opening ? Math.round(f.reveal * (this.slow ? 30 : 80)) : (f.litN ? sh : 0)) + '|' + Math.round(flA * 12);
     for (s = 0; s < f.nSeg; s++) {
       var cv = f.dark[s] ? Math.min(1, (tick - f.darkTick[s]) / 480) : -1;
       cool.push(cv);
@@ -178,6 +196,12 @@
     if (f.litN) { a = 0.5 * (opening ? f.reveal : 1) * (0.35 + 0.65 * litFrac) + ((tick >> 2) % 5) * 0.012; tint = 'rg2'; }
     else { a = 0.34 - minCool * 0.2; tint = 'em2'; }
     this.glow.setAlpha(a).setTint(UI.hex(tint));
+    for (s = 0; s < this.armGlows.length; s++) {
+      var ag = this.armGlows[s], cg = cool[ag.seg];
+      if (cg === undefined) ag.img.setAlpha(0);      // the title backdrop draws rooms without sim state
+      else if (cg < 0) ag.img.setAlpha(opening && ag.o > f.reveal ? 0 : 0.42 + ((tick >> 2) + s) % 5 * 0.012).setTint(UI.hex('rg2'));
+      else ag.img.setAlpha(Math.max(0, 0.3 - cg * 0.3)).setTint(UI.hex('em2'));
+    }
     if (key === this.last) return;
     this.last = key;
     var cells = this.cells, n = cells.length, d = this.img.data, C = this.C, w = this.w, ox = this.ox, oy = this.oy, i;
@@ -264,6 +288,7 @@
   FissureView.prototype.destroy = function () {
     this.sprite.destroy(); this.glow.destroy();
     if (this.glow2) this.glow2.destroy();
+    this.armGlows.forEach(function (g) { g.img.destroy(); });
     if (this.scene.textures.exists(this.key)) this.scene.textures.remove(this.key);
   };
   G.FissureView = FissureView;

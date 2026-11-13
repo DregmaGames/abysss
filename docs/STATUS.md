@@ -127,6 +127,21 @@ Design decisions live in the plan doc (the user has it); this file is what an ag
   Checked with `node qa/rooms.js <out> ui` at 1640x922 and 1920x1080: S=2, Settings / inventory / level-up cards / door choice inside the screen and centred,
   zoom + then - returns to 2x and - again stays at 2x, old-save offsets -2 / +1 / 0 give 2x / 5x / 2x, 0 console errors.
   Known, not solved: HD sprites are drawn at half scale, pixel-exact at even S; at odd S (the 1440p default 3x) one HD pixel is 1.5 screen px (uneven rows).
+  **Part 2, bigger rooms (done; numbers in "Last measured (big rooms test)")**: every size is in `src/balance.js` `room` (new block) and `fissure`.
+  Rooms 52-58 x 30-33 tiles (was 30-36 x 20-24; floor about x2.1), boss room 54 x 32 with eight pillars in two rows (was 34 x 24, four).
+  Outline: cut corners 5-11 x 3-6 (half of them in two steps), 5-9 buttresses 3-7 long and 1-3 deep. Inside: 11-17 blocks (pillars, wide walls, tall walls,
+  big blocks, L shapes), 2 free tiles round each; reserved floor round the start (merchant and cage stand there), under the exit (chest) and 13 x 11 tiles round the super fissure.
+  Cracks: one more per room (3, 4, 4, 4, 5, 5, 5, 5, 6, boss 3), arms 150-215 px (was 90-130), half of the cracks grow a third arm; a new crack takes the heading
+  with the most free floor (of 6), an arm turns past a pillar or wall up to 3 times instead of ending there (never more than 1.5 rad off its first heading), stubs
+  are retried; crack centres go to the sectors of a 3 x 2 grid in a diagonal order, so the network covers the room. Super fissure: pit radius 16 (13), 7-8 arms of 50-72 px (6-7 of 34-50).
+  Monsters: count x budget per room = 15, 24, 32, 36, 50, 60, 65, 70, 96, boss 27 threat points (was 10, 18, 21, 24, 36, 40, 44, 48, 65, 18: +46 % on average), super waves
+  6, 9, 9, 12, 9, 9, 12, 10, 13 monsters (was 4, 6, 6, 8, 6, 6, 8, 7, 9; the same wardens). So that they also fill the room at once and the room does not just last longer:
+  `aliveThreat` 1.4 -> 1.85 (with the bigger budgets about +45 % alive at once), `spawnEvery` 1.3 -> 0.9 s, `superSpawnEvery` 0.5 -> 0.35 s. Boss: slam radius 56 -> 66,
+  charge 0.6 -> 0.8 s (108 -> 144 px), summons 3 -> 4. NOT changed: gear, abilities, the economy tables, monster stats, `roomMult`; a kill pays what it paid, so a run
+  now gives more exp, kill gold and kill drops (see the table). Tutorial room 38 x 26 (was 24 x 26; two more pillars, torches every 4 tiles from the exit; every
+  position in it was already relative). The test room and the daily challenge use the same generator. `genFissure` keeps crack px in a Map with number keys (a room is generated in about 30 ms).
+  View: lights along the arms of a crack (one every 52 px, each goes out with its band), big crack textures redraw their shimmer half as often, the title backdrop
+  is clamped to the room. `tools/determinism.js` has a new room sanity block (size, crack count, no stub, floor share, chest / exit / super fissure / merchant / cage reachable, no crack on a wall or on the start).
 - `main` is the working base. One branch per step: `step-N-<slug>`.
 
 ## Last measured (2026-11-12, HD art pilot)
@@ -159,19 +174,6 @@ Design decisions live in the plan doc (the user has it); this file is what an ag
   (`Panels.openMontoto`, shown only when the atlas has the frame; the text wraps beside it). **Rejected** (kept in `assets/imported/rejected/`, not packed): tyrant attack poses `tyrant_2/3/4`,
   skeleton throw `skeleton_2`, the small Montoto for the cage (`pixelart.py` draws `assets/imported/parts/cage_montoto_<f>.png` behind the bars when it exists).
   Importer: border-colour key with a narrow hue window (hot pink backdrops, purple robes survive), `--split cols`, `--own-box`, `--method mode` (majority vote, for pixel-art sources), `--accent`, `--smooth`, `--names`, layer PNG alpha.
-- Big rooms test (branch `step-big-rooms`, built on `step-hd-pilot`, NOT merged; brief `docs/steps/step-big-rooms.md`). The user played the HD pilot on a
-  1640x922 window at the lowest zoom (S=2) and wants that size of hero with the map covering the screen.
-  **Part 1, the view (done)**: `G.computeView` (`src/view/ui.js`, constants `UI.VIEW`): default S = min(old default, max(2, round(short side / 470))):
-  short side 300 -> 1; 390, 540, 720, 922, 1080 -> 2; 1440 -> 3. So phones and 960x540 are as before, a desktop window shows about twice as much world.
-  Zoom slider: range `lo`..`maxS`, lo = the smallest S that shows at most 720 art px on the short side (and never under default - 2), maxS = short side / 180.
-  At 922 and 1080 the default (2x) IS the lowest step (2x..5x / 2x..6x): decision, because at 1x the 7 px font is unreadable and the room is an island again;
-  at 1440 the slider goes 2x..8x with the default 3x in between. Old saves: `settings.zoomRule` (2 = offsets count from the new default); a save without it is
-  converted at boot (`G.migrateZoom`, where the screen size is known): a player who had moved the slider keeps the S they had (the user's -2 at 922 stays 2x,
-  a +1 stays 5x), an untouched 0 takes the new default. Art mode default without a saved choice is HD again (`G.HD.init`), the three-way button stays.
-  HUD: on a view 640 art px wide or more the HP plate is 130 px wide instead of 86 (bar 110). Panels were already centred by `UI.modal`.
-  Checked with `node qa/rooms.js <out> ui` at 1640x922 and 1920x1080: S=2, Settings / inventory / level-up cards / door choice inside the screen and centred,
-  zoom + then - returns to 2x and - again stays at 2x, old-save offsets -2 / +1 / 0 give 2x / 5x / 2x, 0 console errors.
-  Known, not solved: HD sprites are drawn at half scale, pixel-exact at even S; at odd S (the 1440p default 3x) one HD pixel is 1.5 screen px (uneven rows).
 - `main` is the working base. One branch per step: `step-N-<slug>`.
 
 ## Last measured (2026-11-12, step 9 art import)
@@ -188,19 +190,6 @@ Design decisions live in the plan doc (the user has it); this file is what an ag
   **B, save backup**: `src/backup.js` (pure): `G.encodeSave(save)` -> `RS1.<base64 of LZW(JSON)>.<FNV-1a checksum, 8 hex>` (one line; roughly half the JSON size on a full save), `G.decodeSave(text)` -> `{ ok, save, from, info }` or `{ ok: false, err }` (err: empty, format, checksum, data, shape, version), `G.saveSummary`. The code format is `RS1`; the save inside keeps its own `v` and goes through `G.parseSave` (the normal migration); versions above 8 are refused.
   UI `src/view/backup.js` (`Panels.openBackup(scene, 'export' | 'import')`, opened from two Settings buttons; no IMPORT inside a run): the code lives in a real DOM `<textarea>` laid over the canvas (it is also the manual-copy fallback: when the clipboard is blocked the box stays visible with the code selected and the status says to press Ctrl+C). COPY (Clipboard API, then `execCommand`), DOWNLOAD (`riftscar-save.txt`), PASTE (clipboard read), CHECK -> a summary (characters, items, gold, runs) -> REPLACE or CANCEL. Replacing keeps this device's settings (zoom, shake, language), saves, and goes to the title. Errors change nothing. The textarea has `opacity .99`: without it headless Chromium leaves a hole in screenshots under it.
   Texts: `bak.*`, `set.export`, `set.import` in `src/i18n_ux.js`. Checks: `check_bag.js` group `backup` (round trip, corrupted / cut / foreign / newer-version codes refused, v6 code migrates, checking changes nothing, three full bags).
-- Big rooms test (branch `step-big-rooms`, built on `step-hd-pilot`, NOT merged; brief `docs/steps/step-big-rooms.md`). The user played the HD pilot on a
-  1640x922 window at the lowest zoom (S=2) and wants that size of hero with the map covering the screen.
-  **Part 1, the view (done)**: `G.computeView` (`src/view/ui.js`, constants `UI.VIEW`): default S = min(old default, max(2, round(short side / 470))):
-  short side 300 -> 1; 390, 540, 720, 922, 1080 -> 2; 1440 -> 3. So phones and 960x540 are as before, a desktop window shows about twice as much world.
-  Zoom slider: range `lo`..`maxS`, lo = the smallest S that shows at most 720 art px on the short side (and never under default - 2), maxS = short side / 180.
-  At 922 and 1080 the default (2x) IS the lowest step (2x..5x / 2x..6x): decision, because at 1x the 7 px font is unreadable and the room is an island again;
-  at 1440 the slider goes 2x..8x with the default 3x in between. Old saves: `settings.zoomRule` (2 = offsets count from the new default); a save without it is
-  converted at boot (`G.migrateZoom`, where the screen size is known): a player who had moved the slider keeps the S they had (the user's -2 at 922 stays 2x,
-  a +1 stays 5x), an untouched 0 takes the new default. Art mode default without a saved choice is HD again (`G.HD.init`), the three-way button stays.
-  HUD: on a view 640 art px wide or more the HP plate is 130 px wide instead of 86 (bar 110). Panels were already centred by `UI.modal`.
-  Checked with `node qa/rooms.js <out> ui` at 1640x922 and 1920x1080: S=2, Settings / inventory / level-up cards / door choice inside the screen and centred,
-  zoom + then - returns to 2x and - again stays at 2x, old-save offsets -2 / +1 / 0 give 2x / 5x / 2x, 0 console errors.
-  Known, not solved: HD sprites are drawn at half scale, pixel-exact at even S; at odd S (the 1440p default 3x) one HD pixel is 1.5 screen px (uneven rows).
 - `main` is the working base. One branch per step: `step-N-<slug>`.
 
 ## Last measured (2026-11-12, step UX B: save backup)

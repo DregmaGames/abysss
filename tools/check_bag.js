@@ -110,6 +110,7 @@ const ids = o => Object.keys(o).map(k => o[k] && o[k].id).join(',');
   const G = load(), sim = mk(G, 4), g = sim.gear, B = sim.B;
   const w = G.BAL.loot.weaponTypes.find(t => t.cls !== sim.clsId), mine = G.BAL.loot.weaponTypes.find(t => t.cls === sim.clsId);
   const helm = sim.bag.find(i => i.slot === 'helmet') || (sim.bag[0].slot = 'helmet', sim.bag[0]);
+  helm.unid = false;      // the fixture's roll may be rare or better (unidentified, not wearable yet): this check is about the swap
   const oldHelm = g.equipped.helmet, n0 = sim.bag.length, hi = sim.bag.indexOf(helm);
   const key = sim.equipFromSealed(hi);
   check('in-run equip: item moves from the sealed bag onto the hero', key === 'helmet' && g.equipped.helmet === helm && !sim.bag.includes(helm));

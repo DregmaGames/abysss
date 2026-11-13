@@ -114,8 +114,9 @@ async function rooms(browser, size) {
   await sleep(900);
   await shot(page, 'room_start_' + size);
   // walk the bot for a while so cracks open and monsters are out, then freeze the picture
-  await page.evaluate(() => { const gs = G.gameScene; gs.bot = new G.Bot(gs.sim); });
-  await sleep(6000);
+  await page.evaluate(() => { const gs = G.gameScene; gs.bot = new G.Bot(gs.sim); gs.speed = 4; });      // fast-forward: headless Chromium is slow
+  for (let i = 0; i < 40; i++) { await sleep(400); if ((await Q.state(page)).sim.monsters >= 6) break; }
+  await page.evaluate(() => { G.gameScene.speed = 1; }); await sleep(300);
   await shot(page, 'room_fight_' + size);
   out.push(Object.assign({ what: 'room 3', size }, await cover(page), { errors: page.errors.length + (await Q.state(page)).errors.length }));
   // the boss room

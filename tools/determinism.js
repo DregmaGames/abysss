@@ -29,6 +29,35 @@ for (let seed = 1; seed <= N; seed++) for (let i = 0; i < rooms; i++) {
   if (a !== b) { bad++; console.log('MISMATCH seed', seed, 'room', i); }
   hashes.add(a); checked++;
 }
+// room sanity (step big rooms): every generated room has the size BAL.room asks for, every crack BAL.fissure.count asks for (a stub
+// would have been retried), open floor at the start, the chest, under the exit and at the super fissure, a spot for the merchant and for
+// Don Montoto's cage, all of it reachable on foot from the start, and no wall tile that floor cannot be walked round (2 x 2 rule)
+let sane = 0;
+for (let seed = 1; seed <= N; seed++) for (let i = 0; i < rooms; i++) {
+  const r = G.genRoom(seed, i, G.BAL), R = G.BAL.room, boss = i === rooms - 1, why = [];
+  const at = (tx, ty) => tx < 0 || ty < 0 || tx >= r.w || ty >= r.h ? 1 : r.tiles[ty * r.w + tx];
+  const size = boss ? r.w === R.boss.w && r.h === R.boss.h : r.w >= R.w[0] && r.w <= R.w[1] && r.h >= R.h[0] && r.h <= R.h[1];
+  if (!size) why.push('size ' + r.w + 'x' + r.h);
+  const normal = r.fissures.filter(f => !f.big);
+  if (normal.length !== G.BAL.fissure.count[i]) why.push('cracks ' + normal.length + '/' + G.BAL.fissure.count[i]);
+  if (normal.some(f => f.cells.length < G.BAL.fissure.minCells)) why.push('a stub crack');
+  const sx = Math.floor(r.start.x / 16), sy = Math.floor(r.start.y / 16), big = r.fissures[r.fissures.length - 1];
+  const dist = new Int16Array(r.w * r.h).fill(-1), q = [sy * r.w + sx]; dist[q[0]] = 0;
+  for (let h = 0; h < q.length; h++) { const c = q[h], x = c % r.w, y = (c - x) / r.w; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const n = (y + dy) * r.w + x + dx; if (!at(x + dx, y + dy) && dist[n] < 0) { dist[n] = dist[c] + 1; q.push(n); } } }
+  const reach = (px, py) => dist[Math.floor(py / 16) * r.w + Math.floor(px / 16)] >= 0;
+  if (!reach(r.chest.x, r.chest.y)) why.push('chest');
+  if (!reach(r.exit.x, r.exit.y)) why.push('exit');
+  if (!reach(big.x, big.y)) why.push('super fissure');
+  const ms = G.merchantSpot(r, G.BAL), cs = G.cageSpot(r, G.BAL, ms);
+  if (!ms || !reach(ms.x, ms.y)) why.push('merchant spot');
+  if (!cs || !reach(cs.x, cs.y)) why.push('cage spot');
+  let floor = 0; for (let k = 0; k < r.tiles.length; k++) if (!r.tiles[k]) { floor++; if (dist[k] < 0) { why.push('unreachable floor'); break; } }
+  if (floor < 0.55 * r.w * r.h) why.push('floor share ' + (floor / (r.w * r.h)).toFixed(2));
+  // every crack px lies on floor and outside the reserved start box
+  for (const f of normal) if (f.cells.some(c => at(Math.floor((f.x + c.x) / 16), Math.floor((f.y + c.y) / 16)) || (Math.abs(f.x + c.x - r.start.x) <= 40 && Math.abs(f.y + c.y - r.start.y) <= 34))) { why.push('crack on a wall or on the start'); break; }
+  if (why.length) { sane++; console.log('ROOM PROBLEM seed', seed, 'room', i, why.join(', ')); }
+}
+console.log(`${checked} rooms checked (size, crack count, floor, reach of chest / exit / super fissure / merchant / cage): ${sane} problems`);
 console.log(`${checked} rooms generated twice: ${bad} mismatches; ${hashes.size} distinct layouts out of ${checked}`);
 // door modifiers: the same (seed, room, modifier) gives the same room; a modifier changes the cracks but not the walls;
 // the doors offered after room N depend only on the seed and N
@@ -87,4 +116,4 @@ let dailyBad = 0;
   if (!ok) dailyBad++;
   console.log(`daily 2026-11-12 (seed ${ia.seed}, ${ia.cls}) twice: ${ok ? 'identical' : 'DIFFERENT'} (${a.result}, ${a.rooms} rooms, ${a.kills} kills, ${a.seconds} s, doors ${a.doors.join('>')})`);
 }
-process.exit(dailyBad || cageBad || bad || modBad || ecoBad || abilBad || !same || hashes.size !== checked ? 1 : 0);
+process.exit(dailyBad || cageBad || sane || bad || modBad || ecoBad || abilBad || !same || hashes.size !== checked ? 1 : 0);

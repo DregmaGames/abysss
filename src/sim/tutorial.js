@@ -1,4 +1,4 @@
-// The interactive tutorial (sim side): a small fixed room and a director that moves through 13 steps, each finished by something the player does.
+// The interactive tutorial (sim side): a fixed room and a director that moves through 13 steps, each finished by something the player does.
 // Built after fissures.js. Everything here is deterministic (no wall clock, no Math.random) and only runs when the Sim was built with `tutorial` (a hand-made
 // room, weak monsters, a hero that cannot die, no exp / gold / drops / banking). The view (src/view/tutorial.js) only reads `sim.tut` and the 'tutstep' /
 // 'tutdone' events. Normal runs, the test room, the bots and the daily challenge never have `sim.tut`, so nothing in them changes.
@@ -10,12 +10,14 @@
   G.TUT_STEPS.forEach(function (id, i) { IDX[id] = i; });
 
   // ------------------------------------------------------------------ the room
-  // 24 x 26 tiles: the hero starts at the bottom, a crack runs wall to wall across the middle (the only way on is a dodge across it),
+  // BAL.tutorial.w x h tiles (38 x 26; 24 x 26 before the big rooms): the hero starts at the bottom, a crack runs wall to wall across the middle (the only way on is a dodge across it),
   // the super fissure is above it, the chest and the exit at the top. Pure function of the balance numbers: the same room every time.
   G.tutorialRoom = function (B) {
     var TB = B.tutorial, F = B.fissure, W = TB.w, H = TB.h, tiles = new Uint8Array(W * H), x, y, i, k;
     for (y = 0; y < H; y++) for (x = 0; x < W; x++) if (x === 0 || x === W - 1 || y < 2 || y === H - 1) tiles[y * W + x] = 1;
-    [[3, 17, 2, 2], [W - 5, 17, 2, 2], [3, 6, 2, 2], [W - 5, 6, 2, 2]].forEach(function (b) {      // four small pillars
+    var pillars = [[3, 17, 2, 2], [W - 5, 17, 2, 2], [3, 6, 2, 2], [W - 5, 6, 2, 2]];      // four small pillars near the side walls
+    if (W >= 34) pillars.push([9, 10, 2, 2], [W - 11, 10, 2, 2]);      // the wider room (step big rooms): two more, beside the super fissure
+    pillars.forEach(function (b) {
       for (var yy = b[1]; yy < b[1] + b[3]; yy++) for (var xx = b[0]; xx < b[0] + b[2]; xx++) tiles[yy * W + xx] = 1;
     });
     function at(tx, ty) { return tx < 0 || ty < 0 || tx >= W || ty >= H ? 1 : tiles[ty * W + tx]; }
@@ -52,7 +54,7 @@
     // dressing: a fixed handful of floor marks and torches on the top wall
     var rng = new G.RNG(0x7071), decals = [], torches = [];
     for (y = 2; y < H - 1; y++) for (x = 1; x < W - 1; x++) if (!at(x, y) && rng.chance(0.06)) decals.push({ x: x * T + rng.int(3, 12), y: y * T + rng.int(4, 12), k: rng.int(0, 5) });
-    [4, 8, 16, 20].forEach(function (tx) { torches.push({ x: tx * T + 8, y: 1 * T + 8 }); });
+    for (k = 4; ex - k >= 3; k += 4) torches.push({ x: (ex - k) * T + 8, y: 1 * T + 8 }, { x: (ex + k) * T + 8, y: 1 * T + 8 });      // every 4 tiles either side of the exit
     var h = 2166136261;
     for (i = 0; i < W * H; i++) h = Math.imul(h ^ tiles[i], 16777619);
     for (i = 0; i < fissures.length; i++) h = Math.imul(h ^ (fissures[i].x * 31 + fissures[i].y * 17 + fissures[i].cells.length), 16777619);

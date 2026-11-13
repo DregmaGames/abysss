@@ -47,7 +47,9 @@ qa/                   headless Chromium checks (Playwright)
 ```
 
 One pixel size: the whole game, world and UI, is drawn at one integer scale S. 960x540 gives
-480x270 art pixels at 2x, 540x960 gives 270x480. The zoom setting raises S for everything at once;
+480x270 art pixels at 2x, 540x960 gives 270x480; a desktop window (922-1080 px high) is also 2x, so it
+shows about twice as much world and a room (52-58 x 30-33 tiles, `BAL.room`) fills it; on a smaller
+view the camera follows the hero. The zoom setting moves S for everything at once;
 layouts are computed from the art-pixel viewport and rebuilt on resize or rotation.
 
 ## QA
@@ -67,6 +69,8 @@ node qa/touch.js [portrait|landscape] [lang]  # the game by finger (touch emulat
 node qa/test_room.js [dir]                  # test room: edge, blocked step, dodge arc, touch, restart; 2 shots
 node qa/session.js --minutes 10             # scripted real-time session with rotation, menus, restarts
 node qa/hd.js                               # HD art pilot: test room, boss, city, cage, both sizes, ?hd=1 and 0, the toggle
+node qa/rooms.js [dir] [ui|rooms|all] [WxH ...]  # big rooms: HUD and panels at 1640x922 / 1920x1080, zoom steps, old-save zoom; a room, the boss room and the test room at five sizes
+node tools/run_length.js [--class C] [--md]  # run and room times of the Node bot per class: fresh, career, and a hero who cannot die (10 seeds per command)
 ```
 
 Results of the last full pass are in `docs/qa-report.md`.

@@ -109,8 +109,10 @@
       this.events.once('shutdown', function () { self.game.events.off('viewchange', self.applyView, self); self.roomView.destroy(); });
     },
     applyView: function () {
-      var f = this.room.fissures[1] || this.room.fissures[0];
-      this.cameras.main.setZoom(G.view.S).centerOn(f.x, f.y);
+      // centred on a crack, but never past the room's edge: on a big screen the room fills the view (it is centred when it is smaller)
+      var f = this.room.fissures[1] || this.room.fissures[0], V = G.view, rw = this.room.w * 16, rh = this.room.h * 16;
+      var cx = rw <= V.W ? rw / 2 : Math.max(V.W / 2, Math.min(rw - V.W / 2, f.x)), cy = rh <= V.H ? rh / 2 : Math.max(V.H / 2, Math.min(rh - V.H / 2, f.y));
+      this.cameras.main.setZoom(G.view.S).centerOn(Math.round(cx), Math.round(cy));
     },
     update: function () { this.frame++; this.roomView.tick(this.frame, this.fake, this.frame); }
   });

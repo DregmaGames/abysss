@@ -61,13 +61,16 @@ async function room(browser, size, hd, report) {
         // the boss, from the debug panel; pictures of its poses
         await page.evaluate(() => G.gameScene.sim.cheatKillAll());
         await sleep(900);
+        // the kills can pay a level (more monsters per room since the big rooms): pick a card first, the debug panel does not open over it
+        for (let k = 0; k < 8 && (await Q.state(page)).screen === 'levelup'; k++) { await sleep(450); await Q.click(page, 'card_0'); await sleep(250); }
         await Q.click(page, 'dbg');
         await Q.click(page, 'dbg_spawn_boss');
         await sleep(1800);
         const poses = {};
         for (let i = 0; i < 300 && Object.keys(poses).length < 4; i++) {
-          const b = await page.evaluate(() => { const gs = G.gameScene, m = gs.sim.monsters.find(q => q.def.boss); if (!m) return null; const s = gs.maps.monsters.get(m.id); return { st: m.st, id: m.id, f: s && s.frame.name }; });
+          const b = await page.evaluate(() => { const gs = G.gameScene, m = gs.sim.monsters.find(q => q.def.boss); if (!m) return null; const s = gs.maps.monsters.get(m.id); return { st: m.st, id: m.id, f: s && s.frame.name, lv: G.screen === 'levelup' }; });
           if (!b) break;
+          if (b.lv) { await sleep(450); await Q.click(page, 'card_0'); await sleep(200); continue; }      // a level-up pauses the fight: pick a card
           if (b.f && !poses[b.f]) { poses[b.f] = 1; const bx = await boxOf(page, b.id, 90, 60, 50); await page.screenshot({ path: path.join(OUT, 'hd_boss_' + b.f + '.png'), clip: bx }); }
           await sleep(60);
         }
