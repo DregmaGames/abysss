@@ -251,7 +251,12 @@
       implicit: { helmet: 'hp', armor: 'armor', gloves: 'atkPct', boots: 'movePct', belt: 'hp', weapon: 'dmgPct', shield: 'armor' },
       // how much one "base unit" of each stat is worth to the bot / item score
       weight: { hp: 1, dmgPct: 1.3, atkPct: 1.2, movePct: 0.9, armor: 1, crit: 0.9, rangePct: 0.6, pulsePct: 0.5, cdrPct: 0.6, regen: 0.9, expPct: 0.5 },
-      cap: { movePct: 30, cdrPct: 45, crit: 60 }
+      cap: { movePct: 30, cdrPct: 45, crit: 60 },
+      // The starter weapon (step gear data): every new character starts with one common weapon of its class's own type (the class's
+      // defaultWeapon, else its first loot.weaponTypes entry), identified and worn, and no armour. Fixed, not rolled: `stats` is the
+      // weakest roll the generator gives a common weapon of item level 1 (implicit dmgPct 5 x 0.85, rounded = 4). names: the item's
+      // English name by weapon type (Spanish: 'starter.<type>' in src/i18n.js); a type without a name gets the generator's common name.
+      starter: { ilvl: 1, rarity: 0, stats: { dmgPct: 4 }, names: { staff: 'Apprentice Staff', sword: 'Worn Sword', bow: 'Training Bow' } }
     },
 
     // ---------------------------------------------------------------- economy (step 7)

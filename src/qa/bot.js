@@ -412,7 +412,7 @@
   // Headless run of one seed (Node or browser console). Returns a summary.
   G.botRun = function (seed, opts) {
     opts = opts || {};
-    var gear = opts.gear || G.newGear();
+    var gear = opts.gear || G.newGear(G.classDef(opts.bal || G.BAL, opts.cls).id);      // no gear given: a new character (its starter weapon, nothing else)
     var sim = new G.Sim({ seed: seed, gear: gear, bal: opts.bal, cls: opts.cls, daily: opts.daily }), bot = new Bot(sim, opts.build, { leave: opts.leave, lowHp: opts.lowHp, pushHp: opts.pushHp, pushGear: opts.pushGear, rescue: opts.rescue });
     var maxTicks = (opts.maxSeconds || 1200) * 60, softlock = false, worstStuck = 0, roomTicks = [], last = 0, lastRoom = 0, minHp = sim.B.run.roomMult.map(function () { return 1; });
     while (sim.tick < maxTicks && (sim.state === 'play' || sim.state === 'levelup' || sim.state === 'choice' || sim.state === 'merchant')) {

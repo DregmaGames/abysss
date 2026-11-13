@@ -1,6 +1,7 @@
 // Visible equipment, a test (src/view/hd.js heroEnt / heroWeapon, tools/hand_weapon.py): the warrior with no armour and
 // no weapon, with a sword in the fist (plain and with a rarity glow), and in plate. For each: the sheet in use, the
-// weapon image, close-ups standing and walking, 0 console errors. Also what a fresh warrior shows with no parameters.
+// weapon image, close-ups standing and walking, 0 console errors. Also what a fresh warrior shows with no parameters:
+// the bare sheet with the starter weapon in the fist.
 // node qa/equip.js [outDir] -> equip_<case>_<n>.png
 const fs = require('fs');
 const path = require('path');
@@ -12,7 +13,7 @@ fs.mkdirSync(OUT, { recursive: true });
   const browser = await Q.launch();
   let fails = 0;
   const cases = [['bare', '&look=bare&wpn=0', 'warrior_bare', false], ['sword', '&look=bare&wpn=1', 'warrior_bare', true],
-    ['sword_legendary', '&look=bare&wpn=1&glow=legendary', 'warrior_bare', true], ['plate', '&look=full', 'warrior', false], ['fresh', '', null, null]];
+    ['sword_legendary', '&look=bare&wpn=1&glow=legendary', 'warrior_bare', true], ['plate', '&look=full', 'warrior', false], ['fresh', '', 'warrior_bare', true]];      // fresh: a new warrior wears no armour and holds the starter sword (step gear data)
   for (const [name, q, ent, wpn] of cases) {
     const page = await Q.open(browser, '?scene=game&room=test&fresh=1&seed=4&hd=1&class=warrior' + q, { width: 1640, height: 922 });
     await page.evaluate(() => { G.cheats.god = true; });
@@ -25,7 +26,7 @@ fs.mkdirSync(OUT, { recursive: true });
     await page.keyboard.down('KeyD'); await sleep(260); await shot(1); await sleep(170); await shot(2); await page.keyboard.up('KeyD');
     await page.keyboard.down('KeyA'); await sleep(300); await shot(3); await page.keyboard.up('KeyA');
     await page.evaluate(() => G.gameScene.sim.cheatSpawn('skeleton', 2, 22)); await sleep(500); await shot(4); await sleep(160); await shot(5);
-    const ok = page.errors.length === 0 && (ent === null || (a.ent === ent && a.wpn === wpn));
+    const ok = page.errors.length === 0 && (ent === null || (a.ent === ent && a.wpn === wpn)) && (name !== 'fresh' || (a.weapon && !a.armor));
     if (!ok) fails++;
     console.log((ok ? 'ok   ' : 'FAIL ') + name + ' ' + JSON.stringify({ ent: a.ent, frame: a.frame, weaponDrawn: a.wpn, glow: a.glow, armorEquipped: a.armor, weaponEquipped: a.weapon, errors: page.errors.slice(0, 2) }));
     await page.close();

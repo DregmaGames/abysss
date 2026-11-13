@@ -363,6 +363,9 @@
     en['wbase.' + w.id] = w.item; es['wbase.' + w.id] = esWbase[w.id];
     if (w.itemRare) { en['wbase.' + w.id + '.rare'] = w.itemRare; es['wbase.' + w.id + '.rare'] = esWbase[w.id + '.rare']; }
   });
+  // the starter weapons (B.items.starter.names): their own names, the same 'Noun;gender;adjective;complement' form in Spanish
+  var esStarter = { staff: 'Bastón;ms;;de Aprendiz', sword: 'Espada;fs;Gastado;', bow: 'Arco;ms;;de Práctica' };
+  Object.keys(B.items.starter.names).forEach(function (w) { en['starter.' + w] = B.items.starter.names[w]; es['starter.' + w] = esStarter[w]; });
   Object.keys(B.families).forEach(function (f) {
     var F = B.families[f];
     en['fam.' + f + '.name'] = F.name; en['fam.' + f + '.t2'] = F.t2.desc; en['fam.' + f + '.t4'] = F.t4.desc;
@@ -422,6 +425,7 @@
   // name parts: the bonus adjective key (null for none) and the base key
   function nameParts(it) {
     var wd = wtypeOf(it), keys = Object.keys(it.stats || {}), adj = null;
+    if (it.starter && wd && G.LANG.en['starter.' + wd.id]) return { adj: null, base: 'starter.' + wd.id };      // the starter weapon has its own name
     if (it.rarity === 0) { if (!wd || wd.worn) adj = 'adj.worn'; } else adj = 'adj.' + keys[1];
     var base = wd ? 'wbase.' + wd.id + (it.rarity >= 2 && wd.itemRare ? '.rare' : '') : 'base.' + it.slot;
     return { adj: adj && G.LANG.en[adj] ? adj : null, base: base };

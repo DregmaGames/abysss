@@ -757,3 +757,30 @@ Not checked: equipping real items through the inventory in a run, the city, the 
 Rough: every weapon type draws the sword (the only weapon art); the sword is 2 px wide and turned by the renderer (stair-steps at
 some angles); the glow on it is faint; the fist is drawn under the weapon; shield and helmet are not separate.
 
+
+## Gear data for visible equipment (branch `step-gear-data`, on top of `step-weapon-glow`; 2026-11-13, not merged; brief `docs/steps/step-gear-data.md`)
+Data and rules only; the art that draws the pieces is another session's work.
+### Part 1: the starter weapon
+Every new character starts with one common weapon worn and no armour. `BAL.items.starter` (`src/balance.js`): item level 1, common,
+`stats: { dmgPct: 4 }` = the weakest roll the generator gives a common weapon of item level 1 (implicit 5 x 0.85, rounded), fixed, no rng.
+Type: the class's `defaultWeapon`, else its first `loot.weaponTypes` entry (`G.starterType`). Names (`starter.<type>` keys):
+mage "Apprentice Staff" / "Bastón de Aprendiz", warrior "Worn Sword" / "Espada Gastada", archer "Training Bow" / "Arco de Práctica".
+- Code: `G.starterType`, `G.starterWeapon`, `G.giveStarter` (`src/sim/items.js`); `G.newGear(clsId)` = a new character with the starter,
+  `G.newGear()` = an empty set (tools, the daily kit, the base the migration fills); `G.gearOf` makes new characters. The item carries
+  `starter: true` (its name rule); the gear set carries `starter: true` = "decided for this character" (never given twice).
+- Save v9 (`src/save.js`, export codes accept v2..v9): a character from an older save with no weapon worn AND no weapon its class can
+  use in the kept bag gets the starter on load, with an id above every id it has; every other character is only flagged. A v2 / v3
+  save: the class that receives the old gear, same rule. A starter sold or dropped does not come back.
+- Decisions (nobody was asked): (1) the archer's starter is "Training Bow" because "Short Bow" is already the name of every common
+  bow, and the mage's is "Apprentice Staff" because "Worn Staff" is every common staff; (2) "owns no weapon in the bag" counts only
+  weapons the class can equip (a mage holding a warrior's axe as loot still gets the staff), unidentified ones included; (3) the
+  tutorial's gift stays, as the first upgrade: it is magic, item level 2 (+6..9 % damage against +4 %); equipping it puts the starter in
+  the run's bag and the end of the tutorial banks it into the kept bag (it can be sold); a replay puts the worn weapon back as before;
+  (4) the daily challenge keeps its own fixed kit (no starter in it); (5) the Node bot's "no gear" run (`G.botRun` without `gear`,
+  `tools/sim_bot.js`, careers) is now a new character, so it wears the starter, like `?fresh=1` in the browser.
+- `qa/equip.js`: the `fresh` case now asserts something (it asserted nothing): a fresh warrior shows the bare sheet WITH the weapon
+  drawn in the fist, weapon equipped, no armour.
+- `tools/check_bag.js`: save version 9 everywhere, new characters count their starter, a `starter` block (19 checks). Two things found
+  there that are not from this step: `mod longCracks ... crack cells 12956 -> 12623` FAILS on the untouched branch too (left alone);
+  the "changed checksum" test flipped a hex digit to 'A'/'B', which is no change when the digit was 'a' (the decoder lower-cases): it
+  now flips to '0'/'1'.

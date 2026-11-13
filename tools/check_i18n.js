@@ -40,6 +40,7 @@ Object.keys(G.BAL.monsters).forEach(m => need.push('mob.' + m));
 Object.keys(G.BAL.classes).forEach(c => need.push('cls.' + c, 'skill.' + c));
 Object.keys(G.BAL.economy.ranks).forEach(r => need.push('rank.' + r + '.name', 'rank.' + r + '.text'));
 G.BAL.loot.weaponTypes.forEach(w => need.push('wt.' + w.id, 'wbase.' + w.id));
+Object.keys(G.BAL.items.starter.names).forEach(w => need.push('starter.' + w));
 G.ITEM_SLOTS.forEach(s => need.push('slot.' + s, 'base.' + s));
 Object.keys(G.BAL.items.stat).forEach(s => need.push('stat.' + s, 'adj.' + s));
 for (let i = 0; i < 5; i++) need.push('rar.' + i);
@@ -71,6 +72,12 @@ for (let i = 0; i < 600; i++) {
   G.setLang('en'); if (G.itemName(it) !== it.name) bad.push(it.name + ' != ' + G.itemName(it));
   G.setLang('es'); const n = G.itemName(it); esNames.add(n); if (!/^[A-ZÁÉÍÓÚÑ][A-Za-zÁÉÍÓÚÑáéíóúñü ]+$/.test(n)) bad.push('es? ' + n);
   samples[it.slot + (it.wtype || '') + it.rarity] = n + ' / ' + G.itemType(it);
+}
+for (const cls of Object.keys(bal.classes)) {      // the starter weapons: their own names in both languages
+  const it = G.newGear(cls).equipped.weapon;
+  G.setLang('en'); if (!it || G.itemName(it) !== it.name) bad.push('starter ' + cls + ': ' + (it && it.name) + ' != ' + (it && G.itemName(it)));
+  G.setLang('es'); const n = it ? G.itemName(it) : ''; if (!/^[A-ZÁÉÍÓÚÑ][A-Za-zÁÉÍÓÚÑáéíóúñü ]+$/.test(n)) bad.push('es? ' + n);
+  console.log('       starter ' + cls + ': ' + (it && it.name) + ' / ' + n + ' / ' + (it ? G.itemType(it) : ''));
 }
 G.setLang('en');
 check('English item names assembled = the names the sim stores (600 items)', !bad.length, bad.slice(0, 3).join(' | '));

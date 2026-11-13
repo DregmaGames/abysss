@@ -44,6 +44,36 @@
     return it;
   };
 
+  // ---- the starter weapon (step gear data; numbers and names: B.items.starter)
+  // the weapon type entry a class starts with: its defaultWeapon, else its first own type (null: the class has no weapon type)
+  G.starterType = function (B, clsId) {
+    var C = G.classDef(B, clsId), own = B.loot.weaponTypes.filter(function (w) { return w.cls === C.id; }), i;
+    for (i = 0; i < own.length; i++) if (own[i].id === C.defaultWeapon) return own[i];
+    return own[0] || null;
+  };
+  // the item itself: fixed (no rng), common, identified, flagged `starter` (its name comes from B.items.starter.names)
+  G.starterWeapon = function (B, clsId, gear) {
+    var S = B.items.starter, wd = G.starterType(B, clsId), stats = {}, k;
+    if (!wd) return null;
+    for (k in S.stats) stats[k] = S.stats[k];
+    return { id: gear.nextId++, slot: 'weapon', rarity: S.rarity, ilvl: S.ilvl, name: S.names[wd.id] || ((wd.worn ? 'Worn ' : '') + wd.item), stats: stats,
+      power: S.ilvl * (2 + S.rarity), wtype: wd.id, starter: true };
+  };
+  // Gives a character its starter weapon, once: gear.starter says the question is settled (so a sold or dropped starter never comes back).
+  // A character that already wears a weapon, or keeps one its class can use in the bag (an old save), gets nothing. Returns the item or null.
+  G.giveStarter = function (gear, B, clsId) {
+    if (gear.starter) return null;
+    gear.starter = true;
+    if (gear.equipped.weapon || gear.bag.some(function (it) { return it.slot === 'weapon' && G.canEquip(it, B, clsId); })) return null;
+    var top = gear.nextId > 0 ? gear.nextId : 1;      // an id no item of this character has (old saves: nextId is not trusted)
+    gear.bag.concat(Object.keys(gear.equipped).map(function (k) { return gear.equipped[k]; }), gear.shop && gear.shop.stock ? gear.shop.stock : [])
+      .forEach(function (it) { if (it && it.id >= top) top = it.id + 1; });
+    gear.nextId = top;
+    var it = G.starterWeapon(B, clsId, gear);
+    if (it) gear.equipped.weapon = it;
+    return it;
+  };
+
   // A town shop item (step 7): always identified, marked src 'shop'. HARD RULE: throws above economy.shop.maxRarity (rare; never epic or better).
   G.rollShopItem = function (rng, ilvl, rarity, B, gear, clsId) {
     if (rarity > B.economy.shop.maxRarity) throw new Error('shop never sells rarity ' + rarity);
