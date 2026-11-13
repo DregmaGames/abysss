@@ -3,7 +3,7 @@
 //   node qa/rooms.js [outDir] [ui|rooms|all] [size ...]
 // ui    : HUD, Settings, inventory, the level-up cards and the door choice at 1640x922 and 1920x1080 (S=2): every panel inside
 //         the screen and centred, the zoom slider up and back down, an old save's zoom offset (-2, +1) keeps its scale.
-// rooms : a normal room (room 3), the boss room and the test room at 1640x922, 1920x1080, 960x540, 844x390 and 540x960:
+// rooms : a normal room (room 3; at the start and in a fight), the boss room (at the start and with the Rift Tyrant attacking) and the test room at 1640x922, 1920x1080, 960x540, 844x390 and 540x960:
 //         how much of the screen the room covers, the camera follows on small screens, 0 console errors.
 // Screenshots: <out>/<what>_<WxH>.png
 'use strict';
@@ -123,6 +123,15 @@ async function rooms(browser, size) {
   await page.evaluate(() => { G.gameScene.bot = null; G.gameScene.sim.cheatRoom(G.BAL.run.rooms - 1); });
   await sleep(1800);
   await shot(page, 'boss_' + size);
+  // the Rift Tyrant himself: the cracks are skipped (debug), the super fissure opens and he walks out and attacks
+  await page.evaluate(() => { const gs = G.gameScene; gs.sim.cheatSkipPhase(); gs.speed = 3; });
+  for (let i = 0; i < 60; i++) {
+    await sleep(300);
+    if ((await Q.state(page)).screen === 'levelup') { await sleep(450); await Q.click(page, 'card_0'); continue; }      // the skipped cracks paid a level
+    if (await page.evaluate(() => { const m = G.gameScene.sim.monsters.find(q => q.def.boss); return !!m && m.st !== 'chase' && G.gameScene.sim.teles.length + G.gameScene.sim.shots.length > 0; })) break;
+  }
+  await page.evaluate(() => { G.gameScene.speed = 1; }); await sleep(250);
+  await shot(page, 'boss_fight_' + size);
   out.push(Object.assign({ what: 'boss', size }, await cover(page), { errors: page.errors.length + (await Q.state(page)).errors.length }));
   await page.context().close();
   // the test room

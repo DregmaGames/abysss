@@ -203,6 +203,7 @@
       superPit: { r: 16, arms: [7, 8], armLen: [50, 72], keep: 40 },      // the super fissure: pit radius, arms, px per arm; normal cracks keep `keep` px from its centre
       segments: 4,                    // dark bands per crack, the tips go dark first
       joinChance: 0.45,               // chance that a crack branches off an earlier one (joined = shared kill meter)
+      siteShare: 0.5,                 // at least this share of a room's cracks are separate centres (rounded up) before any branches off another: 3 cracks = 2 places
       siteGap: 14,                    // min tiles (manhattan) between separate crack centres (was 8 in the smaller rooms)
       segHeal: 0.01,                  // heal (fraction of max HP) each time a segment goes dark
       aliveThreat: 1.85,              // monsters alive from the network at once: up to this x one crack's budget (step big rooms: was 1.4; with the bigger budgets about +45 % alive at once)

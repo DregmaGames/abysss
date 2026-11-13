@@ -133,16 +133,86 @@ Design decisions live in the plan doc (the user has it); this file is what an ag
   big blocks, L shapes), 2 free tiles round each; reserved floor round the start (merchant and cage stand there), under the exit (chest) and 13 x 11 tiles round the super fissure.
   Cracks: one more per room (3, 4, 4, 4, 5, 5, 5, 5, 6, boss 3), arms 150-215 px (was 90-130), half of the cracks grow a third arm; a new crack takes the heading
   with the most free floor (of 6), an arm turns past a pillar or wall up to 3 times instead of ending there (never more than 1.5 rad off its first heading), stubs
-  are retried; crack centres go to the sectors of a 3 x 2 grid in a diagonal order, so the network covers the room. Super fissure: pit radius 16 (13), 7-8 arms of 50-72 px (6-7 of 34-50).
+  are retried; crack centres go to the sectors of a 3 x 2 grid in a diagonal order and at least half of a room's cracks are separate centres before any branches off another (`siteShare`), so the network covers the room. Super fissure: pit radius 16 (13), 7-8 arms of 50-72 px (6-7 of 34-50).
   Monsters: count x budget per room = 15, 24, 32, 36, 50, 60, 65, 70, 96, boss 27 threat points (was 10, 18, 21, 24, 36, 40, 44, 48, 65, 18: +46 % on average), super waves
   6, 9, 9, 12, 9, 9, 12, 10, 13 monsters (was 4, 6, 6, 8, 6, 6, 8, 7, 9; the same wardens). So that they also fill the room at once and the room does not just last longer:
   `aliveThreat` 1.4 -> 1.85 (with the bigger budgets about +45 % alive at once), `spawnEvery` 1.3 -> 0.9 s, `superSpawnEvery` 0.5 -> 0.35 s. Boss: slam radius 56 -> 66,
   charge 0.6 -> 0.8 s (108 -> 144 px), summons 3 -> 4. NOT changed: gear, abilities, the economy tables, monster stats, `roomMult`; a kill pays what it paid, so a run
-  now gives more exp, kill gold and kill drops (see the table). Tutorial room 38 x 26 (was 24 x 26; two more pillars, torches every 4 tiles from the exit; every
+  now gives more exp and kill gold (see the table). Tutorial room 38 x 26 (was 24 x 26; two more pillars, torches every 4 tiles from the exit; every
   position in it was already relative). The test room and the daily challenge use the same generator. `genFissure` keeps crack px in a Map with number keys (a room is generated in about 30 ms).
   View: lights along the arms of a crack (one every 52 px, each goes out with its band), big crack textures redraw their shimmer half as often, the title backdrop
   is clamped to the room. `tools/determinism.js` has a new room sanity block (size, crack count, no stub, floor share, chest / exit / super fissure / merchant / cage reachable, no crack on a wall or on the start).
 - `main` is the working base. One branch per step: `step-N-<slug>`.
+
+## Last measured (2026-11-13, big rooms test)
+
+Node bot, seeds 1-10, one command per row (`node tools/run_length.js --md`; never more than 10 seeds per command). `fresh` = `sim_bot --seeds 1-10 --class C`
+(a new character, no gear); `career` = `sim_bot --career 10 --seeds 1-10 --class C` (ten runs in a row keeping gear); `full` = fresh with a hero who cannot
+die (`--set classes.C.base.hp=1000000`): the length of all ten rooms at a new character's kill speed. BEFORE = commit 1fa7aec (old rooms), AFTER = this branch.
+
+| class | measure | wins before | wins after | avg run min | win min | s / room | kills | level | gold | deaths by room before | deaths by room after |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| mage | fresh | 0/10 | 3/10 | 7.3 -> 9.8 | - -> 12.4 | 54 -> 70 | 259 -> 373 | 18.2 -> 20.6 | 474 -> 667 | 0 0 0 0 0 0 2 4 2 2 | 0 0 0 0 0 2 0 2 2 1 |
+| mage | career | 2/10 (3 left) | 4/10 (4 left) | 6.8 -> 8.6 | 9.6 -> 10.2 | 51 -> 61 | 245 -> 354 | 19.8 -> 20.7 | 499 -> 680 | 0 0 0 0 0 0 0 2 1 2 | 0 0 0 0 0 0 0 0 2 0 |
+| mage | full | 10/10 | 10/10 | 10.2 -> 12.9 | 10.2 -> 12.9 | 59 -> 76 | 353 -> 482 | 21.8 -> 23.8 | 836 -> 982 | - | - |
+| warrior | fresh | 2/10 | 1/10 | 6.7 -> 9.5 | 9.3 -> 10.0 | 50 -> 65 | 251 -> 381 | 17.9 -> 21.4 | 492 -> 624 | 0 0 0 0 1 0 1 5 1 0 | 0 0 0 0 0 1 0 5 2 1 |
+| warrior | career | 4/10 (4 left) | 6/10 (4 left) | 6.5 -> 8.3 | 7.6 -> 9.7 | 44 -> 58 | 257 -> 364 | 21.2 -> 23.2 | 584 -> 736 | 0 0 0 0 0 0 1 1 0 0 | 0 0 0 0 0 0 0 0 0 0 |
+| warrior | full | 10/10 | 10/10 | 10.3 -> 13.1 | 10.3 -> 13.1 | 60 -> 77 | 368 -> 503 | 22.2 -> 24.8 | 847 -> 995 | - | - |
+| archer | fresh | 0/10 | 2/10 | 5.8 -> 7.4 | - -> 10.0 | 45 -> 58 | 215 -> 302 | 16.9 -> 19.0 | 426 -> 546 | 0 0 0 0 0 2 2 2 1 3 | 0 0 0 0 1 1 1 3 2 0 |
+| archer | career | 2/10 (4 left) | 5/10 (4 left) | 5.5 -> 7.6 | 7.2 -> 9.1 | 41 -> 53 | 222 -> 340 | 18.1 -> 21.4 | 492 -> 702 | 0 0 0 0 0 0 0 2 1 1 | 0 0 0 0 0 0 0 1 0 0 |
+| archer | full | 10/10 | 10/10 | 8.5 -> 10.8 | 8.5 -> 10.8 | 50 -> 64 | 309 -> 434 | 20.8 -> 23.7 | 809 -> 951 | - | - |
+
+Seconds by room of the `full` runs, rooms 1-10 (room 10 = the boss room):
+mage 31 43 44 54 65 63 66 75 92 78 -> 39 56 57 72 81 86 86 93 118 89; warrior 25 34 40 47 63 68 70 83 111 75 -> 30 45 51 63 81 91 92 106 139 88;
+archer 27 37 40 42 54 55 54 61 76 62 -> 36 48 49 58 69 73 71 77 96 69.
+
+What the numbers say:
+- A full run of 10 rooms is about 25 % longer: 10.2 / 10.3 / 8.5 min -> 12.9 / 13.1 / 10.8 min (mage / warrior / archer). A room takes 58-77 s instead of 45-60 s.
+  It is not +45 % because the monsters also come faster and more at once (spawn pause 1.3 -> 0.9 s, alive cap x1.45): what is left is the walking in a room of twice the floor.
+- Kills per full run +37 % (353 -> 482, 368 -> 503, 309 -> 434); the hero ends about 2 levels higher; gold earned +17 %; items found the same (the sealed bag is full at 20 either way).
+- It is somewhat EASIER: wins without gear 2/30 -> 6/30, in careers 8/30 -> 15/30. Ten seeds are noisy (2 to 4 of 10 count as the same), but every class moved the same way
+  in careers. Why: more exp per room (the same room is reached 2-3 levels higher) and more floor to keep away on. Nothing was done about it (the brief: no rebalance
+  beyond playable); the knobs, if the user wants the old difficulty back, are `run.roomMult` / `run.monsterDmg` (monsters) or `exp` (levels), not gear or abilities.
+- No softlock, no timeout in the 90 runs of the table; the browser matches Node.
+
+**Recommendation for decision 3 (number of rooms): cut to 8 rooms (7 + the boss) if 8-10 minutes stays the goal.** From the `full` times above, keeping the room
+order and the boss last: 10 rooms = 12.9 / 13.1 / 10.8 min; 9 rooms = 11.0 / 10.8 / 9.2 min; **8 rooms = 9.4 / 9.0 / 7.9 min**; 7 rooms = 8.0 / 7.5 / 6.7 min.
+Eight big rooms are also close to the old run in content: about the kills of the old ten rooms (the first seven rooms and the boss hold 65 % of the new monsters, about 320 kills
+against 310-370 before) and probably close to the old final level (not measured). Keeping 10 rooms is fine only if 11-13 minute runs are wanted (more loot and levels per run, which suits a
+farming game, but late deaths then cost 9-10 minutes). The cut is a balance step of its own, not done here: every per-room table in `src/balance.js` has ten entries (`roomMult`,
+`fissure.count / budget / pool / superWave`, `loot.chestItems`), Don Montoto's cage is in room 5, the merchant rooms and the daily score (par 900 s) count on ten rooms,
+and the first-win pace must be measured again. These are estimates from 10 seeds per class: the boss would be met at a lower level in an 8-room run, so its room would last longer than the 69-89 s measured.
+
+Checks on the final build (2 035 259 bytes; copy in `/home/claude/builds/riftscar_rooms.html`, screenshots in `/home/claude/builds/rooms/`):
+- `python3 tools/build.py` ok; `node tools/determinism.js` pass (500 rooms sane, 500 distinct, 1200 door-modified rooms, every bot run identical twice; it takes about 4 min now);
+  `check_i18n.js` pass; `check_bag.js` pass (its in-run equip fixture now identifies the rolled item: with the new rooms the roll came out rare, i.e. unidentified);
+  `check_tutorial.js` pass (38 x 26 room, all 13 steps for every class); `contrast.js` pass.
+- `node qa/bot.js --seeds 3,4,5` (mage): 0 console errors, 0 softlocks, 3 of 3 match Node (dead in rooms 9, 8, 6; no win in these three seeds, so the script's "one run clears all rooms" condition is not met).
+- `node qa/hd.js <out>`: 0 console errors, HD skeletons and floor, the four boss poses, the cage, the toggle (the script now picks a card when a level-up opens: there are more of them).
+- `node qa/rooms.js <out> all`: PASS. UI at 1640x922 and 1920x1080 (S=2): Settings 208 x 254, inventory 340 x 200, level-up cards and the door choice centred and inside; zoom 2 > 3 > 2 > 2;
+  old-save offsets. Rooms: room 3 (start and fight), the boss room (start and the Tyrant attacking) and the test room at 1640x922, 1920x1080, 960x540, 844x390 and 540x960:
+  the room covers 93-100 % of a 1640x922 view (the camera follows a little), 85-95 % of 1920x1080 (whole room on screen, centred); on the three small sizes the camera follows as before. 0 console errors.
+  Also looked at: 2560x1440 (S=3, the room fills the view), the title and the tutorial room at 1640x922.
+- `node qa/tutorial.js land_en` 131 of 131 and `port_es` 132 of 132; `node qa/test_room.js` 0 errors; `node qa/daily.js` 32 checks, 0 failing; `node qa/touch.js landscape` 35 of 35.
+
+Decisions taken without asking (the brief said to decide and note):
+- Zoom: at 922 and 1080 the far default is the lowest step (no 1x). Old saves keep the scale they had chosen, not their offset.
+- +45 % monsters = one more crack per room and a bigger budget per crack (not budget alone: three cracks in the first room cover a room of twice the floor better than two),
+  and the alive cap and spawn pace rise with it, so the room is fuller, not just longer.
+- A kill pays what it paid (exp, gold, drop chances): the economy and exp tables are untouched, a run simply holds more kills.
+- Boss: slam radius, charge length and summons up a step; its hp, damage and timings are unchanged.
+- The tutorial room was widened (38 x 26), otherwise it would be the same island on a desktop screen that the user complained about.
+- NOT touched: the city (next step; at 1640x922 it is a 416 x 240 island in the middle), the portrait layout, the number of rooms.
+
+Rough / not tested:
+- Nobody has played it: feel, pace and readability of small sprites in a full room are unjudged (headless Chromium runs at a few fps).
+- On a small screen (960x540, phones) the hero sees a sixth of the room; the pointer shows the nearest open crack, but slow monsters (36 px/s) from a far crack need up to 25 s to arrive.
+  Only the cluster nearest the hero spawns (as before); on a desktop view the far cracks are lit but idle.
+- Long cracks pen walkers behind them more often than the short ones did (same rule as before: an open crack is a wall for walkers); the bot walks up after 20 s, worst "no progress" 13.8 s in the browser runs.
+- Performance was not measured: a crack texture is up to 4 x the old area (its shimmer redraws at half rate), a room is generated in about 30 ms. Not run on a phone.
+- 1440p (S=3): HD sprites are uneven (1.5 screen px per HD px), as noted in part 1.
+- The daily challenge keeps its 900 s par: with longer runs the time bonus is smaller. Scores of the same day differ from the previous build (new rooms).
+- Not run: `qa/screens.js`, `qa/session.js`, `qa/city.js`, `qa/lo.js` (27 px mode), `qa/touch.js portrait`, the browser bot for warrior and archer, Spanish at desktop sizes, dragging the zoom slider at desktop sizes.
 
 ## Last measured (2026-11-12, HD art pilot)
 
@@ -498,7 +568,7 @@ Sim (no Phaser, deterministic, runs in Node):
   `classes.*` holds the classes (`docs/classes.md`); `player.*` only what all classes share.
 - `src/rng.js`: `G.RNG`, `G.hash32`, and `G.M` (sin, cos, atan2, pow, exp, log). The sim must use
   `G.M`, never `Math`, for those: engines disagree on the last bit and runs drift apart.
-- `src/mapgen.js`: `G.genRoom(runSeed, index, B)`, a pure function. `genFissure` makes one crack.
+- `src/mapgen.js`: `G.genRoom(runSeed, index, B)`, a pure function. `genFissure` makes one crack. Room sizes, outline, blocks and reserved zones: `BAL.room`; crack length, arms, sites: `BAL.fissure`.
 - `src/sim/core.js`: `Sim` (`opts.cls`; `sim.cls`, `sim.clsId`), `G.classDef`, room loading, `move` (walls and open cracks), `bfs`, flow fields
   (`flow` for flyers, `flowWalk` for walkers), player, level-ups, `cheat*` actions.
 - `src/sim/fissures.js`: the crack network (`setupFissures`, `networkKill`, `darkenSeg`,

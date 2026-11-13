@@ -183,6 +183,8 @@
       }
     }
     if (boss) for (i = 0; i < blocks.length; i++) fill(blocks[i][0], blocks[i][1], blocks[i][2], blocks[i][3]);
+    // a buttress clipped by a reserved zone can be left one tile wide: such a sliver (floor on both sides) goes back to floor
+    for (y = 2; y < H - 1; y++) for (x = 1; x < W - 1; x++) if (at(x, y) && !at(x - 1, y) && !at(x + 1, y)) tiles[y * W + x] = 0;
     // no corridor narrower than two tiles: a floor tile that is not part of any 2x2 floor block becomes wall
     var changed = true;
     while (changed) {
@@ -264,7 +266,7 @@
     var gap = F.siteGap, ci = 0, tries = 0, CP = { fork: F.fork, third: F.thirdArm, bend: F.bend, aim: F.aim };
     while (fissures.length < want && tries++ < 200) {
       var made = null, k2;
-      if (fissures.length && rng.chance(F.joinChance)) {
+      if (fissures.length >= Math.ceil(want * F.siteShare) && rng.chance(F.joinChance)) {      // the first cracks are always separate centres
         // branch: start on a mid-length core cell of an earlier crack, head away from its centre
         var par = fissures[rng.int(0, fissures.length - 1)], mids = [];
         for (k2 = 0; k2 < par.cells.length; k2++) {
