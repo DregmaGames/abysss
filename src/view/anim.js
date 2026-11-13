@@ -33,6 +33,8 @@
       unique:    { color: 0xfff0b8, min: 0.45, max: 1.0, period: 0.7, sparks: 4, spark: 'gold' }
     },
     glowByRarity: [null, 'magic', 'rare', 'epic', 'legendary'],
+    // held weapon art by weapon type (frames wpn_<name> of the HD atlas); `any`: the one drawn for a type with no art yet
+    wpnArt: { sword: 'wpn_sword', any: 'wpn_sword' },
     glowOrder: ['none', 'magic', 'rare', 'epic', 'legendary', 'mythic', 'unique'],
     ent: {
       // one imported pose (the bone blade raised): serves every skeleton frame, the motion does the rest
@@ -57,6 +59,16 @@
         attack: { frames: ['mage_attack_0', 'mage_attack_1'], fps: 14, hold: 0.12 },
         hurt: { frames: ['mage_hurt'], hold: 0.25 },
         motion: { bob: 1, tilt: 0.02, squash: 0.04, lean: 1, lunge: 2, stretch: 0.05, recoil: 3, breathe: 0.02, breathT: 1.6, dust: 1, faces: 1, die: 0.9 }
+      },
+      // the warrior with no gear on (Grok, 4x2, generated holding a green rod that tools/hand_weapon.py took out): the same
+      // eight poses; `hands`: its frames carry the fist, so the equipped weapon is drawn into it (G.HD.heroWeapon)
+      warrior_bare: {
+        hands: true,
+        idle: { frames: ['warrior_bare_idle_0'] },
+        walk: { frames: ['warrior_bare_walk_0', 'warrior_bare_walk_1', 'warrior_bare_walk_2', 'warrior_bare_walk_3'], fps: 8 },
+        attack: { frames: ['warrior_bare_attack_0', 'warrior_bare_attack_1'], fps: 14, hold: 0.14 },
+        hurt: { frames: ['warrior_bare_hurt'], hold: 0.25 },
+        motion: { bob: 1, tilt: 0.015, squash: 0.03, lean: 1, lunge: 3, stretch: 0.04, recoil: 2, breathe: 0.02, breathT: 1.8, dust: 1, faces: 1, die: 0.9 }
       },
       // the warrior sheet (Grok, 4x2): walk x4, idle, sword raised, sword swung, hurt. Plate armour, shield and sword are
       // drawn into the sheet: the chunky held weapon (w_<type>) is hidden while this art shows, whatever is equipped.

@@ -491,7 +491,7 @@ def pack():
         print('no HD frames'); return
     W = 512
     order = sorted(items, key=lambda k: (-items[k].shape[0], k))
-    x = y = 1; rowh = 0; place = []; points = json.load(open(os.path.join(HD, 'fx_points.json'))) if os.path.exists(os.path.join(HD, 'fx_points.json')) else {}
+    x = y = 1; rowh = 0; place = []; points = json.load(open(os.path.join(HD, 'fx_points.json'))) if os.path.exists(os.path.join(HD, 'fx_points.json')) else {}; hands = json.load(open(os.path.join(HD, 'hand_points.json'))) if os.path.exists(os.path.join(HD, 'hand_points.json')) else {}
     frames = {}
     for k in order:
         h, w = items[k].shape[:2]
@@ -501,6 +501,8 @@ def pack():
         frames[k] = {'frame': {'x': x, 'y': y, 'w': w, 'h': h}, 'anchor': {'x': anchor(items[k]), 'y': 1}, 'foot': foot(items[k])}
         if k in points:
             frames[k]['head'] = points[k]      # the weapon's glowing head, px from the frame's top left (tools/weapon_fx.py)
+        if k in hands:
+            frames[k]['hand'] = hands[k]       # where a held weapon goes: x, y, degrees, length (tools/hand_weapon.py)
         rowh = max(rowh, h); x += w + 1
     H = 1
     while H < y + rowh + 1:

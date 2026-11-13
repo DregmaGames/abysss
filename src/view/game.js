@@ -255,7 +255,9 @@
       var sim = this.sim, tick = sim.tick, self = this, p = sim.player, rdt = this.rdt || 0;
       // player
       var walk = p.moving ? [1, 0, 2, 0][(tick >> 3) & 3] : 0, prig = this.prig;
-      var hdHero = !!G.HD.frames(this, this.cls.id, 'idle');       // the class has HD frames (a sheet imported for it)
+      var heq = sim.gear && sim.gear.equipped;
+      prig.ent = G.HD.heroEnt(this.cls.id, heq);                    // visible equipment: the sheet by the armour worn
+      var hdHero = !!G.HD.frames(this, prig.ent, 'idle');           // the class has HD frames (a sheet imported for it)
       if (!hdHero) {
         if (this.player.isHD || this.player.texture.key !== 'atlas') G.HD.chunky(this.player, this.cls.sprite.frames + '_0');
         this.player.setFrame(this.cls.sprite.frames + '_' + walk).setFlipX(p.face < 0).setOrigin(p.face < 0 ? 0.58 : 0.42, 1);
@@ -272,7 +274,7 @@
       this.playerShadow.setPosition(p.x, p.y + p.r).setScale(1 - lift / (HOP_H * 2.5)).setVisible(!hdHero);
       if (hdHero) prig.update(rdt, { x: p.x + bx, y: p.y + p.r + 1 - lift + by, ground: p.y + p.r, face: p.face, tx: null, state: 'walk',
         speed: this.cls.base.speed, depth: p.y + p.r + (lift ? 400 : 0), shadowAlpha: 0.85 * (1 - lift / (HOP_H * 1.5)),
-        glow: G.HD.glowOf(sim.gear && sim.gear.equipped && sim.gear.equipped.weapon) });
+        glow: G.HD.glowOf(heq && heq.weapon), weapon: G.HD.heroWeapon(prig.ent, this.cls, heq) });
       else prig.shadow.setVisible(false);
       if (this.weaponImg) {
         var wi = this.weaponImg, wd = G.weaponOf(this.cls, sim.gear).id;

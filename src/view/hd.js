@@ -38,6 +38,20 @@
       if (c) return c === 'none' ? null : c;
       return item ? G.ANIM.glowByRarity[item.rarity] || null : null;
     },
+    // Visible equipment (test). The hero's art by what is equipped: with no body armour on, the class's `<id>_bare` sheet
+    // when there is one (?look=bare / ?look=full forces one); else the class's own sheet (armour drawn in).
+    heroEnt: function (id, eq) {
+      var bare = id + '_bare', look = G.params.get('look');
+      if (!G.ANIM.ent[bare]) return id;
+      return look === 'bare' ? bare : look === 'full' ? id : (eq && eq.armor ? id : bare);
+    },
+    // the weapon to draw in the hand of a sheet that marks its fist (ANIM `hands`): by the equipped weapon (?wpn=1 / ?wpn=0 forces)
+    heroWeapon: function (ent, cls, eq) {
+      var E = G.ANIM.ent[ent], p = G.params.get('wpn'), item = eq && eq.weapon;
+      if (!E || !E.hands || p === '0' || (!item && p !== '1')) return null;
+      var wt = cls && cls.weapons ? G.weaponOf(cls, { equipped: eq || {} }).id : 'weapon';
+      return { frame: G.ANIM.wpnArt[wt] || G.ANIM.wpnArt.any, glow: HD.glowOf(item) };
+    },
     // the tint of a glow at time t: one colour, or a slow walk round `cycle`
     glowColor: function (g, t) {
       if (!g.cycle) return g.color;
@@ -130,11 +144,11 @@
   R.release = function (dur) { this.wind = 0; this.rel = this.relDur = dur || 0.25; };
   R.attack = function (dur) { this.rel = this.relDur = dur || 0.25; this.atkFrames = true; };    // an attack with no wind-up (the hero's)
   R.hurt = function (fromX) { this.hit = 0.2; this.hitDir = sign(this.img.x - fromX); };
-  R.destroy = function () { this.shadow.destroy(); if (this.glowImg) this.glowImg.destroy(); };
+  R.destroy = function () { this.shadow.destroy(); if (this.glowImg) this.glowImg.destroy(); if (this.wpnImg) { this.wpnImg.destroy(); this.wpnGlow.destroy(); } };
 
   R.update = function (dt, o) {
     var img = this.img, scene = this.scene, M = this.motion();
-    if (!HD.frames(scene, this.ent, 'idle') && !HD.frames(scene, this.ent, o.state)) { this.hdOn = false; this.shadow.setVisible(false); if (this.glowImg) this.glowImg.setVisible(false); this.lx = null; return false; }
+    if (!HD.frames(scene, this.ent, 'idle') && !HD.frames(scene, this.ent, o.state)) { this.hdOn = false; this.shadow.setVisible(false); if (this.glowImg) this.glowImg.setVisible(false); if (this.wpnImg) { this.wpnImg.setVisible(false); this.wpnGlow.setVisible(false); } this.lx = null; return false; }
     this.hdOn = true;
     // movement since the last frame (sim feet position); a jump (new room, dodge) does not count as walking
     if (this.lx === null) { this.lx = o.x; this.ly = o.y; }
@@ -225,6 +239,21 @@
           if (meta.head) scene.fx.burst(o.x + ((flip ? W - meta.head[0] : meta.head[0]) - img.originX * W) * img.scaleX + Math.sin(this.t * 37) * 1.5,
           o.y + (meta.head[1] - img.originY * H) * img.scaleY, gdef.spark || 'gold', 1, 14, 0.45);      // from the weapon's head
     } else if (gi) gi.setVisible(false);
+    // a held weapon (o.weapon = { frame, glow }): the frame says where its fist is and which way the weapon points
+    // (meta.hand = x, y, degrees, length; tools/hand_weapon.py); the weapon sprite stands upright with its guard at the
+    // bottom centre, so it is put on the fist and turned. Its rarity glow is a second, additive copy of it.
+    var wp = o.weapon, wi = this.wpnImg, wg = this.wpnGlow;
+    if (wp && meta.hand && img.visible && scene.textures.get('hd').has(wp.frame)) {
+      if (!wi) { wi = this.wpnImg = scene.add.image(0, 0, 'hd', wp.frame); wg = this.wpnGlow = scene.add.image(0, 0, 'hd', wp.frame).setBlendMode(Phaser.BlendModes.ADD); }
+      if (wi.frame.name !== wp.frame) { wi.setFrame(wp.frame, false, false); wg.setFrame(wp.frame, false, false); }
+      var hx = o.x + ((flip ? W - meta.hand[0] - 0.5 : meta.hand[0] + 0.5) - img.originX * W) * img.scaleX, hy = o.y + (meta.hand[1] + 0.5 - img.originY * H) * img.scaleY;
+      var ha = meta.hand[2] * Math.PI / 180, wr = (flip ? Math.PI - ha : ha) + Math.PI / 2 + rq, wd = (o.depth != null ? o.depth : img.depth) + 0.02, wal = o.alpha == null ? 1 : o.alpha;
+      wi.setVisible(true).setFlipX(flip).setOrigin(0.5, 1).setScale(1 / D).setRotation(wr).setPosition(hx, hy).setDepth(wd).setAlpha(wal);
+      var wgd = wp.glow && G.ANIM.glow[wp.glow];
+      if (wgd) wg.setVisible(true).setFlipX(flip).setOrigin(0.5, 1).setScale(1 / D).setRotation(wr).setPosition(hx, hy).setDepth(wd + 0.01).setTint(HD.glowColor(wgd, this.t))
+        .setAlpha(wal * (wgd.min + (wgd.max - wgd.min) * (0.5 + 0.5 * Math.sin(this.t * 6.2832 / (wgd.period || 1.4)))));
+      else wg.setVisible(false);
+    } else if (wi) { wi.setVisible(false); wg.setVisible(false); }
     // soft contact shadow: as wide as the feet, smaller while the body is up
     var fw = Math.max(8, ((meta.foot || W * 0.6) / D) * 1.15 + 4), lift = 1 - Math.max(0, -oyq) * 0.04;
     var sw = Math.round(fw * lift / 2) * 2;

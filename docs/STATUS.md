@@ -738,3 +738,22 @@ in the test room at 1640x922 (walk frames cycle, 0 console errors). Not captured
 NEXT DECISION (the user, 2026-11-13): the hero must start with NO gear drawn and show what is equipped (armour, weapon), because
 the loot players he wants like to see a new piece on the character. See the chat for the plan; nothing of it is built yet.
 
+## Visible equipment, a first test (same branch `step-weapon-glow`, 2026-11-13, not merged)
+The user: the hero starts with no gear drawn and shows what is equipped. Generated art cannot be split into one layer per slot, so:
+ARMOUR = one sheet per look (the sheet by the body armour worn), WEAPON = its own sprite drawn in the fist.
+- The fist: the sheet is generated holding a flat bright green rod. `tools/hand_weapon.py hands <name>` finds the rod in each frame,
+  stores the point where it leaves the fist, its angle and length (`assets/hd/hand_points.json` -> frame meta `hand`), and takes the rod
+  out (filled from neighbours over the body). Untouched frames: `assets/hd/raw_rod/`.
+- The weapon: `tools/hand_weapon.py weapon` cuts a straight weapon out of a generated image, upright, guard at the bottom centre
+  (`wpn_sword`, 7x19 HD px, cut from the plate sheet's idle pose). `G.Rig` puts it on the fist, turned to the frame's angle, mirrored
+  with the hero; its rarity glow is an additive copy.
+- `G.HD.heroEnt(id, equipped)`: `<id>_bare` when no `armor` item is equipped and that sheet exists, else `<id>`;
+  `G.HD.heroWeapon`: a weapon sprite when a weapon is equipped and the sheet has hands. `?look=bare|full`, `?wpn=0|1` force them.
+Imported: `warrior_bare` (linen shirt, 8 poses, idle 19x46 HD px). So today: a warrior with nothing equipped is in his shirt with
+empty hands; a weapon equipped shows a sword in his fist; body armour equipped switches to the plate sheet (sword, shield and
+helmet drawn in: no weapon swap on that sheet until a rod version of it exists).
+Checked: build, check_i18n, `qa/equip.js` (new: 5 cases, 0 console errors) PASS, the close-ups looked at (standing, walking both ways).
+Not checked: equipping real items through the inventory in a run, the city, the attack frames with the weapon, the mage and archer.
+Rough: every weapon type draws the sword (the only weapon art); the sword is 2 px wide and turned by the renderer (stair-steps at
+some angles); the glow on it is faint; the fist is drawn under the weapon; shield and helmet are not separate.
+
