@@ -6449,7 +6449,10 @@
     if (want !== this.face) { this.flipT += dt; if (this.flipT > 0.09 || this.wind > 0) { this.face = want; this.flipT = 0; } } else this.flipT = 0;
     var td = o.tx != null ? sign(o.tx - o.x) : this.face;
     // the frame: 'walk' is locomotion, shown as idle while standing
-    var fs = HD.frames(scene, this.ent, o.state === 'walk' && !moving ? 'idle' : o.state) || HD.frames(scene, this.ent, 'idle');
+    // an attack started by attack() (the hero's swing / cast) shows the attack frames over walk or idle while it lasts
+    if (this.atkFrames && this.rel <= 0) this.atkFrames = false;
+    var fstate = this.atkFrames ? 'attack' : o.state === 'walk' && !moving ? 'idle' : o.state;
+    var fs = HD.frames(scene, this.ent, fstate) || HD.frames(scene, this.ent, 'idle');
     var list = fs.list, n = list.length, st = fs.def, fname;
     if (fs.state === 'walk') fname = list[Math.floor(((this.ph / 2) % 1) * (st.cycle || n)) % n];
     else if (attacking || this.atkFrames) {
