@@ -5,6 +5,14 @@ for things code draws badly (large creatures with a lot of anatomy, key art). Im
 come out at the game's pixel size and in the game's palette, so it always goes through
 `tools/import_asset.py`; never drop a generated image into the atlas by hand.
 
+
+## Art style (the user's choice, 2026-11-13)
+The reference is `docs/art/style_reference.jpg` (his Grok image "test1": an archer in a green hat and tunic with a longbow, and a
+woman in plate armour with a blue hood and cape and a sword). Every character, monster and NPC follows it: detailed pixel art,
+CHIBI proportions (big head, short body), expressive faces, a dark outline, rich shading. Prompts say so in their style line.
+Size: Grok's pixels are about 8 image px whatever is asked, so a figure in a 4x2 landscape sheet is about 45-50 real px (the game's
+size, no loss) and a lone big figure about 90 (halved on import). Characters are always generated as 4x2 sheets.
+
 ## Rules for every prompt
 
 - Flat **pure magenta background (#FF00FF)**, no gradient, no floor, no cast shadow, no text.
