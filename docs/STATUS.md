@@ -859,3 +859,65 @@ into `src/view/hd.js`); (2) "Chainmail Targe" / "Rodela de Malla" for a medium s
 shield: the user may want other words; (3) materials are the same for every class, so a mage can find and wear plate (as decided;
 no class limit exists); (4) item icons do not show the material; (5) the career bot values the starter like any item and may sell it
 when it finds a better weapon (as a player would); (6) `BAL.daily` kit items now carry materials, which changes nothing in the run.
+## Size tuning panel (branch `step-size-panel`, on top of `step-weapon-glow`; 2026-11-13, not merged; brief `docs/steps/step-size-panel.md`)
+A test tool for the user and his brother: six size multipliers, tried while playing, read off as one line, baked into the numbers
+of `src/balance.js` in a later step (then set back to 1).
+### The values (`BAL.tune`, all 1, range 0.6-1.6, step 0.1; read through `G.tuneOf(B, key)`, clamped, rounded to 0.01)
+- `hero`, `monsters` (VISUAL only; the sim's radius and every hit are the same): the HD rig draws the sprite `o.k` times its size
+  round the feet, snapped to whole HD px (`src/view/hd.js` R.update: size, motion offsets, held weapon (its height in whole HD px),
+  trim and glow follow the sprite, the soft shadow); the chunky path through `G.HD.tuneChunky` (height in whole art px), the chunky
+  shadow and the chunky held weapon. `monsters` covers every monster, the boss and the training dummies; `hero` also applies in
+  the city. Health bars follow the drawn height.
+- `room` (GAME, `G.genRoom`): the room's width and height ranges and the boss room x room (whole tiles); with it the outline's cut
+  corners and buttress lengths, the start/exit margin from the side walls, the boss pillars' positions, the centre's crack
+  keep-out and the gap between crack centres. The reserved zones (start, chest, super fissure) are NOT scaled (they hold the hero,
+  the merchant, the cage, the chest). The test room is a normal room (room 2), so it follows. The tutorial room: only its width
+  (its height holds the scripted rows of the wall, crack and pit). Crack COUNT and monster budgets per room are NOT scaled: a
+  bigger room has the same monsters, spread thinner (the user judges density).
+- `obstacles` (GAME): pillars and wall blocks inside a room: each kind's width and height x obstacles (whole tiles; at least 2, an L
+  at least 4 with bars as thick as 2 x obstacles); the boss room's eight pillars. Count: the same range of tries; bigger blocks
+  simply fit fewer times (the 2-tile gap and the reserved zones stop them), smaller ones the same number. There are no "pits" in a
+  room other than the super fissure's, which is under `fissures`. Buttresses on the walls are outline (under `room`).
+- `fissures` (GAME): one value for normal cracks and the super fissure together (decision: one reads better, and the pit's size
+  goes with its cracks): arm length range (after a door's crackLen), arm widths (`P.wk` in `G.genFissure`: 7/6 px -> rounded),
+  twig lengths, the stub minimum (`minCells`), and the super fissure's pit radius, arm lengths, arm width and keep-out radius. The
+  tutorial: the crack's widths, its two short arms and its pit (the two long arms still run from the gate to the wall ends).
+- `city` (VIEW): the city camera zoom = S x city, fractional (decision: the CITY table is one hand-placed town with labels, solid
+  boxes and walk-time rules, scaling it is unreasonable). At 2.8 (S 2 x 1.4) nearest-neighbour keeps it sharp; the art pixels come
+  out a little uneven (2 or 3 screen px), no blur. The follow / centring logic uses the world the camera really shows.
+At 1 every number and every rng call is exactly what it was (scaled sizes only replace the old numbers when the value is not 1; the
+`ri()` guard only clamps ranges that a tuned size closed up). Same seed + same values = same run: the values live in the balance
+object the sim is given.
+### The panel (DBG > SIZES; in the city: F2)
+One row per value: name, "now" / "next room", [-] value [+]; the line "Hero, monsters: drawn size only, same hitboxes."; the copy
+line in green (`hero 1.2 monsters 1.0 room 1.3 city 1.0 obstacles 1.0 fissures 1.0`, English keys in both languages); RESET (back to
+1), COPY (to the clipboard when the browser allows it; the line is on screen either way), NEW ROOM (only in the test room: its
+restart, so the new room uses the values), BACK (to DBG). The DBG panel got an 8th row (SIZES, green while a value is not 1) and
+tighter rows on a screen under 215 art px high (844x390 = 195). Values: `G.Tune` (`src/view/panels.js`) writes `G.BAL.tune` and
+`G.cheats.tune`, stores them in localStorage `riftscar.tune` (try/catch: memory only when refused), loaded at boot; `?tune=k:v,...`
+sets them for that page without storing. In a run, `hero` / `monsters` apply at once, `room` / `obstacles` / `fissures` from the
+next room generated (next room, NEW ROOM, a restart); `city` applies when the city is next shown, at once when changed in the city.
+Spanish: TAMAÑOS (PRUEBA), HÉROE, MONSTRUOS, SALA, CIUDAD, OBSTÁCULOS, FISURAS, "ya" / "próx. sala", ORIGINAL, COPIAR, OTRA SALA,
+VOLVER. `tools/determinism.js` takes `--tune k:v,...` (both contexts, the size check scales) and `--rooms` (room checks only).
+### Checks (final build)
+`tools/build.py`; `tools/check_i18n.js` all passed; `tools/check_tutorial.js` all passed; `tools/determinism.js` at defaults: output
+identical line for line to the untouched branch (500 rooms, every build, economy, cage, daily); rooms 1-30 x 10 + door modifiers +
+tutorial room hashed before/after: same sha1, two Node bot runs same sha1; `tools/determinism.js 10 --tune room:1.3,fissures:1.2`:
+0 problems, every run twice identical; `--rooms` sanity (size, crack count, floor share, reach of chest / exit / super fissure /
+merchant / cage, cracks off walls and the start) 0 problems at room/obstacles/fissures 0.6, 0.7, 1.3, 1.4, 1.5, 1.6 and mixes
+(0.6/1.6/0.6, 1.6/0.6/0.6, 0.6/0.6/0.6, 1.6/1.6/1.6, 0.8/1.3/1.4, 1.1/1.2/0.9); `tools/sim_bot.js --seeds 1-3` identical before/after;
+`qa/equip.js` PASS, `qa/glow.js` PASS, `qa/sizes.js` PASS (new: room 52x33 -> 68x43 at 1.3, crack reach over 20 generated rooms
+114.9 -> 158.1 px, pit 4410 -> 7241 px, hero drawn 27.5 -> 35.5 px and a skeleton 26.5 -> 34 px with radius 5 both times, city zoom
+2 -> 2.8 and F2 > CITY - at once, the panel inside 960x540 / 1640x922 / 844x390 (Spanish), +/-, NEW ROOM, RESET, storage, 0 console
+errors); `qa/bot.js --seeds 1-3` 3 wins, 0 console errors, 0 mismatches with Node. Screenshots: `/home/claude/builds/sizes/`.
+Problems found and fixed on the way: at room 0.6 the centre's crack keep-out (9 x 7 tiles) left no sites (cracks 1/4): it now
+scales with the room, and so does the gap between centres; at room 1.6 the bigger cut corners could close the start into a pocket
+(floor share 0): the start margin scales with the room.
+Not checked: playing a whole run with tuned values in the browser (only the test room and Node runs), the tutorial room with tuned
+values in the browser (Node only: it builds at 0.6-1.6), `qa/screens.js`, `qa/touch.js` (the panel with fingers), `qa/city.js`,
+Firefox / Safari, the clipboard in a real browser (headless gives no permission; the line is on screen).
+Rough: (1) the room generator at fissures 1.6 takes about 0.2 s a room (0.05-0.15 s at 1): a short pause on a new room; (2) at
+room 1.6 a room is 86-93 x 48-51 tiles and the same monster count (thin); at 0.6 it is 32-35 x 18-20 with 3-6 cracks packed in;
+(3) the merchant / cage / chest zones keep their size in every room; (4) the city at a fractional zoom has uneven art pixels and
+its labels can sit at the screen edge; (5) hero/monster scale also scales the HD sprite's motion offsets but not the dodge hop
+height or hit sparks; (6) values stored in localStorage stay on in that browser until RESET (the DBG button turns green as a hint).

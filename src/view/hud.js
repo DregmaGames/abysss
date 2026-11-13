@@ -141,7 +141,7 @@
 
     toggleDebug: function () {
       if (!G.debug || this.level) return;
-      if (G.Panels.current === 'debug') { G.Panels.close(); return; }
+      if (G.Panels.current === 'debug' || G.Panels.current === 'sizes') { G.Panels.close(); return; }
       var st = this.game_.sim.state;
       if (st === 'dead' || st === 'won' || st === 'left' || st === 'choice' || st === 'merchant') return;
       this.dropStick();

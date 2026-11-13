@@ -463,6 +463,11 @@
       kb.on('keydown-I', function () { self.toggleInventory(); });
       kb.on('keydown-TAB', function (e) { e.preventDefault(); self.toggleInventory(); });
       kb.on('keydown-ESC', function () { if (G.Panels.isOpen()) G.Panels.close(); else G.Panels.openSettings(self); });
+      kb.on('keydown-F2', function (e) {      // size tuning in the town (the city's zoom applies at once); ?debug=0 turns it off
+        if (e && e.preventDefault) e.preventDefault();
+        if (G.params.get('debug') === '0') return;
+        if (G.Panels.current === 'sizes') G.Panels.close(); else if (!G.Panels.isOpen()) { self.dropStick(); G.Panels.openSizes(self); }
+      });
       // touch: a floating stick on the left 60 % of the screen (the same as in a run)
       this.input.on('pointerdown', function (p, over) {
         if (p.wasTouch && !G.touch) { G.touch = true; self.build(); }      // the overlay again, with finger-sized hit boxes

@@ -30,7 +30,7 @@ python3 tools/build.py        # src/ + vendor/phaser.min.js + assets/ -> dist/ri
 
 Open `dist/riftscar.html` in a browser. URL options: `?seed=123` fixes the run seed,
 `&scene=game` or `&scene=city` skips the title, `&fresh=1` ignores the saved gear, `&touch=1` shows the
-touch controls with a mouse, `&bot=1&speed=8` lets the QA bot play fast-forward. `&hd=0|1` turns the HD art pilot off / on for the session. `&fresh=1` also marks the tutorial as done (QA); `&tutorial=1` brings it back (`&scene=game&tutorial=1` starts the tutorial room).
+touch controls with a mouse, `&bot=1&speed=8` lets the QA bot play fast-forward. `&hd=0|1` turns the HD art pilot off / on for the session. `&fresh=1` also marks the tutorial as done (QA); `&tutorial=1` brings it back (`&scene=game&tutorial=1` starts the tutorial room). `&tune=hero:1.2,room:1.3` sets the size-tuning multipliers (`BAL.tune`, DBG > SIZES) for that page.
 
 ## Layout
 
@@ -75,6 +75,7 @@ node qa/hd.js                               # HD art pilot: test room, boss, cit
 node qa/rooms.js [dir] [ui|rooms|all] [WxH ...]  # big rooms: HUD and panels at 1640x922 / 1920x1080, zoom steps, old-save zoom; a room, the boss room and the test room at five sizes
 node qa/gear.js [dir]                               # gear data: a new character's inventory at 960x540 and 1640x922, both languages: starter weapon worn, the card shows the material
 node qa/rotate.js [dir]                             # phones are landscape only: an upright touch window gets the game turned a quarter (layout, taps, stick)
+node qa/sizes.js [dir]                              # size tuning (DBG > SIZES, ?tune=): room, cracks and drawn sizes scale, hitboxes do not, the city zoom, the panel at 960x540 / 1640x922 / 844x390
 node tools/run_length.js [--class C] [--md]  # run and room times of the Node bot per class: fresh, career, and a hero who cannot die (10 seeds per command)
 ```
 

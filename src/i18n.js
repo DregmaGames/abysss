@@ -105,6 +105,11 @@
     'dbg.skip': 'SKIP PHASE', 'dbg.level': 'LEVEL UP', 'dbg.restart': 'RESTART ROOM', 'dbg.next': 'NEXT ROOM', 'dbg.boss': 'BOSS ROOM', 'dbg.loot': 'GIVE LOOT',
     'dbg.doors': 'DOORS', 'dbg.merchant': 'MERCHANT', 'dbg.cage': 'CAGE', 'dbg.abilities': 'ABILITIES', 'dbg.glow': 'GLOW: {s}',
     'dbg.info': 'Room {n}  {phase}  seed {s}',
+    // DBG > SIZES (step size panel): a test tool for the developers
+    'dbg.sizes': 'SIZES', 'size.title': 'SIZES (TEST)', 'size.hero': 'HERO', 'size.monsters': 'MONSTERS', 'size.room': 'ROOM', 'size.city': 'CITY',
+    'size.obstacles': 'OBSTACLES', 'size.fissures': 'FISSURES', 'size.now': 'now', 'size.next': 'next room',
+    'size.visual': 'Hero, monsters: drawn size only, same hitboxes.', 'size.reset': 'RESET', 'size.copy': 'COPY', 'size.copied': 'COPIED',
+    'size.newRoom': 'NEW ROOM', 'size.back': 'BACK',
     // result
     'res.won': 'RIFT SEALED', 'res.left': 'YOU LEFT', 'res.dead': 'YOU DIED',
     'res.allCleared': 'All {n} rooms cleared', 'res.leftAfter': 'Left after room {a} of {b}', 'res.fellTest': 'Fell in the test room (clears: {n})', 'res.fell': 'Fell in room {a} of {b}',
@@ -222,6 +227,10 @@
     'dbg.skip': 'SALTAR FASE', 'dbg.level': 'SUBIR NIVEL', 'dbg.restart': 'REINICIAR SALA', 'dbg.next': 'SIGUIENTE SALA', 'dbg.boss': 'SALA DEL JEFE', 'dbg.loot': 'DAR BOTÍN',
     'dbg.doors': 'PUERTAS', 'dbg.merchant': 'MERCADER', 'dbg.cage': 'JAULA', 'dbg.abilities': 'HABILIDADES', 'dbg.glow': 'BRILLO: {s}',
     'dbg.info': 'Sala {n}  {phase}  semilla {s}',
+    'dbg.sizes': 'TAMAÑOS', 'size.title': 'TAMAÑOS (PRUEBA)', 'size.hero': 'HÉROE', 'size.monsters': 'MONSTRUOS', 'size.room': 'SALA', 'size.city': 'CIUDAD',
+    'size.obstacles': 'OBSTÁCULOS', 'size.fissures': 'FISURAS', 'size.now': 'ya', 'size.next': 'próx. sala',
+    'size.visual': 'Héroe, monstruos: solo el dibujo; el golpe no cambia.', 'size.reset': 'ORIGINAL', 'size.copy': 'COPIAR', 'size.copied': 'COPIADO',
+    'size.newRoom': 'OTRA SALA', 'size.back': 'VOLVER',
     'res.won': 'BRECHA SELLADA', 'res.left': 'SALISTE', 'res.dead': 'MORISTE',
     'res.allCleared': 'Las {n} salas limpias', 'res.leftAfter': 'Saliste tras la sala {a} de {b}', 'res.fellTest': 'Caíste en la sala de prueba (limpias: {n})', 'res.fell': 'Caíste en la sala {a} de {b}',
     'res.stats': 'Nivel {l}   Bajas {k}   {t}',

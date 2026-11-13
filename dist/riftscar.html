@@ -789,6 +789,11 @@
     'dbg.skip': 'SKIP PHASE', 'dbg.level': 'LEVEL UP', 'dbg.restart': 'RESTART ROOM', 'dbg.next': 'NEXT ROOM', 'dbg.boss': 'BOSS ROOM', 'dbg.loot': 'GIVE LOOT',
     'dbg.doors': 'DOORS', 'dbg.merchant': 'MERCHANT', 'dbg.cage': 'CAGE', 'dbg.abilities': 'ABILITIES', 'dbg.glow': 'GLOW: {s}',
     'dbg.info': 'Room {n}  {phase}  seed {s}',
+    // DBG > SIZES (step size panel): a test tool for the developers
+    'dbg.sizes': 'SIZES', 'size.title': 'SIZES (TEST)', 'size.hero': 'HERO', 'size.monsters': 'MONSTERS', 'size.room': 'ROOM', 'size.city': 'CITY',
+    'size.obstacles': 'OBSTACLES', 'size.fissures': 'FISSURES', 'size.now': 'now', 'size.next': 'next room',
+    'size.visual': 'Hero, monsters: drawn size only, same hitboxes.', 'size.reset': 'RESET', 'size.copy': 'COPY', 'size.copied': 'COPIED',
+    'size.newRoom': 'NEW ROOM', 'size.back': 'BACK',
     // result
     'res.won': 'RIFT SEALED', 'res.left': 'YOU LEFT', 'res.dead': 'YOU DIED',
     'res.allCleared': 'All {n} rooms cleared', 'res.leftAfter': 'Left after room {a} of {b}', 'res.fellTest': 'Fell in the test room (clears: {n})', 'res.fell': 'Fell in room {a} of {b}',
@@ -906,6 +911,10 @@
     'dbg.skip': 'SALTAR FASE', 'dbg.level': 'SUBIR NIVEL', 'dbg.restart': 'REINICIAR SALA', 'dbg.next': 'SIGUIENTE SALA', 'dbg.boss': 'SALA DEL JEFE', 'dbg.loot': 'DAR BOTÍN',
     'dbg.doors': 'PUERTAS', 'dbg.merchant': 'MERCADER', 'dbg.cage': 'JAULA', 'dbg.abilities': 'HABILIDADES', 'dbg.glow': 'BRILLO: {s}',
     'dbg.info': 'Sala {n}  {phase}  semilla {s}',
+    'dbg.sizes': 'TAMAÑOS', 'size.title': 'TAMAÑOS (PRUEBA)', 'size.hero': 'HÉROE', 'size.monsters': 'MONSTRUOS', 'size.room': 'SALA', 'size.city': 'CIUDAD',
+    'size.obstacles': 'OBSTÁCULOS', 'size.fissures': 'FISURAS', 'size.now': 'ya', 'size.next': 'próx. sala',
+    'size.visual': 'Héroe, monstruos: solo el dibujo; el golpe no cambia.', 'size.reset': 'ORIGINAL', 'size.copy': 'COPIAR', 'size.copied': 'COPIADO',
+    'size.newRoom': 'OTRA SALA', 'size.back': 'VOLVER',
     'res.won': 'BRECHA SELLADA', 'res.left': 'SALISTE', 'res.dead': 'MORISTE',
     'res.allCleared': 'Las {n} salas limpias', 'res.leftAfter': 'Saliste tras la sala {a} de {b}', 'res.fellTest': 'Caíste en la sala de prueba (limpias: {n})', 'res.fell': 'Caíste en la sala {a} de {b}',
     'res.stats': 'Nivel {l}   Bajas {k}   {t}',
@@ -6893,6 +6902,7 @@
         // QA: ?fresh=1 is a save that has done the tutorial (so the other scripts see the game they always saw); ?tutorial=1 brings it back (pending, pop-ups on)
         if (G.params.get('fresh') === '1') G.save.hints.tut = G.newTut(true);
         if (G.params.get('tutorial') === '1') { G.save.hints.tut = G.newTut(false); G.save.hints.off = false; G.tutorial = G.params.get('scene') === 'game'; }
+        G.Tune.load(G.params);                             // size tuning (DBG > SIZES): stored values, then ?tune=hero:1.2,room:1.3
         G.HD.init();                                       // ?hd=0|1 > saved setting > on
         G.touch = G.params.get('touch') === '1';
         G.testRoom = G.params.get('room') === 'test';     // ?scene=game&room=test, or the TEST ROOM button
@@ -7498,6 +7508,11 @@
       kb.on('keydown-I', function () { self.toggleInventory(); });
       kb.on('keydown-TAB', function (e) { e.preventDefault(); self.toggleInventory(); });
       kb.on('keydown-ESC', function () { if (G.Panels.isOpen()) G.Panels.close(); else G.Panels.openSettings(self); });
+      kb.on('keydown-F2', function (e) {      // size tuning in the town (the city's zoom applies at once); ?debug=0 turns it off
+        if (e && e.preventDefault) e.preventDefault();
+        if (G.params.get('debug') === '0') return;
+        if (G.Panels.current === 'sizes') G.Panels.close(); else if (!G.Panels.isOpen()) { self.dropStick(); G.Panels.openSizes(self); }
+      });
       // touch: a floating stick on the left 60 % of the screen (the same as in a run)
       this.input.on('pointerdown', function (p, over) {
         if (p.wasTouch && !G.touch) { G.touch = true; self.build(); }      // the overlay again, with finger-sized hit boxes
@@ -8372,7 +8387,7 @@
 
     toggleDebug: function () {
       if (!G.debug || this.level) return;
-      if (G.Panels.current === 'debug') { G.Panels.close(); return; }
+      if (G.Panels.current === 'debug' || G.Panels.current === 'sizes') { G.Panels.close(); return; }
       var st = this.game_.sim.state;
       if (st === 'dead' || st === 'won' || st === 'left' || st === 'choice' || st === 'merchant') return;
       this.dropStick();
@@ -8830,6 +8845,7 @@
     else if (c === 'backup') P.openBackup(scene, null);
     else if (c === 'result') P.openResult(scene, P.resultState);
     else if (c === 'debug') P.openDebug(scene);
+    else if (c === 'sizes') P.openSizes(scene);
     else if (c === 'abilities') P.openAbilities(scene);
     else if (c === 'shop') P.openShop(scene, true);
     else if (c === 'montoto') P.openMontoto(scene, true);
@@ -9351,7 +9367,7 @@
     var V = G.view, s = sim(), C = G.cheats, gs = G.gameScene;
     if (!s) return;
     P.current = 'debug'; P.scene = scene; G.paused = true; G.screen = 'debug';
-    var pw = Math.min(V.W - 8, 204), rows = 7, ph = 30 + rows * 21 + 6;
+    var pw = Math.min(V.W - 8, 204), rows = 8, rh = V.H < 215 ? 19 : 21, ph = 30 + rows * rh + 6;      // rh: tighter rows on a phone (844x390 = 195 art px high)
     var L = P.L = UI.modal(scene, pw, ph, G.t('dbg.title')), x0 = L.x, y0 = L.y, bw = Math.floor((pw - 22) / 2);
     L.button(x0 + pw - 22, y0 + 3, 18, 16, '', function () { P.close(); }, { icon: 'i_close', name: 'dbg_close' });
     function reopen() { P.openDebug(scene); }
@@ -9377,13 +9393,89 @@
       [G.t('dbg.cage'), act(function () { s.cheatCage(); }), 'dbg_cage'],
       [G.t('dbg.abilities'), act(function () { s.cheatAbilities(s.defaultActives()); }), 'dbg_abil'],
       // art test: preview the weapon's rarity glow on the hero (cycles none -> magic -> ... -> unique; none = by the equipped weapon)
-      [G.t('dbg.glow', { s: (C.glow || 'auto').toUpperCase() }), function () { var O = G.ANIM.glowOrder, i = O.indexOf(C.glow); C.glow = i + 1 >= O.length ? null : O[i + 1]; reopen(); }, 'dbg_glow', !!C.glow]
+      [G.t('dbg.glow', { s: (C.glow || 'auto').toUpperCase() }), function () { var O = G.ANIM.glowOrder, i = O.indexOf(C.glow); C.glow = i + 1 >= O.length ? null : O[i + 1]; reopen(); }, 'dbg_glow', !!C.glow],
+      // size tuning (step size panel): hero, monsters, room, city, obstacles, fissures
+      [G.t('dbg.sizes'), function () { P.openSizes(scene); }, 'dbg_sizes', G.Tune.changed()]
     ];
     B.forEach(function (b, i) {
-      var bx = x0 + 8 + (i % 2) * (bw + 6), by = y0 + 24 + Math.floor(i / 2) * 21;
+      var bx = x0 + 8 + (i % 2) * (bw + 6), by = y0 + 24 + Math.floor(i / 2) * rh;
       L.button(bx, by, bw, 18, b[0], b[1], { name: b[2], color: b[3] ? 'ui_good' : 'ui_text' });
     });
     L.text(x0 + 8, y0 + ph - 15, G.t('dbg.info', { n: s.roomIndex + 1, phase: G.t('phase.' + s.phase), s: s.seed }), 'ui_dim');
+  };
+
+  // ----------------------------------------------------------------- sizes
+  // Size tuning (step size panel): the six multipliers of BAL.tune, for the developers to try sizes while playing. They live in
+  // G.BAL.tune (the sim reads them from there: rooms, obstacles and cracks are generated with them) and G.cheats.tune, and are kept
+  // in localStorage (a page that refuses storage keeps them in memory). ?tune=hero:1.2,room:1.3 sets them for that page only.
+  var TKEY = 'riftscar.tune';
+  G.Tune = {
+    keys: function () { return G.BAL.tune.keys; },
+    get: function (k) { return G.tuneOf(G.BAL, k); },
+    set: function (k, v, keep) {
+      var T = G.BAL.tune, rg = T.range[k];
+      T[k] = Math.round(Math.max(rg[0], Math.min(rg[1], v)) * 100) / 100;
+      G.cheats = G.cheats || { god: false, noCd: false, speed: 1 };
+      G.cheats.tune = G.Tune.values();
+      if (keep !== false) G.Tune.store();
+    },
+    values: function () { var o = {}; G.Tune.keys().forEach(function (k) { o[k] = G.Tune.get(k); }); return o; },
+    changed: function () { return G.Tune.keys().some(function (k) { return G.Tune.get(k) !== 1; }); },
+    reset: function () { G.Tune.keys().forEach(function (k) { G.Tune.set(k, 1, false); }); G.Tune.store(); },
+    // the line read out to us: "hero 1.2 monsters 1.0 room 1.3 city 1.0 obstacles 1.0 fissures 1.0"
+    text: function () { return G.Tune.keys().map(function (k) { return k + ' ' + G.Tune.fmt(G.Tune.get(k)); }).join(' '); },
+    fmt: function (v) { return v.toFixed(Math.round(v * 100) % 10 ? 2 : 1); },
+    store: function () { try { if (globalThis.localStorage) localStorage.setItem(TKEY, JSON.stringify(G.Tune.values())); } catch (e) { /* storage refused: memory only */ } },
+    // at boot: the stored values, then ?tune= (not stored)
+    load: function (params) {
+      var v = null;
+      try { v = globalThis.localStorage && JSON.parse(localStorage.getItem(TKEY) || 'null'); } catch (e) { v = null; }
+      if (v && typeof v === 'object') G.Tune.keys().forEach(function (k) { if (isFinite(v[k])) G.Tune.set(k, +v[k], false); });
+      var q = params && params.get('tune');
+      if (q) q.split(',').forEach(function (kv) { var p = kv.split(':'); if (G.BAL.tune.range[p[0]] && isFinite(+p[1])) G.Tune.set(p[0], +p[1], false); });
+      G.cheats = G.cheats || { god: false, noCd: false, speed: 1 };
+      G.cheats.tune = G.Tune.values();
+    }
+  };
+  P.openSizes = function (scene) {
+    if (P.L) P.L.destroy();
+    var V = G.view, s = sim(), T = G.BAL.tune, t = G.t, inCity = G.screen === 'city' || (!s && !!G.city);
+    P.current = 'sizes'; P.scene = scene; G.paused = true;
+    if (!inCity && G.screen !== 'title') G.screen = 'debug';
+    var tight = V.H < 215, rh = tight ? 15 : 17, pw = Math.min(V.W - 8, 252), ph = 24 + 6 * rh + (tight ? 52 : 62) + 22;
+    var L = P.L = UI.modal(scene, pw, ph, t('size.title')), x0 = L.x, y0 = L.y;
+    L.button(x0 + pw - 22, y0 + 3, 18, 16, '', function () { back(); }, { icon: 'i_close', name: 'size_close' });
+    function back() { if (s) P.openDebug(scene); else P.close(); }
+    function reopen() { P.openSizes(scene); }
+    function applied(k) {      // what changes at once: the city's camera now (when it is open)
+      if (k === 'city' && G.city && G.city.applyView) G.city.applyView();
+    }
+    // one row per value: label, when it applies (dim), [-] value [+]
+    T.keys.forEach(function (k, i) {
+      var y = y0 + 22 + i * rh, v = G.Tune.get(k), on = v !== 1;
+      L.text(x0 + 8, y + 4, t('size.' + k), on ? 'ui_warn' : 'ui_text');
+      L.text(x0 + 84, y + 4, t(k === 'room' || k === 'obstacles' || k === 'fissures' ? 'size.next' : 'size.now'), 'ui_dim');
+      L.button(x0 + pw - 70, y, 16, rh - 2, '-', function () { G.Tune.set(k, G.Tune.get(k) - T.step); applied(k); reopen(); }, { name: 'size_' + k + '_minus' });
+      var vt = L.text(0, y + 4, G.Tune.fmt(v) + 'x', on ? 'ui_warn' : 'ui_text');
+      vt.x = Math.round(x0 + pw - 39 - vt.width / 2);
+      L.button(x0 + pw - 24, y, 16, rh - 2, '+', function () { G.Tune.set(k, G.Tune.get(k) + T.step); applied(k); reopen(); }, { name: 'size_' + k + '_plus' });
+    });
+    var y1 = y0 + 24 + 6 * rh;
+    L.text(x0 + 8, y1, t('size.visual'), 'ui_dim').setMaxWidth(pw - 16);
+    // the values as one line to read out (and to the clipboard when the browser lets us)
+    var line = L.text(x0 + 8, y1 + (tight ? 18 : 22), G.Tune.text(), 'ui_good').setMaxWidth(pw - 16);
+    G.qa.sizesText = G.Tune.text();
+    var by = y0 + ph - 24, nb = s && s.testRoom >= 0 ? 4 : 3, bw = Math.floor((pw - 16 - (nb - 1) * 4) / nb), bx = x0 + 8;
+    L.button(bx, by, bw, 18, t('size.reset'), function () { G.Tune.reset(); applied('city'); reopen(); }, { name: 'size_reset' }); bx += bw + 4;
+    var cb = L.button(bx, by, bw, 18, t('size.copy'), function () {
+      var txt = G.Tune.text();
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(function () { if (P.current === 'sizes') cb.setLabel(t('size.copied'), 'ui_good'); }, function () { /* refused: the line is on screen */ });
+      } catch (e) { /* no clipboard: the line is on screen */ }
+      line.setText(txt);
+    }, { name: 'size_copy' }); bx += bw + 4;
+    if (nb === 4) { L.button(bx, by, bw, 18, t('size.newRoom'), function () { s.restartTestRoom(); P.close(); }, { name: 'size_newroom', color: 'ui_warn' }); bx += bw + 4; }
+    L.button(bx, by, bw, 18, t('size.back'), back, { name: 'size_back' });
   };
 
   // ---------------------------------------------------------------- result
