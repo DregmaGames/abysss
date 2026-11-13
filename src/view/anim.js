@@ -38,7 +38,9 @@
     // the body sheet by the body armour's material (item.mat: 0 light, 1 medium, 2 heavy; an item without one counts as heavy)
     armorLook: ['leather', 'chain', 'plate'],
     // held weapon art by weapon type (frames wpn_<name> of the HD atlas); `any`: the one drawn for a type with no art yet
-    wpnArt: { sword: 'wpn_sword', any: 'wpn_sword' },
+    wpnArt: { sword: 'wpn_sword', staff: 'wpn_staff', any: 'wpn_sword' },
+    // where the fist holds each weapon sprite, as a share of its height from the top (default 1: the bottom end, a sword's guard)
+    wpnGrip: { wpn_staff: 0.46 },
     glowOrder: ['none', 'magic', 'rare', 'epic', 'legendary', 'mythic', 'unique'],
     ent: {
       // one imported pose (the bone blade raised): serves every skeleton frame, the motion does the rest
@@ -63,6 +65,15 @@
         attack: { frames: ['mage_attack_0', 'mage_attack_1'], fps: 14, hold: 0.12 },
         hurt: { frames: ['mage_hurt'], hold: 0.25 },
         motion: { bob: 1, tilt: 0.02, squash: 0.04, lean: 1, lunge: 2, stretch: 0.05, recoil: 3, breathe: 0.02, breathT: 1.6, dust: 1, faces: 1, die: 0.9 }
+      },
+      // the mage with no gear on (Grok, 4x2, chibi style, a plain blue apprentice robe, no hat, the green rod as the staff)
+      mage_bare: {
+        hands: true,
+        idle: { frames: ['mage_bare_idle_0'] },
+        walk: { frames: ['mage_bare_walk_0', 'mage_bare_walk_1', 'mage_bare_walk_2', 'mage_bare_walk_3'], fps: 8 },
+        attack: { frames: ['mage_bare_attack_0', 'mage_bare_attack_1'], fps: 14, hold: 0.14 },
+        hurt: { frames: ['mage_bare_hurt'], hold: 0.25 },
+        motion: { bob: 1, tilt: 0.015, squash: 0.03, lean: 1, lunge: 2, stretch: 0.04, recoil: 2, breathe: 0.02, breathT: 1.7, dust: 1, faces: 1, die: 0.9 }
       },
       // the warrior with no gear on (Grok, 4x2, generated holding a green rod that tools/hand_weapon.py took out): the same
       // eight poses; `hands`: its frames carry the fist, so the equipped weapon is drawn into it (G.HD.heroWeapon)
