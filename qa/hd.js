@@ -97,11 +97,13 @@ async function room(browser, size, hd, report) {
       const page = await Q.open(browser, '?scene=city&fresh=1&hd=' + hd, size);
       await page.evaluate(() => { G.gearOf(G.save, G.cls).city = { montoto: true, story: 0 }; G.city.scene.restart(); });
       await page.waitForFunction(() => G.city && G.city.spots && G.city.spots.montoto && G.city.spots.montoto.npc);
+      // the town is bigger than these screens: stand beside Don Montoto, so he and the hero (HD too, with ?hd=1) are both in the shot
+      await page.evaluate(() => { const c = G.city, o = c.spots.montoto; c.px = o.front.x + 20; c.py = o.front.y + 4; c.follow(true); });
       await sleep(1200);
-      const b = await page.evaluate(() => { const c = G.city, o = c.spots.montoto, S = G.view.S, wv = c.cameras.main.worldView; return { x: Math.round((o.s.x - 40 - wv.x) * S), y: Math.round((o.s.y - 66 - wv.y) * S), width: 80 * S, height: 84 * S, hd: o.npc.isHD, frame: o.npc.frame.name }; });
+      const b = await page.evaluate(() => { const c = G.city, o = c.spots.montoto, S = G.view.S, wv = c.cameras.main.worldView; return { x: Math.round((o.s.x - 40 - wv.x) * S), y: Math.round((o.s.y - 66 - wv.y) * S), width: 80 * S, height: 110 * S, hd: o.npc.isHD, frame: o.npc.frame.name, heroHD: !!c.player.isHD, hero: c.player.frame.name }; });
       await Q.shot(page, 'hd_city_' + size + '_' + (hd ? 'on' : 'off'));
       if (size === 'landscape') await page.screenshot({ path: path.join(OUT, 'hd_city_montoto_' + (hd ? 'on' : 'off') + '.png'), clip: { x: Math.max(0, b.x), y: Math.max(0, b.y), width: b.width, height: b.height } });
-      report.push({ what: 'city ' + size + ' hd=' + hd, montotoHD: b.hd, frame: b.frame, errors: page.errors.slice() });
+      report.push({ what: 'city ' + size + ' hd=' + hd, montotoHD: b.hd, frame: b.frame, heroHD: b.heroHD, hero: b.hero, errors: page.errors.slice() });
       await page.close();
     }
   } finally { await browser.close(); }

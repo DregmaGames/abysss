@@ -144,10 +144,9 @@
     var s = { id: 'city.' + n, gate: 'city', n: n + 1, of: 4, text: function () { return txt('city' + (n + 1), { btn: G.t('city.talk') }); } };
     s.target = function () {
       if (n === 1 && P.current) return null;
-      if (n === 3) return { world: true, x: c.lay.portal.x, y: c.lay.portal.y - c.lay.portal.h - 22 };
-      var sp = c.spots[spot];
+      if (n === 3) return c.pointAt('portal');
       if (n === 1 && c.near && c.near.s.id === 'smith' && G.touch) return ui('city_talk');
-      return sp ? { world: true, x: sp.s.x, y: sp.s.y - 60 } : null;
+      return c.pointAt(spot);
     };
     return s;
   }

@@ -22,8 +22,8 @@ const Q = require('./lib');
   const snap = async name => { shots++; await page.screenshot({ path: path.join(dir, `${String(shots).padStart(2, '0')}_${orient}_${name}.png`) }); };
   // the city hero walks into the portal (placed just in front of it, then a real key press carries him in)
   const intoRift = async () => {
-    await page.evaluate(() => { const c = G.city, p = c.snapshot().portal; c.px = p.x; c.py = p.y - 22; c.follow(true); });
-    await page.keyboard.down('s'); await page.waitForTimeout(700); await page.keyboard.up('s');
+    await page.evaluate(() => { const c = G.city, p = c.snapshot().portal; c.px = p.x; c.py = p.y + 22; c.follow(true); });
+    await page.keyboard.down('w'); await page.waitForTimeout(700); await page.keyboard.up('w');
     await page.waitForFunction(() => G.screen === 'game' && G.gameScene && G.gameScene.sim, null, { timeout: 10000 });
   };
 

@@ -79,7 +79,8 @@ const Q = require('./lib');
 
     // ---------------------------------------------------------------- city: stick
     let a = await city();
-    check('city: every stall, label and the portal on screen without scrolling', size !== 'portrait' || (a.map.w <= a.view.w && a.layout === 'port'), `layout ${a.layout}, map ${a.map.w}x${a.map.h}, view ${a.view.w}x${a.view.h}`);
+    const onScr = t => t.x >= a.view.x && t.y >= a.view.y && t.x + t.w <= a.view.x + a.view.w && t.y + t.h <= a.view.y + a.view.h;
+    check('city: the portal, the Blacksmith and the Trainer are on screen on arrival (one town, the camera follows)', a.layout === 'town' && ['portal', 'smith', 'trainer'].every(n => a.things.some(t => t.name === n && onScr(t))), `layout ${a.layout}, map ${a.map.w}x${a.map.h}, view ${JSON.stringify(a.view)}`);
     await stick(1, 0, 700);
     let b = await city();
     const stickOn = await page.evaluate(() => ({ touch: !!G.touch, held: G.cityHud.stickId != null, shown: G.cityHud.stickBase.visible }));
@@ -153,9 +154,9 @@ const Q = require('./lib');
     await tap('monto_close');
 
     // the portal, by stick
-    await page.evaluate(() => { const c = G.city, p = c.snapshot().portal; c.px = p.x; c.py = p.y - 30; });
+    await page.evaluate(() => { const c = G.city, p = c.snapshot().portal; c.px = p.x; c.py = p.y + 24; });      // in front of it: the portal is entered from the plaza
     await wait(200);
-    await stick(0, 1, 100);
+    await stick(0, -1, 100);
     await page.waitForFunction(() => G.screen === 'game' && G.gameScene && G.gameScene.sim && G.hud, null, { timeout: 10000 }).catch(() => {});
     await up(1);
     check('city: the stick walks into the portal and the run starts', await page.evaluate(() => G.screen === 'game' && !!G.gameScene));

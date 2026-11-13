@@ -10,7 +10,8 @@
 // when it is smaller); CityHudScene is the overlay: gold, buttons, the touch stick, panels.
 (function (G) {
   var UI = G.UI, T = 16;
-  var REACH = 30;                                     // px from the front of a stall to talk to its owner
+  var REACH = 26;                                     // px from the front of a stall to talk to its owner
+  var FRONT = 26;                                     // px from a stall's counter to that front: the keeper stands between the two
   var LINE = 12;                                      // px from a label to the prompt above it (a text line is 7 px, 9 with an accent)
   var APRON = 4;                                      // rampart tiles drawn round the town: a screen bigger than the town shows wall, not the void
   var LOOK = { up: 8, upShort: 24, short: 240 };      // the camera looks a little above the hero; more on a short screen (a phone), so
@@ -50,7 +51,7 @@
       ['c_banner_town', 408, 110], ['c_banner_town', 488, 110, 1],
       // the plaza: the portal's dais and its fires, the fountain
       ['c_dais', 448, 210], ['c_brazier', 414, 198], ['c_brazier', 482, 198], ['c_banner_rift', 406, 170], ['c_banner_rift', 490, 170, 1],
-      ['c_fountain', 448, 326], ['c_planter', 368, 349], ['c_planter', 528, 349], ['c_planter', 512, 296],
+      ['c_fountain', 448, 326], ['c_planter', 368, 349], ['c_planter', 528, 349], ['c_planter', 512, 296], ['c_brazier', 400, 349], ['c_brazier', 496, 349],
       // the market street: lamps on its south side, stock at both ends of the row
       ['c_lamp', 100, 263], ['c_lamp', 200, 263], ['c_lamp', 304, 263], ['c_lamp', 592, 263, 1], ['c_lamp', 696, 263, 1], ['c_lamp', 796, 263, 1],
       ['c_barrel', 134, 204], ['c_barrel', 148, 207], ['c_crate', 166, 206], ['c_crate', 181, 207], ['c_crate', 173, 194],
@@ -85,7 +86,7 @@
     wall_banner: { o: [0.5, 0.5], z: -610 }, wall_moss: { o: [0.5, 0.5], z: -610 }, wall_chain: { o: [0.5, 0.5], z: -610 },
     c_dais: { o: [0.5, 0.44], z: -950 },
     c_brazier: { box: [-4, 4, 4], frames: 3, rate: 1, light: ['glow', 'em2', 0.4, 0, -10] },
-    c_lamp: { box: [-5, 3, -1], light: ['glow', 'em3', 0.26, 3, -18] },
+    c_lamp: { box: [-5, 3, -1], light: ['glow', 'em3', 0.3, 3, -18] },
     c_fountain: { box: [-19, 20, 19], frames: 2, rate: 3, mark: 1 },
     c_planter: { box: [-11, 7, 11] }, c_bush: { box: [-6, 4, 6] },
     c_tree: { box: [-3, 5, 3] }, c_tree_dead: { box: [-4, 4, 2] },
@@ -116,6 +117,7 @@
     // the portal's arch (so it is entered from the plaza, never from behind), and the props that have a box
     var S = L.solids = [], P = L.portal;
     L.stalls.forEach(function (s) { S.push([s.x - 24, s.y - 38, s.x + 24, s.y]); });
+    L.keeperBox = function (s) { return [s.x - 7, s.y + 4, s.x + 7, s.y + 13]; };      // a keeper is solid too: the hero talks to him, he does not stand on him
     L.quarters.forEach(function (q) {
       q.lots.forEach(function (c) { S.push([c[0] - 24, c[1] - 32, c[0] + 24, c[1]]); });
       S.push([q.sign.x - 4, q.sign.y - 5, q.sign.x + 4, q.sign.y]);
@@ -151,7 +153,7 @@
       if (G.runSeed == null) G.runSeed = G.params.has('seed') ? (parseInt(G.params.get('seed'), 10) >>> 0) : 1;
       this.gear = G.gearOf(G.save, G.cls);
       var L = this.lay = CITY;
-      this.solids = L.solids; this.labels = []; this.world = [];
+      this.solids = L.solids.slice(); this.labels = []; this.world = [];
       this.controls = new G.Controls(this);
       this.keyEnter = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
       this.px = L.start.x; this.py = L.start.y; this.face = 1; this.moving = false; this.frame = 0; this.cam = { x: L.start.x, y: L.start.y };
@@ -222,7 +224,7 @@
       this.spots = {}; this.talkers = [];
       this.rescued = !!(this.gear.city && this.gear.city.montoto);
       L.stalls.forEach(function (s) {
-        var empty = s.id === 'montoto' && !self.rescued, o = { s: s, empty: empty, front: { x: s.x, y: s.y + 14 }, reach: REACH };
+        var empty = s.id === 'montoto' && !self.rescued, o = { s: s, empty: empty, front: { x: s.x, y: s.y + FRONT }, reach: REACH };
         o.stall = put(s.x, s.y, empty ? 'stall_empty' : s.frame).setOrigin(0.5, 1).setDepth(s.y);
         o.label = self.label(empty ? 'city.emptyStall' : s.label, empty ? 'ui_dim' : s.color, s.x, s.y - 52);
         self.marks.push({ name: s.id, o: o.stall });
@@ -231,6 +233,7 @@
           o.shadow = put(s.x, s.y + 11, 'shadow_s').setDepth(-100);
           if (G.ANIM.ent[s.npc]) { o.rig = new G.Rig(self, o.npc, s.npc); W.push(o.rig.shadow); }     // HD art (Don Montoto): breathing, soft shadow
           self.marks.push({ name: s.id + '_keeper', o: o.npc });
+          self.solids.push(L.keeperBox(s));
         }
         o.stall.setInteractive({ useHandCursor: true });
         if (o.npc) o.npc.setInteractive({ useHandCursor: true });
@@ -258,7 +261,7 @@
       // the portal
       this.portal = put(L.portal.x, L.portal.y, 'portal_0').setOrigin(0.5, 1).setDepth(L.portal.y - 20);
       glow(L.portal.x, L.portal.y - 16, 'glow', 'rg2', 0.25).setDepth(-640);
-      this.label('city.rift', 'ui_good', L.portal.x, L.portal.y - 58);
+      this.portalLabel = this.label('city.rift', 'ui_good', L.portal.x, L.portal.y - 58);
       this.marks.push({ name: 'portal', o: this.portal });
     },
 
@@ -272,6 +275,11 @@
       this.labels.push(b);
       this.placeLabel(b);
       return b;
+    },
+    // where an arrow points to show a stall or the portal: just above its label (the tutorial's city steps)
+    pointAt: function (id) {
+      var b = id === 'portal' ? this.portalLabel : this.spots[id] && this.spots[id].label;
+      return b ? { world: true, x: b.cx, y: b.box.y - 6 } : null;
     },
     relabel: function () {      // the language changed: world labels and the prompt get the new text
       var self = this;

@@ -1089,34 +1089,8 @@ cdrrrrdc
 # ----------------------------------------------------------------------------- icons
 # ------------------------------------------------------------------------ city (step 8)
 def city():
-    """Ground tiles, walls, four stalls, three townsfolk, the cage, the portal, a sign and a crate. Same palette and pixel size as the dungeon."""
-
-    def tile(base, mortar, hi, seed, moss=False):
-        im = Image.new('RGBA', (16, 16), rgb(base))
-        r = random.Random(seed)
-        for y in (0, 8):                                   # two courses of slabs, joints offset
-            for x in range(16):
-                im.putpixel((x, y), rgb(mortar))
-        for (x0, y0) in ((r.choice([4, 5, 6]), 1), (r.choice([10, 11, 12]), 9)):
-            for y in range(y0, y0 + 7):
-                im.putpixel((x0, y), rgb(mortar))
-        for _ in range(7):
-            im.putpixel((r.randrange(16), r.randrange(16)), rgb(hi))
-        for _ in range(2 if moss else 0):
-            im.putpixel((r.randrange(16), r.randrange(16)), rgb('moss'))
-        return im
-    for i in range(4):
-        add('c_floor%d' % i, tile('f2', 'f1', 'f3', 31 + i, moss=(i == 3)))
-    add('c_path', tile('f3', 'f2', 'f4', 77))
-    w = Image.new('RGBA', (16, 16), rgb('wb1'))            # wall block: brick face with a lit top edge
-    for y in range(16):
-        for x in range(16):
-            if y % 5 == 4 or (x + (y // 5) * 5) % 10 == 9:
-                w.putpixel((x, y), rgb('wb0'))
-            elif y % 5 == 0:
-                w.putpixel((x, y), rgb('wb2'))
-    rect(w, 0, 0, 16, 1, 'wb3')
-    add('c_wall', w)
+    """Four stalls, three townsfolk, the cage, the portal, a fenced lot, a sign and a crate. Same palette and pixel size as the dungeon.
+    The town's ground is in tiles(), its walls are the rooms' wall tiles, the rest of its props are in town()."""
 
     def stall(c1, c2, wear=False):
         im = blank(48, 40)
