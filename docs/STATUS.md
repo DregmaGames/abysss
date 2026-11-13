@@ -114,6 +114,19 @@ Design decisions live in the plan doc (the user has it); this file is what an ag
   `G.hdStyle`); default without a saved choice = 'lo'. In 'lo': `lo_` frames when the atlas has them, chunky floor, rig sizes and offsets in whole art px, no tilt.
   Checked: build, check_i18n, `qa/lo.js` (both sizes, hero walk frames cycle, 0 console errors). Rough: faces and hands are an automatic reduction (no hand
   clean-up yet), the hero's attack frames were not captured (they show while standing), the reduced skeleton is mushy, breathing / bob round to zero at this size.
+- Big rooms test (branch `step-big-rooms`, built on `step-hd-pilot`, NOT merged; brief `docs/steps/step-big-rooms.md`). The user played the HD pilot on a
+  1640x922 window at the lowest zoom (S=2) and wants that size of hero with the map covering the screen.
+  **Part 1, the view (done)**: `G.computeView` (`src/view/ui.js`, constants `UI.VIEW`): default S = min(old default, max(2, round(short side / 470))):
+  short side 300 -> 1; 390, 540, 720, 922, 1080 -> 2; 1440 -> 3. So phones and 960x540 are as before, a desktop window shows about twice as much world.
+  Zoom slider: range `lo`..`maxS`, lo = the smallest S that shows at most 720 art px on the short side (and never under default - 2), maxS = short side / 180.
+  At 922 and 1080 the default (2x) IS the lowest step (2x..5x / 2x..6x): decision, because at 1x the 7 px font is unreadable and the room is an island again;
+  at 1440 the slider goes 2x..8x with the default 3x in between. Old saves: `settings.zoomRule` (2 = offsets count from the new default); a save without it is
+  converted at boot (`G.migrateZoom`, where the screen size is known): a player who had moved the slider keeps the S they had (the user's -2 at 922 stays 2x,
+  a +1 stays 5x), an untouched 0 takes the new default. Art mode default without a saved choice is HD again (`G.HD.init`), the three-way button stays.
+  HUD: on a view 640 art px wide or more the HP plate is 130 px wide instead of 86 (bar 110). Panels were already centred by `UI.modal`.
+  Checked with `node qa/rooms.js <out> ui` at 1640x922 and 1920x1080: S=2, Settings / inventory / level-up cards / door choice inside the screen and centred,
+  zoom + then - returns to 2x and - again stays at 2x, old-save offsets -2 / +1 / 0 give 2x / 5x / 2x, 0 console errors.
+  Known, not solved: HD sprites are drawn at half scale, pixel-exact at even S; at odd S (the 1440p default 3x) one HD pixel is 1.5 screen px (uneven rows).
 - `main` is the working base. One branch per step: `step-N-<slug>`.
 
 ## Last measured (2026-11-12, HD art pilot)
@@ -146,6 +159,19 @@ Design decisions live in the plan doc (the user has it); this file is what an ag
   (`Panels.openMontoto`, shown only when the atlas has the frame; the text wraps beside it). **Rejected** (kept in `assets/imported/rejected/`, not packed): tyrant attack poses `tyrant_2/3/4`,
   skeleton throw `skeleton_2`, the small Montoto for the cage (`pixelart.py` draws `assets/imported/parts/cage_montoto_<f>.png` behind the bars when it exists).
   Importer: border-colour key with a narrow hue window (hot pink backdrops, purple robes survive), `--split cols`, `--own-box`, `--method mode` (majority vote, for pixel-art sources), `--accent`, `--smooth`, `--names`, layer PNG alpha.
+- Big rooms test (branch `step-big-rooms`, built on `step-hd-pilot`, NOT merged; brief `docs/steps/step-big-rooms.md`). The user played the HD pilot on a
+  1640x922 window at the lowest zoom (S=2) and wants that size of hero with the map covering the screen.
+  **Part 1, the view (done)**: `G.computeView` (`src/view/ui.js`, constants `UI.VIEW`): default S = min(old default, max(2, round(short side / 470))):
+  short side 300 -> 1; 390, 540, 720, 922, 1080 -> 2; 1440 -> 3. So phones and 960x540 are as before, a desktop window shows about twice as much world.
+  Zoom slider: range `lo`..`maxS`, lo = the smallest S that shows at most 720 art px on the short side (and never under default - 2), maxS = short side / 180.
+  At 922 and 1080 the default (2x) IS the lowest step (2x..5x / 2x..6x): decision, because at 1x the 7 px font is unreadable and the room is an island again;
+  at 1440 the slider goes 2x..8x with the default 3x in between. Old saves: `settings.zoomRule` (2 = offsets count from the new default); a save without it is
+  converted at boot (`G.migrateZoom`, where the screen size is known): a player who had moved the slider keeps the S they had (the user's -2 at 922 stays 2x,
+  a +1 stays 5x), an untouched 0 takes the new default. Art mode default without a saved choice is HD again (`G.HD.init`), the three-way button stays.
+  HUD: on a view 640 art px wide or more the HP plate is 130 px wide instead of 86 (bar 110). Panels were already centred by `UI.modal`.
+  Checked with `node qa/rooms.js <out> ui` at 1640x922 and 1920x1080: S=2, Settings / inventory / level-up cards / door choice inside the screen and centred,
+  zoom + then - returns to 2x and - again stays at 2x, old-save offsets -2 / +1 / 0 give 2x / 5x / 2x, 0 console errors.
+  Known, not solved: HD sprites are drawn at half scale, pixel-exact at even S; at odd S (the 1440p default 3x) one HD pixel is 1.5 screen px (uneven rows).
 - `main` is the working base. One branch per step: `step-N-<slug>`.
 
 ## Last measured (2026-11-12, step 9 art import)
@@ -162,6 +188,19 @@ Design decisions live in the plan doc (the user has it); this file is what an ag
   **B, save backup**: `src/backup.js` (pure): `G.encodeSave(save)` -> `RS1.<base64 of LZW(JSON)>.<FNV-1a checksum, 8 hex>` (one line; roughly half the JSON size on a full save), `G.decodeSave(text)` -> `{ ok, save, from, info }` or `{ ok: false, err }` (err: empty, format, checksum, data, shape, version), `G.saveSummary`. The code format is `RS1`; the save inside keeps its own `v` and goes through `G.parseSave` (the normal migration); versions above 8 are refused.
   UI `src/view/backup.js` (`Panels.openBackup(scene, 'export' | 'import')`, opened from two Settings buttons; no IMPORT inside a run): the code lives in a real DOM `<textarea>` laid over the canvas (it is also the manual-copy fallback: when the clipboard is blocked the box stays visible with the code selected and the status says to press Ctrl+C). COPY (Clipboard API, then `execCommand`), DOWNLOAD (`riftscar-save.txt`), PASTE (clipboard read), CHECK -> a summary (characters, items, gold, runs) -> REPLACE or CANCEL. Replacing keeps this device's settings (zoom, shake, language), saves, and goes to the title. Errors change nothing. The textarea has `opacity .99`: without it headless Chromium leaves a hole in screenshots under it.
   Texts: `bak.*`, `set.export`, `set.import` in `src/i18n_ux.js`. Checks: `check_bag.js` group `backup` (round trip, corrupted / cut / foreign / newer-version codes refused, v6 code migrates, checking changes nothing, three full bags).
+- Big rooms test (branch `step-big-rooms`, built on `step-hd-pilot`, NOT merged; brief `docs/steps/step-big-rooms.md`). The user played the HD pilot on a
+  1640x922 window at the lowest zoom (S=2) and wants that size of hero with the map covering the screen.
+  **Part 1, the view (done)**: `G.computeView` (`src/view/ui.js`, constants `UI.VIEW`): default S = min(old default, max(2, round(short side / 470))):
+  short side 300 -> 1; 390, 540, 720, 922, 1080 -> 2; 1440 -> 3. So phones and 960x540 are as before, a desktop window shows about twice as much world.
+  Zoom slider: range `lo`..`maxS`, lo = the smallest S that shows at most 720 art px on the short side (and never under default - 2), maxS = short side / 180.
+  At 922 and 1080 the default (2x) IS the lowest step (2x..5x / 2x..6x): decision, because at 1x the 7 px font is unreadable and the room is an island again;
+  at 1440 the slider goes 2x..8x with the default 3x in between. Old saves: `settings.zoomRule` (2 = offsets count from the new default); a save without it is
+  converted at boot (`G.migrateZoom`, where the screen size is known): a player who had moved the slider keeps the S they had (the user's -2 at 922 stays 2x,
+  a +1 stays 5x), an untouched 0 takes the new default. Art mode default without a saved choice is HD again (`G.HD.init`), the three-way button stays.
+  HUD: on a view 640 art px wide or more the HP plate is 130 px wide instead of 86 (bar 110). Panels were already centred by `UI.modal`.
+  Checked with `node qa/rooms.js <out> ui` at 1640x922 and 1920x1080: S=2, Settings / inventory / level-up cards / door choice inside the screen and centred,
+  zoom + then - returns to 2x and - again stays at 2x, old-save offsets -2 / +1 / 0 give 2x / 5x / 2x, 0 console errors.
+  Known, not solved: HD sprites are drawn at half scale, pixel-exact at even S; at odd S (the 1440p default 3x) one HD pixel is 1.5 screen px (uneven rows).
 - `main` is the working base. One branch per step: `step-N-<slug>`.
 
 ## Last measured (2026-11-12, step UX B: save backup)

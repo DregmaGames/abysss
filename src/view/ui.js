@@ -2,7 +2,8 @@
 // share it, so there is a single pixel size on screen. Layouts are computed in art pixels
 // from G.view.W x G.view.H and re-run on resize / rotation / zoom change.
 //   960x540 landscape -> S=2, 480x270 art px        540x960 portrait -> S=2, 270x480 art px
-// The zoom setting raises S (never below what fits): layouts must hold down to 320x180 / 180x320.
+//   1640x922 -> S=2, 820x461 art px                 1920x1080 -> S=2, 960x540 art px (the far default, G.computeView)
+// The zoom setting moves S (never below what fits): layouts must hold from 320x180 / 180x320 up to 960x540 and more.
 (function (G) {
   G.qa = { hits: {}, errors: [] };     // QA hooks: named control positions, uncaught errors
   var UI = G.UI = {
@@ -23,12 +24,37 @@
   };
 
   // Pixel scale and art-pixel viewport for a canvas of w x h CSS pixels.
+  // Default scale (step big rooms): on a big screen the view is FAR, about twice as much world as before, so a room of
+  // BAL.room size fills a desktop window and the hero stays small (S=2 on a 922-1080 px high window). Small screens keep
+  // the old, closer default (short side / 240). The zoom setting is an offset from this default; its range:
+  //   lo   = the smallest S that still shows at most VIEW.maxArt art px on the short side (below that the room is an
+  //          island again and the 7 px font is unreadable), never under default - 2;
+  //   maxS = short side / 180 (panels need 180 art px).
+  // short side 300 -> 1 | 390, 540, 720, 922, 1080 -> 2 | 1440 -> 3 (HD sprites are uneven at odd S, see STATUS).
+  UI.VIEW = { near: 240, far: 470, farMin: 2, tight: 180, maxArt: 720 };
+  G.oldViewBase = function (w, h) { return Math.max(1, Math.round(Math.min(w, h) / UI.VIEW.near)); };      // the default before this step
   G.computeView = function (w, h, zoom) {
-    var min = Math.min(w, h), base = Math.max(1, Math.round(min / 240));
-    var maxS = Math.max(base, Math.floor(min / 180));
-    var lo = Math.max(1, base - 2);                        // the zoom slider also goes below the default on big screens
-    var S = Math.max(lo, Math.min(maxS, base + (zoom || 0)));
-    return { S: S, W: Math.ceil(w / S), H: Math.ceil(h / S), portrait: h > w, base: base, lo: lo, steps: maxS - lo + 1 };
+    var Q = UI.VIEW, min = Math.min(w, h), near = G.oldViewBase(w, h);
+    var base = Math.min(near, Math.max(Q.farMin, Math.round(min / Q.far)));
+    var maxS = Math.max(base, Math.floor(min / Q.tight));
+    var lo = Math.min(base, Math.max(1, base - 2, Math.ceil(min / Q.maxArt)));
+    var z = isFinite(zoom) ? Math.round(zoom) : 0;
+    var S = Math.max(lo, Math.min(maxS, base + z));
+    return { S: S, W: Math.ceil(w / S), H: Math.ceil(h / S), portrait: h > w, base: base, lo: lo, maxS: maxS, steps: maxS - lo + 1 };
+  };
+  // A save from before the far default (settings.zoomRule missing): its zoom offset counted from the old, closer default.
+  // A player who had moved the slider keeps the scale S they chose on this screen (the user's -2 on a 922 px window stays
+  // S=2 instead of dropping below the new range); a save that never touched it (0) takes the new default.
+  G.migrateZoom = function (set, w, h) {
+    if (set.zoomRule >= 2) return false;
+    var z = isFinite(set.zoom) ? Math.round(set.zoom) : 0;
+    if (z) {
+      var min = Math.min(w, h), near = G.oldViewBase(w, h), oldLo = Math.max(1, near - 2), oldMax = Math.max(near, Math.floor(min / UI.VIEW.tight));
+      var S = Math.max(oldLo, Math.min(oldMax, near + z)), V = G.computeView(w, h, 0);
+      z = Math.max(V.lo, Math.min(V.maxS, S)) - V.base;
+    }
+    set.zoom = z; set.zoomRule = 2;
+    return true;
   };
 
   UI.registerFonts = function (scene) {

@@ -10,7 +10,7 @@
     return { equipped: eq, bag: [], nextId: 1, scrolls: 0, gold: 0, ranks: {}, shop: null, city: { montoto: false, story: 0 }, ux: { runs: 0 } };
   };
   G.newSave = function () {
-    return { v: 8, gears: {}, settings: { zoom: 0, shake: 100, lang: null, music: 50, sfx: 70, hd: true }, stats: { runs: 0, wins: 0, best: 0 }, hints: G.cleanHints(null) };
+    return { v: 8, gears: {}, settings: { zoom: 0, zoomRule: 2, shake: 100, lang: null, music: 50, sfx: 70, hd: true }, stats: { runs: 0, wins: 0, best: 0 }, hints: G.cleanHints(null) };
   };
   // the gear (worn items and kept bag) of a class; the sim takes this object as its `gear` option
   G.gearOf = function (save, clsId) {
@@ -49,7 +49,9 @@
             s.gears[id] = n;
           });
           s.v = 8;
+          var zr = s.settings && s.settings.zoomRule >= 2 ? 2 : 1;      // 1: the zoom offset counts from the old, closer default (G.migrateZoom converts it at boot, where the screen is known)
           s.settings = Object.assign(d.settings, s.settings || {});
+          s.settings.zoomRule = zr;
           if (s.settings.lang !== 'en' && s.settings.lang !== 'es') s.settings.lang = null;      // null: follow the browser language
           s.stats = Object.assign(d.stats, s.stats || {});
           var vet = (s.stats && s.stats.runs > 0) || Object.keys(s.gears).some(function (id) { return s.gears[id].ux.runs > 0; });      // a save with progress is a veteran: no forced tutorial room
@@ -72,6 +74,7 @@
           g0.nextId = top;
           d.gears[cls] = g0;
           d.settings = Object.assign(d.settings, s.settings || {});
+          d.settings.zoomRule = s.settings && s.settings.zoomRule >= 2 ? 2 : 1;
           d.stats = Object.assign(d.stats, s.stats || {});
           return d;
         }

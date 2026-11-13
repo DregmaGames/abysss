@@ -11,13 +11,14 @@
 
   var HD = G.HD = {
     density: D,
-    // the session's mode: ?hd=0|1|2 wins, then the saved setting (false / true / 'lo'), then the art test in hand ('lo').
+    // the session's mode: ?hd=0|1|2 wins, then the saved setting (false / true / 'lo'), then HD
+    // (the user's choice after playing the pilot, step big rooms).
     // G.hdMode: new art on / off. G.hdStyle: 'hd' = double density; 'lo' = the "27 px" test (tools/lo_sprite.py): the
     // same sheets reduced to the game's art pixel grid, frames lo_<name> (an entity without them keeps its HD frames),
     // the chunky floor, and motion in whole art pixels with no tilt.
     init: function () {
       var p = G.params.get('hd'), sv = G.save && G.save.settings ? G.save.settings.hd : undefined;
-      var m = p === '0' ? false : p === '1' ? true : p === '2' ? 'lo' : sv === false ? false : sv === true ? true : 'lo';
+      var m = p === '0' ? false : p === '1' ? true : p === '2' ? 'lo' : sv === false ? false : sv === 'lo' ? 'lo' : true;
       G.hdMode = m !== false; G.hdStyle = m === 'lo' ? 'lo' : 'hd';
     },
     mode: function () { return !G.hdMode ? false : G.hdStyle === 'lo' ? 'lo' : true; },

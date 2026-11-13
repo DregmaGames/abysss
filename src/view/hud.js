@@ -80,15 +80,16 @@
       var vg = this.add.image(0, 0, UI.vignette(this)).setOrigin(0, 0);
       vg._dz = -50; L.add(vg);
 
-      // HP + level (top-left)
-      L.panel(X, Y, 86, 27, 'plate');
+      // HP + level (top-left). On a wide view (the far default on a desktop window) the plate is wider, so the bar still reads from the middle of the room.
+      var hw = this.hpW = V.W >= 640 ? 110 : 66, pw = this.plateW = hw + 20;
+      L.panel(X, Y, pw, 27, 'plate');
       L.image(X + 8, Y + 9, 'heart');
-      L.bar(X + 15, Y + 4, 66, 9, 'hp_d');
-      this.hpFill = L.bar(X + 15, Y + 4, 66, 9, 'hp', 1.5);
+      L.bar(X + 15, Y + 4, hw, 9, 'hp_d');
+      this.hpFill = L.bar(X + 15, Y + 4, hw, 9, 'hp', 1.5);
       this.hpText = L.text(X + 17, Y + 5, '');
       this.lvText = L.text(X + 5, Y + 17, '', 'ui_warn');
-      L.bar(X + 37, Y + 19, 44, 3, 'xp_d');
-      this.xpFill = L.bar(X + 37, Y + 19, 44, 3, 'xp', 1.5);
+      L.bar(X + 37, Y + 19, hw - 22, 3, 'xp_d');
+      this.xpFill = L.bar(X + 37, Y + 19, hw - 22, 3, 'xp', 1.5);
 
       // inventory button (top-right)
       this.invBtn = L.button(V.W - X - 26, Y, 26, 26, '', function () { self.toggleInventory(); }, { icon: 'i_bag', name: 'inv' });
@@ -101,8 +102,8 @@
       L.image(V.W - X - 26 - 3 - 41 + 8, Y + 7, 'i_gold');
       this.goldText = L.text(V.W - X - 26 - 3 - 41 + 15, Y + 4, '0', 'gold');
       // objective + fissure progress: top-centre, or a second row when the screen is narrow
-      var free = V.W - (86 + X * 2) - (26 + X * 2) - 44;      // 44: the gold plate left of the inventory button
-      this.obj = free >= 150 ? { x: X + 86 + X, y: Y, w: free } : { x: X, y: Y + 30, w: V.W - X * 2 };
+      var free = V.W - (pw + X * 2) - (26 + X * 2) - 44;      // 44: the gold plate left of the inventory button
+      this.obj = free >= 150 ? { x: X + pw + X, y: Y, w: free } : { x: X, y: Y + 30, w: V.W - X * 2 };
       // debug button (cheats for testing): under the inventory button, below the objective row if that wraps
       if (G.debug && !this.game_.sim.tut) L.button(V.W - X - 26, (this.obj.y === Y ? Y : this.obj.y) + 30, 26, 14, 'DBG', function () { self.toggleDebug(); }, { name: 'dbg' });
       this.objPlate = L.panel(0, this.obj.y, 100, 27, 'plate');
@@ -485,14 +486,14 @@
       var hp = Math.ceil(p.hp), key = hp + '/' + p.maxHp;
       if (L.hp !== key) {
         L.hp = key;
-        this.hpFill.setDisplaySize(Math.max(0.01, Math.round(66 * Math.max(0, p.hp) / p.maxHp)), 9);
+        this.hpFill.setDisplaySize(Math.max(0.01, Math.round(this.hpW * Math.max(0, p.hp) / p.maxHp)), 9);
         this.hpText.setText(key);
-        UI.centerX(this.hpText, X + 15 + 33);
+        UI.centerX(this.hpText, X + 15 + this.hpW / 2);
       }
       var sk = p.slots.map(function (id) { return id ? id + p.abil[id] : '-'; }).join(',') + '|' + G.view.W + 'x' + G.view.H;
       if (L.slots !== sk) { L.slots = sk; this.drawSlots(); }
       if (L.lv !== p.level) { L.lv = p.level; this.lvText.setText(G.t('hud.level', { n: p.level })); }
-      var xp = Math.round(44 * Math.min(1, p.exp / p.expNext));
+      var xp = Math.round((this.hpW - 22) * Math.min(1, p.exp / p.expNext));
       if (L.xp !== xp) { L.xp = xp; this.xpFill.setDisplaySize(Math.max(0.01, xp), 3); }
 
       if (L.gold !== sim.gold) { L.gold = sim.gold; this.goldText.setText('' + sim.gold); }

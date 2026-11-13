@@ -16,6 +16,7 @@
         G.UI.registerFonts(self);
         G.save = G.loadSave();
         if (G.params.get('fresh') === '1') G.save = G.newSave();
+        if (G.migrateZoom(G.save.settings, window.innerWidth, window.innerHeight) && G.params.get('fresh') !== '1') G.storeSave(G.save);      // old saves: keep the chosen scale under the new default
         if (G.params.has('zoom')) G.save.settings.zoom = parseInt(G.params.get('zoom'), 10) || 0;
         G.setLang(G.detectLang(G.save.settings.lang, G.params.get('lang')));      // ?lang=en|es (QA) > saved choice > browser language
         // QA: ?fresh=1 is a save that has done the tutorial (so the other scripts see the game they always saw); ?tutorial=1 brings it back (pending, pop-ups on)
