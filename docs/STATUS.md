@@ -731,4 +731,10 @@ The glow follows the equipped weapon's rarity; `?glow=<key>` or DBG > GLOW (it r
 Checked: build, check_i18n, `qa/glow.js` (new: 7 states, mask frame follows the hero's frame, 0 console errors) PASS,
 `qa/hd.js` 0 console errors. Not checked: the glow on a real item of each rarity in a run, the city, the 27 px / old art modes
 (no masks there: no glow), warrior and archer (no sheets yet). Rough: the attack-thrust frame's mask includes the cyan flash.
+Warrior imported the same day (Grok 4x2 sheet, the strip method of docs/grok-prompts.md; idle 39x52 HD px): walk x4, idle,
+sword raised, sword swung, hurt; `G.ANIM.ent.warrior`. Plate armour, shield and sword are drawn into the sheet, so the chunky
+held weapon is hidden over it and the look does not follow the equipped weapon type or armour yet. Checked: build, the warrior
+in the test room at 1640x922 (walk frames cycle, 0 console errors). Not captured: its attack frames.
+NEXT DECISION (the user, 2026-11-13): the hero must start with NO gear drawn and show what is equipped (armour, weapon), because
+the loot players he wants like to see a new piece on the character. See the chat for the plan; nothing of it is built yet.
 

@@ -57,6 +57,15 @@
         attack: { frames: ['mage_attack_0', 'mage_attack_1'], fps: 14, hold: 0.12 },
         hurt: { frames: ['mage_hurt'], hold: 0.25 },
         motion: { bob: 1, tilt: 0.02, squash: 0.04, lean: 1, lunge: 2, stretch: 0.05, recoil: 3, breathe: 0.02, breathT: 1.6, dust: 1, faces: 1, die: 0.9 }
+      },
+      // the warrior sheet (Grok, 4x2): walk x4, idle, sword raised, sword swung, hurt. Plate armour, shield and sword are
+      // drawn into the sheet: the chunky held weapon (w_<type>) is hidden while this art shows, whatever is equipped.
+      warrior: {
+        idle: { frames: ['warrior_idle_0'] },
+        walk: { frames: ['warrior_walk_0', 'warrior_walk_1', 'warrior_walk_2', 'warrior_walk_3'], fps: 8 },
+        attack: { frames: ['warrior_attack_0', 'warrior_attack_1'], fps: 14, hold: 0.14 },
+        hurt: { frames: ['warrior_hurt'], hold: 0.25 },
+        motion: { bob: 1, tilt: 0.015, squash: 0.03, lean: 1, lunge: 3, stretch: 0.04, recoil: 2, breathe: 0.02, breathT: 1.8, dust: 2, faces: 1, die: 0.9 }
       }
     }
   };
