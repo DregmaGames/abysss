@@ -859,3 +859,5 @@ into `src/view/hd.js`); (2) "Chainmail Targe" / "Rodela de Malla" for a medium s
 shield: the user may want other words; (3) materials are the same for every class, so a mage can find and wear plate (as decided;
 no class limit exists); (4) item icons do not show the material; (5) the career bot values the starter like any item and may sell it
 when it finds a better weapon (as a player would); (6) `BAL.daily` kit items now carry materials, which changes nothing in the run.
+
+Archer imported (2026-11-13, the chosen chibi style, Grok 4x2; idle 46 HD px tall): G.ANIM.ent.archer. The walk row has no bow in hand and cell 8 is a third shot used as hurt. Its armour/hat are drawn in (no visible equipment yet).

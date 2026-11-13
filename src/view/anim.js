@@ -101,6 +101,14 @@
         hurt: { frames: ['warrior_plate_hurt'], hold: 0.25 },
         motion: { bob: 1, tilt: 0.015, squash: 0.03, lean: 1, lunge: 3, stretch: 0.04, recoil: 2, breathe: 0.02, breathT: 1.8, dust: 1, faces: 1, die: 0.9 }
       },
+      // the archer (Grok, 4x2, the chosen chibi style): walk x4 (no bow in hand), idle, bow drawn, released, a third shot as hurt
+      archer: {
+        idle: { frames: ['archer_idle_0'] },
+        walk: { frames: ['archer_walk_0', 'archer_walk_1', 'archer_walk_2', 'archer_walk_3'], fps: 8 },
+        attack: { frames: ['archer_attack_0', 'archer_attack_1'], fps: 14, hold: 0.14 },
+        hurt: { frames: ['archer_hurt'], hold: 0.25 },
+        motion: { bob: 1, tilt: 0.015, squash: 0.03, lean: 1, lunge: 1, stretch: 0.03, recoil: 2, breathe: 0.02, breathT: 1.7, dust: 1, faces: 1, die: 0.9 }
+      },
       // the warrior sheet (Grok, 4x2): walk x4, idle, sword raised, sword swung, hurt. Plate armour, shield and sword are
       // drawn into the sheet: the chunky held weapon (w_<type>) is hidden while this art shows, whatever is equipped.
       warrior: {
