@@ -931,3 +931,5 @@ Warrior base replaced by the chibi one (2026-11-13). His leather/chain/plate she
 Batch 2026-11-13 evening: archer_bare (chibi, green shirt, rod as bow; no bow art yet: empty hand) and skill poses for all three (G.ANIM.ent.<cls>_bare.skills, 4 frames each, with fist points; not used by the game yet: needs a skill->pose mapping). wpnArt.any is null: a weapon type with no art draws nothing.
 
 Held weapons by rarity (2026-11-13): tools/weapon_sheet.py cut the six Grok weapon sheets into wpn_<type>_<0..5> (common, magic, rare, legendary, mythic, unique); G.HD.heroWeapon picks by item rarity (G.ANIM.wpnByRarity; epic shows the legendary art) or by the glow preview, grip per type (wpnGripByType). Helmet and shield sheets kept in assets/gear_src/ (not wired: they need head / off-hand points).
+
+Arrows (2026-11-13): arrow_0..5 from the Grok sheet (assets/gear_src/arrows.jpg), the archer HD bolt uses the arrow of the bow rarity index, drawn at 16x3 art px, turned to its flight.

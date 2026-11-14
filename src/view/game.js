@@ -330,13 +330,19 @@
       this.drawHealthBars();
       this.list('bolts', sim.bolts, function (b) {
         var A = self.cls.attack, wv = !!b.wave, s = self.add.image(b.x, b.y, 'atlas', wv ? 'bolt' : A.frame).setDepth(8000);
+        // the archer in HD: the arrow of the bow's rarity (arrow_<n>, the same index as the held bow's art)
+        if (!wv && self.cls.id === 'archer' && G.hdMode && self.textures.get('hd').has('arrow_0')) {
+          var eq = sim.gear && sim.gear.equipped, gp = (G.cheats && G.cheats.glow) || G.params.get('glow');
+          var an = gp ? G.ANIM.wpnByGlow[gp] : eq && eq.weapon ? G.ANIM.wpnByRarity[eq.weapon.rarity | 0] : 0;
+          s.setTexture('hd', 'arrow_' + (an == null ? 0 : an)).setScale(1).clearTint(); s.hdArrow = true;      // 16 x 3 art px (the old arrow was 10 x 7)
+        }
         if (wv) s.setTint(UI.hex('gold'));       // Thunder Wave: a gold bolt
         s.wv = wv;
         s.gl = self.add.image(b.x, b.y, 'atlas', 'glow_s').setDepth(-640).setBlendMode(ADD).setTint(UI.hex(wv ? 'gold' : A.glow)).setAlpha(0.5);
         return s;
       }, function (s, b) {
         s.setPosition(b.x, b.y - 6); s.gl.setPosition(b.x, b.y);
-        if (self.cls.attack.rotate && !s.wv) s.setRotation(Math.atan2(b.vy, b.vx));
+        if ((self.cls.attack.rotate || s.hdArrow) && !s.wv) s.setRotation(Math.atan2(b.vy, b.vx));
         if (!self.fx.quiet && (tick + b.id) % 2 === 0) self.fx.spark(b.x, b.y - 6, s.wv ? 'gold' : (b.crit ? 'ui_warn' : self.cls.attack.glow), 0.18);
       });
       this.list('shots', sim.shots, function (b) { return self.add.image(b.x, b.y, 'atlas', SHOT_FRAME[b.kind] || 'shot').setDepth(8000); },
