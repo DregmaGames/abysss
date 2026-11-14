@@ -35,13 +35,23 @@
       // 2026-11-14 layout (the user: better buttons and font): logo, a character card (portrait, name, arrows, gear score), the gold
       // ENTER button, one row of secondary buttons, settings as an icon top right, the seed and the controls at the bottom.
       function tw(str, font) { var t = UI.text(self, 0, 0, str, null, font); var w = t.width; t.destroy(); return w; }
-      var y = tall ? Math.round(V.H * 0.1) : 8;
-      if (V.W >= 204) {
-        var lg = this.add.image(cx, y + 15, 'atlas', 'glow').setBlendMode(Phaser.BlendModes.ADD).setTint(UI.hex('em2')).setAlpha(0.28).setScale(3.2, 1.1);
-        lg._dz = -5; L.add(lg); this.logoGlow = lg;
-        L.image(cx, y + 15, 'logo');
-      } else UI.centerX(L.text(0, y + 6, 'RIFTSCAR', 'em3', true), cx);
-      y += 36;
+      var y = tall ? Math.round(V.H * 0.08) : 4;
+      var hdLogo = this.textures.exists('hd') && this.textures.get('hd').has('logo_hd') && G.hdMode && G.hdStyle !== 'lo';
+      if (hdLogo) {
+        // the user's Grok logo: as big as the screen allows (art px: 85 tall at most; short phone screens get ~46)
+        var lh = Math.min(85, Math.max(40, V.H - 150), Math.round((V.W - 16) * 85 / 221)), lk = lh / 85 * 0.5;
+        var lg2 = this.add.image(cx, y + lh * 0.55, 'atlas', 'glow').setBlendMode(Phaser.BlendModes.ADD).setTint(UI.hex('em2')).setAlpha(0.28).setScale(lh / 14, lh / 36);
+        lg2._dz = -5; L.add(lg2); this.logoGlow = lg2;
+        var li = this.add.image(cx, y, 'hd', 'logo_hd').setOrigin(0.5, 0).setScale(lk); li._dz = 1; L.add(li);
+        y += lh - 2;
+      } else {
+        if (V.W >= 204) {
+          var lg = this.add.image(cx, y + 15, 'atlas', 'glow').setBlendMode(Phaser.BlendModes.ADD).setTint(UI.hex('em2')).setAlpha(0.28).setScale(3.2, 1.1);
+          lg._dz = -5; L.add(lg); this.logoGlow = lg;
+          L.image(cx, y + 15, 'logo');
+        } else UI.centerX(L.text(0, y + 6, 'RIFTSCAR', 'em3', true), cx);
+        y += 36;
+      }
       var tag = L.text(0, y, G.t('title.tag'), 'ui_dim').setMaxWidth(V.W - 12).setCenterAlign(); UI.centerX(tag, cx); if (tag.height > 10) y += tag.height - 8;
       y += tall ? 18 : 12;
       // the character card

@@ -1051,3 +1051,6 @@ in the HD art mode UI.panel draws btn / btn_hot / btn_down / btn_main* as an HD 
 buttons are the HD squares (tint for hover / press), the gold main button gets white text. Old art modes keep the chunky frames.
 Checked: title 960x540, phone landscape 844x390, phone upright rotated 390x844, 667x375; inventory + item card 960x540 / 540x960;
 0 console errors. Waiting: the logo.
+Logo (2026-11-14): the user's Grok logo (lava base, fixed R; source assets/gear_src/logo_src.jpg) imported as HD frame logo_hd
+(441x170 HD px). title.js: in the HD art mode it replaces the chunky logo, height min(85, max(40, V.H - 150), width-bound) art px,
+with the ember glow behind. Checked: 960x540, phone landscape 844x390 and 667x375, upright rotated, 0 console errors.
