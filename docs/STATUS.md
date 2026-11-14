@@ -971,3 +971,10 @@ the run starts, 0 console errors. Rough: the hero arrives already near the porta
 Portal HD art in (same night): `portal_arch` (Grok arch, 69x50 art px, opening 18 art px wide) and `portal_swirl` (the second
 of two Grok vortices, 96 HD px, black kept for ADD, corners faded) turned inside a container stretched to PORTAL.oval [20, 34];
 the arch's legs and pillars are solid. Checked: capture sequence, the run starts, 0 console errors.
+
+Fissures as lava (2026-11-13 night, same branch; "mejorar el rift" part 2). View only (src/view/room.js, no sim change):
+an open crack is black at its walls, red going in and orange lava in the middle (FissureView.mid = depth / the deepest px
+within 3 px, so thin arms get their own middle line), flowing (two layers of a wrapping value-noise table, redrawn every
+LAVA.every ticks), yellow streaks; flames (2x4 -> 1 px, rising, yellow -> red) and embers rise from the middle (pooled, cap per
+crack); the light is orange. Sealed: black crust, red edge cooling (no yellow, no flames). All numbers in `LAVA`.
+Checked: build, room 960x540 and 540x960 close-ups, 0 console errors. Not seen: sealing and the super fissure in the new look.

@@ -4,6 +4,41 @@
   var UI = G.UI, T = 16, fissSeq = 0;
   var FLASH_T = 24, FLASH_R = 18;        // bump flare: sim ticks, px radius
   var ARM_GLOW = 52;                     // px between the lights along a crack's arms
+  // Lava (the user, 2026-11-13: "que se note que haya lava, fuego"): an open crack is molten rock that flows, with flames and
+  // embers rising from it; its lip is a dark crust glowing red. Sealed, it is a black crust that cools (no flames).
+  // flow: noise px moved per sim tick (two layers, x/y); ramp: black -> white-hot; bands: where (0 wall .. 1 middle)
+  // red, red-orange and orange start; heat: the middle's ramp index = heat[0] + noise x heat[1];
+  // flames: open core px per flame a second, cap per crack, life (ticks), rise (px/tick); embers: share of the flames.
+  var LAVA = { flow: [0.05, 0.02, -0.035, 0.03], ramp: ['#170507', '#4a0e08', '#962210', '#d23c10', '#f26818', '#ff9a26', '#ffc84a', '#fff0a8'],
+    bands: [0.3, 0.55, 0.75], heat: [3.6, 2.9], crust: 0.3, every: 3, flames: 9, cap: 80, capBig: 140, life: [28, 56], rise: [0.25, 0.55], embers: 0.25, glow: 'em2' };
+  // a smooth value-noise table, 128 x 128, wrapping (view only: Math-free hash, same every run)
+  var NZ = (function () {
+    var N = 128, a = new Float32Array(N * N), b = new Float32Array(N * N), i, x, y, k;
+    for (i = 0; i < N * N; i++) { var h = (i * 2654435761) >>> 0; h ^= h >>> 15; h = (h * 2246822519) >>> 0; h ^= h >>> 13; a[i] = (h & 1023) / 1023; }
+    for (k = 0; k < 3; k++) {      // three box blurs, 5 px wide, wrapping
+      for (y = 0; y < N; y++) for (x = 0; x < N; x++) { var sm = 0; for (i = -2; i <= 2; i++) sm += a[y * N + ((x + i + N) & (N - 1))]; b[y * N + x] = sm / 5; }
+      for (y = 0; y < N; y++) for (x = 0; x < N; x++) { var sv = 0; for (i = -2; i <= 2; i++) sv += b[(((y + i + N) & (N - 1)) * N) + x]; a[y * N + x] = sv / 5; }
+    }
+    var lo = 1, hi = 0; for (i = 0; i < N * N; i++) { lo = Math.min(lo, a[i]); hi = Math.max(hi, a[i]); }
+    for (i = 0; i < N * N; i++) a[i] = (a[i] - lo) / (hi - lo);
+    return a;
+  })();
+  var RAMP = null;
+  // the user (2026-11-13): a black crack, a little red going in, orange in the middle where the lava / fire is.
+  // m: 0 at the wall .. 1 in the middle (FissureView.mid). The middle flows (noise) with hot yellow streaks.
+  function lavaCol(c, h, m, tick) {
+    if (!RAMP) RAMP = LAVA.ramp.map(function (hx) { var v = parseInt(hx.slice(1), 16); return [v >> 16, (v >> 8) & 255, v & 255]; });
+    var F = LAVA.flow, x = c.x, y = c.y;
+    var n1 = NZ[(((y * 2 + tick * F[1]) | 0) & 127) * 128 + (((x * 2 + tick * F[0]) | 0) & 127)];
+    var n2 = NZ[(((y * 3 + 61 + tick * F[3]) | 0) & 127) * 128 + (((x * 3 + 17 + tick * F[2]) | 0) & 127)];
+    var v = n1 * 0.55 + n2 * 0.45; v = v * v * (3 - 2 * v);
+    var B = LAVA.bands;
+    if (m < B[0]) return v > 0.8 ? RAMP[2] : (h % 6 === 0 ? RAMP[1] : RAMP[0]);           // the black wall, a red glint
+    if (m < B[1]) return v > 0.6 ? RAMP[3] : RAMP[2];                                     // red, going in
+    if (m < B[2]) return v > 0.55 ? RAMP[4] : RAMP[3];                                    // red-orange
+    return RAMP[Math.max(4, Math.min(RAMP.length - 1, Math.round(LAVA.heat[0] + v * LAVA.heat[1] + (h & 3) * 0.08)))];   // the middle: orange lava, yellow streaks
+  }
+  function rimCol(h, tick) { if (!RAMP) lavaCol({ x: 0, y: 0 }, 0, 0, 0); return (h + (tick >> 4)) % 17 === 0 ? RAMP[1] : RAMP[0]; }
 
   G.RoomView = function (scene, room) {
     var W = room.w, H = room.h, ground = [], shade = [], x, y, i;
@@ -148,6 +183,14 @@
     }
     this.cells = cells;
     this.depth = cells.map(function (cl) { return grid[(cl.y - minY) * w + (cl.x - minX)]; });
+    // how deep a px sits in its own part of the crack: depth / the deepest px within 3 px (0 = the black wall, 1 = the middle),
+    // so a thin arm has its own orange middle line like the wide parts
+    var hh = this.h;
+    this.mid = cells.map(function (cl, ci) {
+      var gx = cl.x - minX, gy = cl.y - minY, m = 1;
+      for (var yy = Math.max(0, gy - 3); yy <= Math.min(hh - 1, gy + 3); yy++) for (var xx = Math.max(0, gx - 3); xx <= Math.min(w - 1, gx + 3); xx++) { var g = grid[yy * w + xx]; if (g > m && g < 99) m = g; }
+      return Math.min(1, grid[gy * w + gx] / m);
+    });
     this.hash = cells.map(function (cl) { return (((cl.x * 73856093) ^ (cl.y * 19349663)) >>> 0) % 64; });
     this.key = 'fiss' + (fissSeq++);
     this.scene = scene; this.big = f.big; this.fx0 = f.x; this.fy0 = f.y;
@@ -185,7 +228,8 @@
     var st = f.state, sh = this.slow ? (tick >> 4) : (tick >> 3), s, cool = [], minCool = 1, opening = st === 'opening';
     var fl = this.flash, flA = fl ? 1 - (tick - fl.tick) / FLASH_T : 0;
     if (flA <= 0) { flA = 0; this.flash = fl = null; }
-    var key = st + '|' + (opening ? Math.round(f.reveal * (this.slow ? 30 : 80)) : (f.litN ? sh : 0)) + '|' + Math.round(flA * 12);
+    var lt = Math.floor(tick / (this.slow ? LAVA.every * 2 : LAVA.every)) * (this.slow ? LAVA.every * 2 : LAVA.every);      // lava redraw step
+    var key = st + '|' + (opening ? Math.round(f.reveal * (this.slow ? 30 : 80)) : (f.litN ? lt : 0)) + '|' + Math.round(flA * 12);
     for (s = 0; s < f.nSeg; s++) {
       var cv = f.dark[s] ? Math.min(1, (tick - f.darkTick[s]) / 480) : -1;
       cool.push(cv);
@@ -193,15 +237,17 @@
       key += '|' + (cv < 0 ? 'L' : Math.round(cv * 24));
     }
     var litFrac = f.litN / f.nSeg, a, tint;
-    if (f.litN) { a = 0.5 * (opening ? f.reveal : 1) * (0.35 + 0.65 * litFrac) + ((tick >> 2) % 5) * 0.012; tint = 'rg2'; }
+    if (f.litN) { a = 0.45 * (opening ? f.reveal : 1) * (0.35 + 0.65 * litFrac) + Math.sin(tick / 9) * 0.03 + ((tick >> 2) % 5) * 0.01; tint = LAVA.glow; }
     else { a = 0.34 - minCool * 0.2; tint = 'em2'; }
     this.glow.setAlpha(a).setTint(UI.hex(tint));
     for (s = 0; s < this.armGlows.length; s++) {
       var ag = this.armGlows[s], cg = cool[ag.seg];
       if (cg === undefined) ag.img.setAlpha(0);      // the title backdrop draws rooms without sim state
-      else if (cg < 0) ag.img.setAlpha(opening && ag.o > f.reveal ? 0 : 0.42 + ((tick >> 2) + s) % 5 * 0.012).setTint(UI.hex('rg2'));
-      else ag.img.setAlpha(Math.max(0, 0.3 - cg * 0.3)).setTint(UI.hex('em2'));
+      else if (cg < 0) ag.img.setAlpha(opening && ag.o > f.reveal ? 0 : 0.46 + Math.sin(tick / 11 + s) * 0.04).setTint(UI.hex(LAVA.glow));
+      else ag.img.setAlpha(Math.max(0, 0.22 - cg * 0.22)).setTint(UI.hex('em1'));
     }
+    // flames and embers from the open (revealed) molten px
+    this.fire(f, tick, function (c) { var cs2 = cool[c.seg]; return cs2 < 0 && (!opening || c.o <= f.reveal); });
     if (key === this.last) return;
     this.last = key;
     var cells = this.cells, n = cells.length, d = this.img.data, C = this.C, w = this.w, ox = this.ox, oy = this.oy, i;
@@ -219,15 +265,12 @@
       if (cs < 0 && (!opening || c.o <= f.reveal)) {
         if (opening && f.reveal - c.o < 0.07) col = c.core ? C.rg4 : C.em4;
         else if (fl && !c.core && (c.x - flx) * (c.x - flx) + (c.y - fly) * (c.y - fly) < flR2) col = h % 3 ? C.rg4 : C.em4;   // bumped: the lip flares
-        else if (!c.core) col = (h + sh) % 11 === 0 ? C.em4 : (h % 4 === 0 ? C.em2 : C.em3);   // steady hot rim = the edge
-        else if (dep <= 1) col = C.rg0;
-        else if (dep === 2) col = h % 4 === 0 ? C.rg2 : C.rg1;
-        else if (dep === 3) col = (h + sh) % 9 === 0 ? C.rg3 : C.rg2;
-        else col = (h + sh) % 6 === 0 ? C.rg4 : C.rg3;
+        else if (!c.core) col = rimCol(h, tick);                                     // the lip: crust glowing red
+        else col = lavaCol(c, h, this.mid[i], lt);                                           // molten rock, flowing
       } else if (cs >= 0) {
         var hot = 1 - cs;
         if (c.core) col = h % 9 === 0 && hot > 0.4 ? C.em1 : (dep >= 3 ? C.outline : C.scar);
-        else col = h < hot * 40 ? (h % 2 ? C.em4 : C.em3) : (h % 4 === 0 ? C.em2 : (h % 4 === 3 ? C.em0 : C.em1));
+        else col = h < hot * 24 ? (h % 2 ? C.em2 : C.em1) : (h % 4 === 0 ? C.em1 : C.em0);      // the crust's edge: red, cooling (no yellow: that is lava)
       } else if (c.core && dep >= 2) col = dep >= 4 ? C.outline : C.f0;
       if (!col) continue;
       var p = ((c.y - oy) * w + (c.x - ox)) * 4;
@@ -247,14 +290,17 @@
   FissureView.prototype.update = function (f, tick) {
     if (!f.big) { this.updateNet(f, tick); return; }
     var st = f.state, cooling = st === 'scar' ? Math.min(1, (tick - (f.scarTick || tick)) / 480) : 0, sh = tick >> 3;
-    var key = st + '|' + (st === 'open' ? sh : Math.round(f.reveal * 80)) + '|' + Math.round(cooling * 24);
+    var lt = Math.floor(tick / (LAVA.every * 2)) * LAVA.every * 2;
+    var key = st + '|' + (st === 'open' ? lt : Math.round(f.reveal * 80)) + '|' + Math.round(cooling * 24);
     // light
-    var a = 0, tint = 'rg2';
-    if (st === 'opening' || st === 'open') a = 0.5 * f.reveal + (st === 'open' ? ((tick >> 2) % 5) * 0.012 : 0);
-    else if (st === 'closing') { a = 0.5; tint = f.reveal > 0.5 ? 'rg2' : 'em2'; }
+    var a = 0, tint = LAVA.glow;
+    if (st === 'opening' || st === 'open') a = 0.55 * f.reveal + (st === 'open' ? Math.sin(tick / 9) * 0.03 : 0);
+    else if (st === 'closing') { a = 0.5; tint = f.reveal > 0.5 ? LAVA.glow : 'em1'; }
     else if (st === 'scar') { a = 0.34 - cooling * 0.2; tint = 'em2'; }
     this.glow.setAlpha(a).setTint(UI.hex(tint));
     if (this.glow2) this.glow2.setAlpha(a * 0.7).setTint(UI.hex(tint));
+    var moving0 = st === 'opening' || st === 'closing';
+    this.fire(f, tick, function (c) { return st === 'open' || (moving0 && st === 'opening' && c.o <= f.reveal); });
     if (key === this.last) return;
     this.last = key;
     var cells = this.cells, n = cells.length, d = this.img.data, C = this.C, w = this.w, ox = this.ox, oy = this.oy, i;
@@ -265,16 +311,13 @@
       var open = st === 'open' || (moving && c.o <= f.reveal);
       if (open) {
         if (moving && f.reveal - c.o < 0.07) col = c.core ? C.rg4 : C.em4;            // the travelling front
-        else if (!c.core) col = (h + sh) % 13 === 0 ? C.em4 : (h % 5 === 0 ? C.em3 : (h % 3 === 0 ? C.em1 : C.em2));
-        else if (dep <= 1) col = C.rg0;
-        else if (dep === 2) col = h % 4 === 0 ? C.rg2 : C.rg1;
-        else if (dep === 3) col = (h + sh) % 9 === 0 ? C.rg3 : C.rg2;
-        else col = (h + sh) % 6 === 0 ? C.rg4 : C.rg3;
+        else if (!c.core) col = rimCol(h, tick);
+        else col = lavaCol(c, h, this.mid[i], lt);
       } else if (st === 'scar' || st === 'closing') {
         // sealed: dark scar, orange edge. Fresh edges are white-hot, then cool to a steady ember.
         var hot = st === 'closing' ? 1 : 1 - cooling;
         if (c.core) col = h % 9 === 0 && hot > 0.4 ? C.em1 : (dep >= 3 ? C.outline : C.scar);
-        else col = h < hot * 40 ? (h % 2 ? C.em4 : C.em3) : (h % 4 === 0 ? C.em2 : (h % 4 === 3 ? C.em0 : C.em1));
+        else col = h < hot * 24 ? (h % 2 ? C.em2 : C.em1) : (h % 4 === 0 ? C.em1 : C.em0);      // the crust's edge: red, cooling (no yellow: that is lava)
       } else if (c.core && dep >= 2) {
         col = dep >= 4 ? C.outline : C.f0;                                            // dormant hairline
       }
@@ -285,7 +328,41 @@
     this.ctx.putImageData(this.img, 0, 0);
     this.tex.refresh();
   };
+  // flames (2 px, rising, yellow -> red) and embers (1 px, drifting higher) from random open molten px; `isOpen(cell)`
+  FissureView.prototype.fire = function (f, tick, isOpen) {
+    var dt = this.lastTick == null ? 1 : Math.max(0, Math.min(6, tick - this.lastTick)), i;
+    if (!RAMP) lavaCol({ x: 0, y: 0 }, 0, 0, 0);
+    this.lastTick = tick;
+    if (!this.cores) { this.cores = []; for (i = 0; i < this.cells.length; i++) if (this.cells[i].core && this.mid[i] >= LAVA.bands[2]) this.cores.push(i); this.parts = []; }      // flames rise from the orange middle
+    var P = this.parts, cap = this.big ? LAVA.capBig : LAVA.cap;
+    if (dt > 0 && this.cores.length) {
+      this.fireAcc = (this.fireAcc || 0) + dt * this.cores.length / LAVA.flames / 60;
+      for (var tries = 0; this.fireAcc >= 1 && tries < 8; tries++) {
+        this.fireAcc--;
+        var c = this.cells[this.cores[(Math.random() * this.cores.length) | 0]];
+        if (!isOpen(c)) continue;
+        var p = null;
+        for (i = 0; i < P.length; i++) if (P[i].t >= P[i].life) { p = P[i]; break; }
+        if (!p) { if (P.length >= cap) continue; p = { img: this.scene.add.image(0, 0, 'atlas', 'px').setBlendMode(Phaser.BlendModes.ADD).setDepth(-780) }; P.push(p); }
+        var ember = Math.random() < LAVA.embers;
+        p.x = this.fx0 + c.x; p.y = this.fy0 + c.y; p.t = 0; p.ember = ember; p.ph = Math.random() * 6.28;
+        p.life = (LAVA.life[0] + Math.random() * (LAVA.life[1] - LAVA.life[0])) * (ember ? 2 : 1);
+        p.vy = -(LAVA.rise[0] + Math.random() * (LAVA.rise[1] - LAVA.rise[0])) * (ember ? 1.3 : 1); p.vx = ember ? (Math.random() - 0.5) * 0.3 : 0;
+      }
+      this.fireAcc = Math.min(this.fireAcc, 2);
+    }
+    for (i = 0; i < P.length; i++) {
+      var q = P[i];
+      if (q.t >= q.life) { q.img.setVisible(false); continue; }
+      q.t += dt; var u = q.t / q.life;
+      q.x += q.vx * dt; q.y += q.vy * dt;
+      var col = RAMP[Math.max(1, Math.round((1 - u) * (RAMP.length - 1)))];
+      q.img.setVisible(u < 1).setPosition(Math.round(q.x + (q.ember ? 0 : Math.sin(q.ph + q.t * 0.25) * 0.8)), Math.round(q.y))
+        .setTint((col[0] << 16) | (col[1] << 8) | col[2]).setScale(q.ember ? 1 : u < 0.3 ? 2 : u < 0.65 ? 2 : 1, q.ember ? 1 : u < 0.3 ? 4 : u < 0.65 ? 3 : 1).setAlpha(u < 0.7 ? 1 : (1 - u) / 0.3);
+    }
+  };
   FissureView.prototype.destroy = function () {
+    if (this.parts) this.parts.forEach(function (p) { p.img.destroy(); });
     this.sprite.destroy(); this.glow.destroy();
     if (this.glow2) this.glow2.destroy();
     this.armGlows.forEach(function (g) { g.img.destroy(); });
