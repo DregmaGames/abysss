@@ -7180,6 +7180,9 @@
 // when it is smaller); CityHudScene is the overlay: gold, buttons, the touch stick, panels.
 (function (G) {
   var UI = G.UI, T = 16;
+  // the portal's look: glow alpha (far, + near), glow growth near, vortex turn (rad/s far, + near), sparks a second near,
+  // burst a second while going in, the ring they start on (px from the centre), how long the hero takes to be pulled in (s)
+  var PORTAL = { glow: [0.25, 0.4], grow: 0.35, spin: [1.2, 3.5], sparks: 26, burst: 90, r: [16, 30], absorb: 0.6 };
   var REACH = 26;                                     // px from the front of a stall to talk to its owner
   var FRONT = 26;                                     // px from a stall's counter to that front: the keeper stands between the two
   var LINE = 12;                                      // px from a label to the prompt above it (a text line is 7 px, 9 with an accent)
@@ -7205,7 +7208,7 @@
     garden: [[3, 17, 8, 4], [13, 17, 7, 4], [36, 17, 7, 4], [45, 17, 8, 4], [2, 28, 13, 3], [41, 28, 13, 3]],
     torches: [[5, 2], [13, 2], [21, 2], [34, 2], [42, 2], [50, 2], [25, 3], [30, 3]],      // on wall faces, [tile x, tile y]: the rooms' torch and its light
     start: { x: 448, y: 242 },                        // where the hero arrives: the plaza, in front of the portal
-    portal: { x: 448, y: 206, w: 20, h: 14 },         // walking into it (from the front) starts a run
+    portal: { x: 448, y: 206, w: 20, h: 14, cy: 22 }, // walking into it (from the front) starts a run; cy: the vortex centre above its foot
     stalls: [{ id: 'montoto', x: 248, y: 208 }, { id: 'smith', x: 348, y: 208 }, { id: 'trainer', x: 548, y: 208 }],
     board: { x: 388, y: 296 },                        // the notice board: the daily challenge
     // empty lots with a sign: nothing is built there yet. `at`: where the quarter's name is written
@@ -7434,7 +7437,15 @@
       this.talkers.push(this.boardOwner);
       // the portal
       this.portal = put(L.portal.x, L.portal.y, 'portal_0').setOrigin(0.5, 1).setDepth(L.portal.y - 20);
-      glow(L.portal.x, L.portal.y - 16, 'glow', 'rg2', 0.25).setDepth(-640);
+      this.portalGlow = glow(L.portal.x, L.portal.y - L.portal.cy, 'glow', 'rg2', 0.25).setDepth(-640);
+      // the HD portal (Grok, two pieces): the stone arch, and the vortex drawn glowing inside it and turned by code
+      this.portalArch = G.HD.frame(this, 'portal_arch') ? G.HD.show(put(L.portal.x, L.portal.y, 'portal_0'), 'portal_arch', 0.5, 1) : null;
+      if (this.portalArch) { this.portalArch.setDepth(L.portal.y - 19); this.portal.setVisible(false); }
+      this.swirl = G.HD.frame(this, 'portal_swirl') ? G.HD.show(put(L.portal.x, L.portal.y - L.portal.cy, 'portal_0'), 'portal_swirl', 0.5, 0.5).setBlendMode(Phaser.BlendModes.ADD).setDepth(L.portal.y - 20) : null;
+      if (this.swirl) { this.swirlK = this.swirl.scaleX; this.portal.setVisible(false); }
+      // sparks drawn into the vortex while the hero is near (and a burst when he goes in)
+      this.pk = 0; this.sparks = [];
+      for (var si = 0; si < 36; si++) this.sparks.push({ img: put(0, 0, 'px').setBlendMode(Phaser.BlendModes.ADD).setTint(UI.hex(si % 3 ? 'rg3' : 'ui_good')).setDepth(L.portal.y - 18).setVisible(false), t: 0, life: 0 });
       this.portalLabel = this.label('city.rift', 'ui_good', L.portal.x, L.portal.y - 58);
       this.marks.push({ name: 'portal', o: this.portal });
     },
@@ -7564,6 +7575,14 @@
       var ceq = G.gearOf(G.save, G.cls).equipped;
       this.prig.ent = G.HD.heroEnt(C.id, ceq);
       var kH = G.tuneOf(G.BAL, 'hero');
+      if (this.entering) {
+        // pulled into the vortex: to its foot, shrinking, spinning (the facing flips faster and faster)
+        var Pa = this.lay.portal, ab = this.absorb, u = Math.min(1, (ab.t += G.paused ? 0 : dt) / ab.dur), e = u * u * (3 - 2 * u);
+        this.px = ab.x + (Pa.x - ab.x) * e; this.py = ab.y + (Pa.y - 6 - ab.y) * e;
+        this.face = ((ab.t * (6 + 22 * u)) | 0) % 2 ? 1 : -1;
+        hx = Math.round(this.px); hy = Math.round(this.py);
+        kH *= Math.max(0.05, 1 - 0.95 * e);
+      }
       var hd = this.prig.update(G.paused ? 0 : dt, { x: hx, y: hy, ground: hy - 1, face: this.face, tx: null, state: 'walk', speed: C.base.speed, depth: this.py, k: kH,
         glow: G.HD.glowOf(ceq.weapon), weapon: G.HD.heroWeapon(this.prig.ent, C, ceq), trim: G.HD.trimColor(ceq) });
       if (!hd) {
@@ -7590,21 +7609,54 @@
         li.glow.setAlpha(li.a + ((f >> 2) + i * 3) % 4 * 0.025);
       }
       for (i = 0; i < this.anims2.length; i++) { var an = this.anims2[i]; an.img.setFrame(an.frames + (((f >> 3) / an.rate + an.k) | 0) % an.n); }
-      this.portal.setFrame('portal_' + ((f >> 3) % 3));
+      this.updatePortal(dt, time);
       var nl = this.nearLabel(this.near);
       this.tag.setVisible(!!nl && !G.paused);
       if (nl && this.near) this.tag.setText(nl);
       this.follow(false);                               // also places the prompt
     },
 
+    // the portal: the vortex turns (faster and brighter as the hero comes near: pk 0..1), sparks are drawn into it
+    updatePortal: function (dt, time) {
+      var P = this.lay.portal, cx = P.x, cy = P.y - P.cy, f = this.frame;
+      var dx = this.px - cx, dy = this.py - P.y, d = Math.sqrt(dx * dx + dy * dy);
+      var want = this.entering ? 1 : Math.max(0, Math.min(1, 1 - (d - 24) / 72));
+      if (!G.paused) this.pk += (want - this.pk) * Math.min(1, dt * 4);
+      var pk = this.pk, B = PORTAL;
+      if (this.portal.visible) this.portal.setFrame('portal_' + ((f >> (pk > 0.5 ? 2 : 3)) % 3));
+      this.portalGlow.setAlpha(B.glow[0] + B.glow[1] * pk + Math.sin(time / 300) * 0.04).setScale(1 + B.grow * pk);
+      if (this.swirl) {
+        if (!G.paused) this.swirl.rotation -= dt * (B.spin[0] + B.spin[1] * pk);
+        this.swirl.setScale(this.swirlK * (1 + 0.08 * pk + 0.03 * Math.sin(time / 260)));
+      }
+      if (G.paused) return;
+      var rate = B.sparks * pk + (this.entering ? B.burst : 0);
+      this.sparkAcc = (this.sparkAcc || 0) + rate * dt;
+      for (var i = 0; i < this.sparks.length; i++) {
+        var s = this.sparks[i];
+        if (s.life <= 0 && this.sparkAcc >= 1) { this.sparkAcc--; s.t = 0; s.life = 0.5 + Math.random() * 0.5; s.a = Math.random() * Math.PI * 2; s.r = B.r[0] + Math.random() * (B.r[1] - B.r[0]); }
+        if (s.life <= 0) { s.img.setVisible(false); continue; }
+        s.t += dt; var u = s.t / s.life;
+        if (u >= 1) { s.life = 0; s.img.setVisible(false); continue; }
+        var a = s.a + u * 2.2, r = s.r * (1 - u);
+        s.img.setVisible(true).setPosition(Math.round(cx + Math.cos(a) * r), Math.round(cy + Math.sin(a) * r * 0.9)).setAlpha(Math.min(1, (1 - u) * 2)).setScale(u < 0.3 ? 2 : 1);
+      }
+      this.sparkAcc = Math.min(this.sparkAcc, 3);
+    },
+
     enterRift: function () {
       if (this.entering) return;
       this.entering = true;
+      this.absorb = { x: this.px, y: this.py, t: 0, dur: PORTAL.absorb };
+      this.tag.setVisible(false);
       G.Tut.did('city');      // walking into the portal is the last step of the city's tutorial (and ends it, if the player went straight there)
       var self = this;
       if (G.cityHud) G.cityHud.dropStick();
-      this.cameras.main.fadeOut(220, 7, 6, 11);
-      this.cameras.main.once('camerafadeoutcomplete', function () {
+      // the hero is pulled in (update), a green flash as he vanishes, then the fade
+      var cam = this.cameras.main;
+      this.time.delayedCall(PORTAL.absorb * 900, function () { cam.flash(160, 168, 240, 64); });
+      this.time.delayedCall(PORTAL.absorb * 1000, function () { cam.fadeOut(240, 7, 6, 11); });
+      cam.once('camerafadeoutcomplete', function () {
         G.testRoom = false; G.storeSave(G.save);
         self.scene.stop('cityhud'); self.scene.start('game');
       });

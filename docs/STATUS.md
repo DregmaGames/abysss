@@ -959,3 +959,12 @@ state 'talk' when `this.near` is that stall). The merchant is the one met in the
 G.HD.show, idle loop / open hand while sim.canTalk(). The cage's Montoto (assets/hd/parts/cage_montoto.png) is the new one.
 Checked: build, city at 960x540 and 540x960, a test room with cheatMerchant + cheatCage, 0 console errors.
 Not seen: Montoto's stall in the city (needs a save with him rescued), the talk poses on screen.
+
+Portal of the town (2026-11-13 night, same branch; the user's "mejorar el rift", part 1 of 3: portal, fissures, daily board).
+city.js `PORTAL` (look numbers) and `updatePortal`: the glow grows and the vortex turns faster as the hero comes near (pk 0..1,
+from 24 to 96 px), 36 pooled sparks spiral into the centre; walking in pulls the hero to the foot of the portal over 0.6 s,
+shrinking (rig `k`) and spinning (the facing flips faster), a green flash at 0.54 s, then the fade and the run.
+Ready for the HD art (prompts given to the user): `portal_arch` (the stone arch, empty opening) and `portal_swirl` (the vortex
+on black, drawn ADD and turned by code); with them the old 3-frame portal is hidden. `L.portal.cy` = the vortex centre above
+the foot (22 px for the old art; set it to the new arch's opening). Checked: build, a capture sequence far / near / going in,
+the run starts, 0 console errors. Rough: the hero arrives already near the portal, so it is always lively.
