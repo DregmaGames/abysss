@@ -6167,9 +6167,9 @@
     // the colour of an armour's trim (frames trim_<frame>) by the item's rarity: common brass, then the rarity colours
     trimByRarity: [0xb08850, 0x6eaaff, 0xffd84a, 0xcc80ff, 0xff9434],
     // the body sheet by the body armour's material (item.mat: 0 light, 1 medium, 2 heavy; an item without one counts as heavy)
-    // visible equipment on the hero (bare sheet + armour look + held weapon + helmet + shield): OFF for now (the user,
-    // 2026-11-14: "quita por ahora el tema de armaduras"): each class is drawn from its own full sheet, gear drawn in.
-    // ?gear=1 turns it on for a test (qa/equip.js does).
+    // armour looks, helmets and shields on the hero: OFF for now (the user, 2026-11-14: "quita por ahora el tema de armaduras";
+    // then "siguen las armaduras y escudos" about the full sheets): the hero is the base sheet (no armour) with the equipped
+    // weapon in the hand. ?gear=1 turns the rest on for a test (qa/equip.js does).
     visibleGear: false,
     armorLook: ['leather', 'chain', 'plate'],
     // helmets and shields (visible equipment): the art per class and material (0 light, 1 medium, 2 heavy). Helmets sit on the
@@ -6400,7 +6400,7 @@
     // ?look=bare|leather|chain|plate|full forces one.
     gearOn: function () { var p = G.params.get('gear'); return p != null ? p === '1' : !!G.ANIM.visibleGear; },
     heroEnt: function (id, eq) {
-      if (!HD.gearOn()) return id;
+      if (!HD.gearOn()) return G.ANIM.ent[id + '_bare'] ? id + '_bare' : id;      // gear off: the base (no armour) sheet, weapon in hand
       var bare = id + '_bare', look = G.params.get('look'), A = eq && eq.armor;
       if (!G.ANIM.ent[bare]) return id;
       if (look === 'full') return id;
@@ -6417,7 +6417,6 @@
     },
     // the weapon to draw in the hand of a sheet that marks its fist (ANIM `hands`): by the equipped weapon (?wpn=1 / ?wpn=0 forces)
     heroWeapon: function (ent, cls, eq) {
-      if (!HD.gearOn()) return null;
       var E = G.ANIM.ent[ent], p = G.params.get('wpn'), item = eq && eq.weapon;
       if (!E || !E.hands || p === '0' || (!item && p !== '1')) return null;
       var wt = cls && cls.weapons ? G.weaponOf(cls, { equipped: eq || {} }).id : ({ mage: 'staff', archer: 'bow' }[cls && cls.id] || 'weapon');

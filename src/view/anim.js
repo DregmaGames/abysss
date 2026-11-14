@@ -36,9 +36,9 @@
     // the colour of an armour's trim (frames trim_<frame>) by the item's rarity: common brass, then the rarity colours
     trimByRarity: [0xb08850, 0x6eaaff, 0xffd84a, 0xcc80ff, 0xff9434],
     // the body sheet by the body armour's material (item.mat: 0 light, 1 medium, 2 heavy; an item without one counts as heavy)
-    // visible equipment on the hero (bare sheet + armour look + held weapon + helmet + shield): OFF for now (the user,
-    // 2026-11-14: "quita por ahora el tema de armaduras"): each class is drawn from its own full sheet, gear drawn in.
-    // ?gear=1 turns it on for a test (qa/equip.js does).
+    // armour looks, helmets and shields on the hero: OFF for now (the user, 2026-11-14: "quita por ahora el tema de armaduras";
+    // then "siguen las armaduras y escudos" about the full sheets): the hero is the base sheet (no armour) with the equipped
+    // weapon in the hand. ?gear=1 turns the rest on for a test (qa/equip.js does).
     visibleGear: false,
     armorLook: ['leather', 'chain', 'plate'],
     // helmets and shields (visible equipment): the art per class and material (0 light, 1 medium, 2 heavy). Helmets sit on the

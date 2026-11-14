@@ -1008,3 +1008,6 @@ nomás la fisura"): G.ANIM.visibleGear = false; G.HD.gearOn() gates heroEnt (eac
 mage, archer), heroWeapon, trimColor, heroHelm, heroShield. Nothing deleted: ?gear=1 turns it on (qa/equip.js passes it).
 The lava fissures, town portal, keepers, stalls, props and floor stay. Checked: the three classes in a room (full sheets,
 walk, attack), rooms at 960x540 and 540x960, 0 console errors.
+Correction the same night (the user, on the full sheets: "siguen las armaduras y escudos"): with gear off the hero is the BASE
+sheet (<cls>_bare: no armour, no shield) with the equipped weapon in the hand, as before the armour looks; armour looks,
+trim, helmets and shields stay off (?gear=1 for all). Checked: the three classes standing, walking, attacking, 0 errors.

@@ -43,7 +43,7 @@
     // ?look=bare|leather|chain|plate|full forces one.
     gearOn: function () { var p = G.params.get('gear'); return p != null ? p === '1' : !!G.ANIM.visibleGear; },
     heroEnt: function (id, eq) {
-      if (!HD.gearOn()) return id;
+      if (!HD.gearOn()) return G.ANIM.ent[id + '_bare'] ? id + '_bare' : id;      // gear off: the base (no armour) sheet, weapon in hand
       var bare = id + '_bare', look = G.params.get('look'), A = eq && eq.armor;
       if (!G.ANIM.ent[bare]) return id;
       if (look === 'full') return id;
@@ -60,7 +60,6 @@
     },
     // the weapon to draw in the hand of a sheet that marks its fist (ANIM `hands`): by the equipped weapon (?wpn=1 / ?wpn=0 forces)
     heroWeapon: function (ent, cls, eq) {
-      if (!HD.gearOn()) return null;
       var E = G.ANIM.ent[ent], p = G.params.get('wpn'), item = eq && eq.weapon;
       if (!E || !E.hands || p === '0' || (!item && p !== '1')) return null;
       var wt = cls && cls.weapons ? G.weaponOf(cls, { equipped: eq || {} }).id : ({ mage: 'staff', archer: 'bow' }[cls && cls.id] || 'weapon');
