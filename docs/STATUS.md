@@ -1054,3 +1054,13 @@ Checked: title 960x540, phone landscape 844x390, phone upright rotated 390x844, 
 Logo (2026-11-14): the user's Grok logo (lava base, fixed R; source assets/gear_src/logo_src.jpg) imported as HD frame logo_hd
 (441x170 HD px). title.js: in the HD art mode it replaces the chunky logo, height min(85, max(40, V.H - 150), width-bound) art px,
 with the ember glow behind. Checked: 960x540, phone landscape 844x390 and 667x375, upright rotated, 0 console errors.
+
+Main menu (2026-11-14; the user: the real main menu, the old one behind an "M" button top right). src/view/menu.js, scene 'menu'
+(boot starts it; ?scene=title still opens the old one): logo, PLAY (gold) -> hero choice (three cards: animated HD portrait, the
+chosen one walks; name, gear score, a one-line description `cdesc.<class>`, CHOOSE; BACK / ESC) -> the city (the first launch:
+the tutorial, as before), SETTINGS (the settings panel), CREDITS (modal; `|` = line break in the text tables), QUIT (window.close,
+else a note: a web page cannot close its tab). "M" top right -> the old title (now the developers' menu: seed, test room, daily,
+tutorial) with a back arrow top left. City "end" and the run's quit go to 'menu'. Background: `menu_bg` HD frame (Grok scene,
+waiting for the art) else the dim generated room; embers rise. ui.js: UI.skin overlays HD hot / down copies instead of re-framing
+the nine-slice (re-framing broke its size). Checked: main, credits, heroes, pick at 960x540, 844x390, 667x375 (EN / ES), M and
+back, 0 console errors, check_i18n.

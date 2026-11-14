@@ -90,6 +90,8 @@
       }
       // settings: an icon, top right
       L.button(V.W - 24, 4, 20, 18, '', function () { if (!G.Panels.isOpen()) G.Panels.openSettings(self); }, { icon: 'i_gear', name: 'title_settings' });
+      // this is the developers' menu now (M on the main menu): back to the main menu
+      L.button(4, 4, 20, 18, '', function () { if (G.Panels.isOpen()) return; self.scene.stop('backdrop'); self.scene.start('menu'); }, { icon: 'arrow_l', name: 'title_menu' });
       // bottom: the controls (centred), the run seed and its reroll (bottom left, small)
       var by = V.H - 12;
       var sk = G.skillLabel(G.cls).toLowerCase(), sp = { skill: sk }, help = G.touch ? [G.t('title.helpTouch', sp)] : (V.W >= 300 ? [G.t('title.helpKeys', sp)] : [G.t('title.helpKeys1', sp), G.t('title.helpKeys2', sp)]);

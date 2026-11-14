@@ -28,7 +28,7 @@
         G.testRoom = G.params.get('room') === 'test';     // ?scene=game&room=test, or the TEST ROOM button
         G.applyView();
         var sc = G.params.get('scene');
-        self.scene.start(sc === 'game' ? 'game' : sc === 'city' ? 'city' : 'title');
+        self.scene.start(sc === 'game' ? 'game' : sc === 'city' ? 'city' : sc === 'title' ? 'title' : 'menu');      // the main menu; ?scene=title: the developers' menu
       }
       keys.forEach(function (k) {
         var im = new Image();

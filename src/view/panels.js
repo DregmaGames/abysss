@@ -833,6 +833,6 @@
   G.toTitle = function (openGear) {
     var g = G.game.scene; G.closeManualCopy();
     G.paused = false; G.openGearOnTitle = !!openGear; G.daily = null;
-    g.stop('hud'); g.stop('game'); g.stop('cityhud'); g.stop('city'); g.start('title');
+    g.stop('hud'); g.stop('game'); g.stop('cityhud'); g.stop('city'); g.start('menu');
   };
 })(globalThis.G = globalThis.G || {});

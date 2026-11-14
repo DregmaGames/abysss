@@ -588,7 +588,7 @@
       L.button(V.W - X - 26, Y, 26, 26, '', function () { self.toggleInventory(); }, { icon: 'i_bag', name: 'inv' });
       // settings: a gear icon, so no word has to fit ("AJUS" was cut in Spanish)
       L.button(V.W - X - 26, Y + 29, 26, 20, '', function () { if (!G.Panels.isOpen()) { self.dropStick(); G.Panels.openSettings(self); } }, { icon: 'i_gear', name: 'city_set' });
-      L.button(V.W - X - 26, Y + 52, 26, 20, G.t('city.end'), function () { if (!G.Panels.isOpen()) { G.Panels.close(true); self.scene.stop('city'); self.scene.stop('cityhud'); self.scene.start('title'); } }, { name: 'city_title' });
+      L.button(V.W - X - 26, Y + 52, 26, 20, G.t('city.end'), function () { if (!G.Panels.isOpen()) { G.Panels.close(true); self.scene.stop('city'); self.scene.stop('cityhud'); self.scene.start('menu'); } }, { name: 'city_title' });
       // the talk button: shown when a stall is in reach (a tap on the stall does the same)
       // wide screens: bottom right, under the thumb and off the portal (the city fills the screen); tall ones: centred under the city
       this.talkBtn = L.button(V.W >= 300 ? V.W - X - 70 : Math.round(V.W / 2 - 35), V.H - 30, 70, 22, G.t('city.talk'), function () { if (G.city && G.city.near && !G.paused) G.city.talk(G.city.near); }, { name: 'city_talk', color: 'ui_warn' });

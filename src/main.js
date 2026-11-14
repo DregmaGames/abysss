@@ -45,7 +45,7 @@
   // the first finger on the screen, seen before any button handles it: buttons built from then on get finger-sized hit boxes (UI.button)
   window.addEventListener('touchstart', function () { G.finger = true; }, { capture: true, passive: true });
   window.addEventListener('error', function (e) { G.qa.errors.push(String(e.message)); });
-  var scenes = [G.BootScene, G.BackdropScene, G.TitleScene, G.CityScene, G.CityHudScene, G.GameScene, G.HudScene].filter(Boolean);
+  var scenes = [G.BootScene, G.BackdropScene, G.MenuScene, G.TitleScene, G.CityScene, G.CityHudScene, G.GameScene, G.HudScene].filter(Boolean);
   G.game = new Phaser.Game({
     type: Phaser.WEBGL,
     parent: 'game',

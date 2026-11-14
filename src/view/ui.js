@@ -94,12 +94,31 @@
     var m = UI.HDF[key];
     if (m && UI.hdUi(scene)) {
       var p = scene.add.nineslice(Math.round(x), Math.round(y), 'hd', m[0], w * 2, h * 2, m[1], m[2], Math.min(m[3], h - 1), Math.min(m[4], h - 1)).setOrigin(0, 0).setScale(0.5);
+      p.hdKey = key;
       p.hdSkin = true; return p;
     }
     return scene.add.nineslice(Math.round(x), Math.round(y), 'atlas', key || 'panel', w, h, 4, 4, 4, 4).setOrigin(0, 0);
   };
   // a button frame's look: normal / hot / down (the HD skin when the frame is one)
-  UI.skin = function (bg, key) { if (bg.iconSkin) return; bg.setFrame(bg.hdSkin ? (UI.HDF[key] || UI.HDF.btn)[0] : key); };
+  // HD skins are not re-framed (a nine-slice's setFrame drops its size and place): the hot / down looks are copies laid over it,
+  // made on first use, shown one at a time, destroyed with it
+  UI.skin = function (bg, key) {
+    if (bg.iconSkin) return;
+    if (!bg.hdSkin) { bg.setFrame(key); return; }
+    var want = (UI.HDF[key] || UI.HDF.btn)[0];
+    if (!bg._skins) {
+      bg._skins = {}; bg._base = bg.frame.name;
+      bg.once('destroy', function () { Object.keys(bg._skins).forEach(function (k) { bg._skins[k].destroy(); }); });
+    }
+    Object.keys(bg._skins).forEach(function (k) { bg._skins[k].setVisible(false); });
+    if (want === bg._base) return;
+    var o = bg._skins[want];
+    if (!o) {
+      var m = UI.HDF[key];
+      o = bg._skins[want] = bg.scene.add.nineslice(bg.x, bg.y, 'hd', want, bg.width, bg.height, m[1], m[2], Math.min(m[3], bg.height / 2 - 1), Math.min(m[4], bg.height / 2 - 1)).setOrigin(0, 0).setScale(bg.scaleX, bg.scaleY);
+    }
+    o.setPosition(bg.x, bg.y).setDepth(bg.depth + 0.001).setAlpha(bg.alpha).setVisible(bg.visible);
+  };
   UI.bar = function (scene, x, y, w, h, color) {
     return scene.add.image(x, y, 'atlas', 'px').setOrigin(0, 0).setDisplaySize(Math.max(0.01, w), h).setTint(UI.hex(color));
   };

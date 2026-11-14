@@ -11,6 +11,20 @@
   // ------------------------------------------------------------------ English
   var en = {
     // title
+    'menu.play': 'PLAY',
+    'menu.settings': 'SETTINGS',
+    'menu.credits': 'CREDITS',
+    'menu.quit': 'QUIT',
+    'menu.quitMsg': 'Close the tab to quit. See you in the rifts.',
+    'menu.choose': 'CHOOSE YOUR HERO',
+    'menu.pick': 'CHOOSE',
+    'menu.back': 'BACK',
+    'menu.gear': 'Gear score {gs}',
+    'menu.creditsTitle': 'CREDITS',
+    'menu.creditsBody': 'A game by DregmaGames||Design and direction: the DregmaGames brothers|Art: made with Grok, directed by DregmaGames|Code: written with Claude (Anthropic)|Engine: Phaser 3||Thank you for playing!',
+    'cdesc.warrior': 'Heavy hits up close. Tough.',
+    'cdesc.mage': 'Fire bolts from afar. Fragile.',
+    'cdesc.archer': 'Long range, arrow volleys. Fast.',
     'title.tag': 'Seal the rifts. Keep what you find.',
     'title.enter': 'ENTER THE CITY',
     'title.reroll': 'REROLL',
@@ -144,6 +158,20 @@
   // ------------------------------------------------------------------ Spanish (neutral Latin American, "tú")
   // Rift = "brecha", fissure = "fisura", super fissure = "fisura mayor", crack = "grieta", run = "incursión", item = "objeto".
   var es = {
+    'menu.play': 'JUGAR',
+    'menu.settings': 'AJUSTES',
+    'menu.credits': 'CRÉDITOS',
+    'menu.quit': 'SALIR',
+    'menu.quitMsg': 'Cierra la pestaña para salir. Nos vemos en las fisuras.',
+    'menu.choose': 'ELIGE TU HÉROE',
+    'menu.pick': 'ELEGIR',
+    'menu.back': 'VOLVER',
+    'menu.gear': 'Equipo {gs}',
+    'menu.creditsTitle': 'CRÉDITOS',
+    'menu.creditsBody': 'Un juego de DregmaGames||Diseño y dirección: los hermanos DregmaGames|Arte: hecho con Grok, dirigido por DregmaGames|Código: escrito con Claude (Anthropic)|Motor: Phaser 3||¡Gracias por jugar!',
+    'cdesc.warrior': 'Golpes pesados de cerca. Resistente.',
+    'cdesc.mage': 'Fuego a distancia. Frágil.',
+    'cdesc.archer': 'Largo alcance, salvas de flechas. Veloz.',
     'title.tag': 'Sella las fisuras. Quédate con lo que encuentres.',
     'title.enter': 'ENTRAR A LA CIUDAD',
     'title.reroll': 'CAMBIAR',
