@@ -32,38 +32,68 @@
       dim._dz = -60; L.add(dim);
       var vg = this.add.image(0, 0, UI.vignette(this)).setOrigin(0, 0);
       vg._dz = -50; L.add(vg);
-      var y = tall ? Math.round(V.H * 0.16) : 12;
-      if (V.W >= 204) L.image(cx, y + 15, 'logo');
-      else UI.centerX(L.text(0, y + 6, 'RIFTSCAR', 'em3', true), cx);
+      // 2026-11-14 layout (the user: better buttons and font): logo, a character card (portrait, name, arrows, gear score), the gold
+      // ENTER button, one row of secondary buttons, settings as an icon top right, the seed and the controls at the bottom.
+      function tw(str, font) { var t = UI.text(self, 0, 0, str, null, font); var w = t.width; t.destroy(); return w; }
+      var y = tall ? Math.round(V.H * 0.1) : 8;
+      if (V.W >= 204) {
+        var lg = this.add.image(cx, y + 15, 'atlas', 'glow').setBlendMode(Phaser.BlendModes.ADD).setTint(UI.hex('em2')).setAlpha(0.28).setScale(3.2, 1.1);
+        lg._dz = -5; L.add(lg); this.logoGlow = lg;
+        L.image(cx, y + 15, 'logo');
+      } else UI.centerX(L.text(0, y + 6, 'RIFTSCAR', 'em3', true), cx);
       y += 36;
-      var tag = L.text(0, y, G.t('title.tag'), 'ui_dim').setMaxWidth(V.W - 12); UI.centerX(tag, cx); if (tag.height > 10) y += tag.height - 8;
-      y += tall ? 26 : 16;
-      this.btnStart = L.button(cx - 64, y, 128, 24, G.t('title.enter'), function () { self.start(); }, { name: 'start', color: 'ui_warn' });
-      y += tall ? 30 : 26;
-      // class picker: cycles through BAL.classes (one class today)
-      L.button(cx - 64, y, 22, 20, '', function () { self.setClass(-1); }, { icon: 'arrow_l', name: 'cls_l' });
-      L.button(cx + 42, y, 22, 20, '', function () { self.setClass(1); }, { icon: 'arrow_r', name: 'cls_r' });
-      this.clsText = L.text(0, y + 6, '');
-      y += tall ? 26 : 22;
-      this.gearInfo = L.text(0, y, '', 'ui_dim');
-      y += tall ? 22 : 15;
-      this.seedText = L.text(0, y + 5, G.t('title.seed', { n: 999999 }), 'ui_dim');
-      var rt = G.t('title.reroll'), rw = Math.max(54, rt.length * 6 + 10), seedW = this.seedText.width, rowX = Math.round(cx - (seedW + 8 + rw) / 2);
-      this.seedX = rowX;
-      this.btnSeed = L.button(rowX + seedW + 8, y, rw, 18, rt, function () { G.runSeed = Math.floor(Math.random() * 1000000); self.refresh(); }, { name: 'reroll' });
-      y += tall ? 34 : 24;
-      // settings and the daily challenge side by side
-      var dt = G.t('title.daily'), st = G.t('title.settings'), dw = Math.max(60, dt.length * 6 + 12), sw = Math.max(60, st.length * 6 + 12), rx = Math.round(cx - (sw + 6 + dw) / 2);
-      L.button(rx, y, sw, 20, st, function () { if (!G.Panels.isOpen()) G.Panels.openSettings(self); }, { name: 'title_settings' });
-      L.button(rx + sw + 6, y, dw, 20, dt, function () { if (!G.Panels.isOpen()) G.Panels.openDaily(self); }, { name: 'title_daily', color: 'gold' });
-      y += tall ? 28 : 24;
-      // practice: one room with the crack network, restarted on every clear (also ?scene=game&room=test); beside it the tutorial room
-      var pt = G.t('title.test'), tt = G.t('title.tutorial'), pw2 = Math.max(80, pt.length * 6 + 12), tw2 = Math.max(60, tt.length * 6 + 12), px2 = Math.round(cx - (pw2 + 6 + tw2) / 2);
-      L.button(px2, y, pw2, 20, pt, function () { if (self.input.activePointer.wasTouch) G.touch = true; self.start(true); }, { name: 'title_test', color: 'ui_good' });
-      L.button(px2 + pw2 + 6, y, tw2, 20, tt, function () { if (G.Panels.isOpen()) return; if (self.input.activePointer.wasTouch) G.touch = true; G.Tut.replay(); }, { name: 'title_tutorial', color: 'ui_warn' });
-      y += tall ? 28 : 25;
+      var tag = L.text(0, y, G.t('title.tag'), 'ui_dim').setMaxWidth(V.W - 12).setCenterAlign(); UI.centerX(tag, cx); if (tag.height > 10) y += tag.height - 8;
+      y += tall ? 18 : 12;
+      // the character card
+      var cw = Math.min(200, V.W - 16), ch = 54, cx0 = Math.round(cx - cw / 2);
+      L.panel(cx0, y, cw, ch, 'panel', 0.2);
+      L.panel(cx0 + 6, y + 5, 40, ch - 10, 'inset', 0.4);
+      this.portBox = { x: cx0 + 26, y: y + ch - 6 };
+      this.port = null;
+      var nx = cx0 + 52, nw = cx0 + cw - 6 - nx;
+      L.button(nx, y + 6, 16, 16, '', function () { self.setClass(-1); }, { icon: 'arrow_l', name: 'cls_l' });
+      L.button(nx + nw - 16, y + 6, 16, 16, '', function () { self.setClass(1); }, { icon: 'arrow_r', name: 'cls_r' });
+      this.clsMid = nx + nw / 2;
+      this.clsText = L.text(0, y + 10, '', 'gold', 'bold');
+      L.bar(nx, y + 26, nw, 1, 'gold_d', 0.6).setAlpha(0.7);
+      this.gearInfo = L.text(0, y + 31, '', 'ui_dim');
+      this.monInfo = L.text(0, y + 41, '', 'ui_dim');
+      y += ch + (tall ? 12 : 8);
+      // the call to action
+      var ew = Math.max(150, tw(G.t('title.enter'), 'bold') + 30);
+      var eg = this.add.image(cx, y + 13, 'atlas', 'glow').setBlendMode(Phaser.BlendModes.ADD).setTint(UI.hex('gold')).setAlpha(0.18).setScale(2.4, 0.6);
+      eg._dz = 0.5; L.add(eg); this.enterGlow = eg;
+      this.btnStart = L.button(Math.round(cx - ew / 2), y, ew, 26, G.t('title.enter'), function () { self.start(); }, { name: 'start', color: 'gold', main: true });
+      y += tall ? 34 : 30;
+      // secondary row: daily, practice, tutorial (stacked two + one when the view is narrow)
+      var sec = [[G.t('title.daily'), 'gold', 'title_daily', function () { if (!G.Panels.isOpen()) G.Panels.openDaily(self); }],
+        [G.t('title.test'), 'ui_good', 'title_test', function () { if (self.input.activePointer.wasTouch) G.touch = true; self.start(true); }],
+        [G.t('title.tutorial'), 'ui_text', 'title_tutorial', function () { if (G.Panels.isOpen()) return; if (self.input.activePointer.wasTouch) G.touch = true; G.Tut.replay(); }]];
+      var ws = sec.map(function (b) { return Math.max(60, tw(b[0], 'bold') + 16); }), gap = 6, tot = ws.reduce(function (a, b) { return a + b; }, 0) + gap * 2;
+      if (tot <= V.W - 12) {
+        var sx = Math.round(cx - tot / 2);
+        sec.forEach(function (b, k) { L.button(sx, y, ws[k], 20, b[0], b[3], { name: b[2], color: b[1], bold: true }); sx += ws[k] + gap; });
+        y += 26;
+      } else {
+        var bw2 = Math.max(ws[0], ws[1], ws[2]);
+        sec.forEach(function (b, k) { L.button(Math.round(cx - bw2 / 2), y, bw2, 20, b[0], b[3], { name: b[2], color: b[1], bold: true }); y += 24; });
+      }
+      // settings: an icon, top right
+      L.button(V.W - 24, 4, 20, 18, '', function () { if (!G.Panels.isOpen()) G.Panels.openSettings(self); }, { icon: 'i_gear', name: 'title_settings' });
+      // bottom: the controls (centred), the run seed and its reroll (bottom left, small)
+      var by = V.H - 12;
       var sk = G.skillLabel(G.cls).toLowerCase(), sp = { skill: sk }, help = G.touch ? [G.t('title.helpTouch', sp)] : (V.W >= 300 ? [G.t('title.helpKeys', sp)] : [G.t('title.helpKeys1', sp), G.t('title.helpKeys2', sp)]);
-      help.forEach(function (line, i) { if (y + i * 10 < V.H - 12) UI.centerX(L.text(0, y + i * 10, line, 'ui_dim'), cx); });
+      var rt = G.t('title.reroll'), rw = tw(rt) + 10, sw0 = tw(G.t('title.seed', { n: 999999 })), seedW = sw0 + 6 + rw + 6;
+      var helpW = Math.max.apply(null, help.map(function (h) { return tw(h); }));
+      var helpTop = by - (help.length - 1) * 10, sideBySide = (V.W - helpW) / 2 >= seedW + 8;
+      var seedRowY = sideBySide ? by - 4 : helpTop - 20;
+      help.forEach(function (line, i) { var hy = by - (help.length - 1 - i) * 10; if (hy > y) UI.centerX(L.text(0, hy, line, 'ui_dim'), cx).setAlpha(0.8); });
+      // the seed is a tester's tool: shown only where it has room
+      var seedOn = seedRowY >= y + 2;
+      this.seedText = L.text(6, seedRowY + 4, G.t('title.seed', { n: 999999 }), 'ui_dim').setAlpha(0.7).setVisible(seedOn);
+      this.seedX = 6;
+      this.btnSeed = L.button(6 + sw0 + 6, seedRowY, rw, 16, rt, function () { G.runSeed = Math.floor(Math.random() * 1000000); self.refresh(); }, { name: 'reroll', color: 'ui_dim' });
+      if (!seedOn) this.btnSeed.setVisible(false);
       this.refresh();
     },
     gearScore: function () { return G.gearScore(G.gearOf(G.save, G.cls)); },
@@ -74,11 +104,19 @@
       this.refresh();
     },
     refresh: function () {
-      this.clsText.setText(G.classLabel(G.cls).toUpperCase()).setTint(UI.hex('ui_text'));
-      UI.centerX(this.clsText, Math.round(G.view.W / 2));
-      var gs = this.gearScore(), cx = Math.round(G.view.W / 2);
-      this.gearInfo.setText(G.t('title.gear', { gs: gs, k: (1 + G.BAL.run.gearK * gs).toFixed(2) }));
-      UI.centerX(this.gearInfo, cx);
+      this.clsText.setText(G.classLabel(G.cls).toUpperCase());
+      UI.centerX(this.clsText, Math.round(this.clsMid));
+      var gs = this.gearScore(), k = (1 + G.BAL.run.gearK * gs).toFixed(2);
+      // "Gear score 31   Monsters x1.14" split on its two parts, one per line on the card
+      var parts = G.t('title.gear', { gs: gs, k: k }).split(/\s{2,}/);
+      this.gearInfo.setText(parts[0] || ''); UI.centerX(this.gearInfo, Math.round(this.clsMid));
+      this.monInfo.setText(parts[1] || ''); UI.centerX(this.monInfo, Math.round(this.clsMid));
+      // the portrait: the class's HD idle frame (as drawn in the game), feet on the box's floor
+      if (this.port) this.port.destroy();
+      var ent = G.HD.heroEnt(G.cls, G.gearOf(G.save, G.cls).equipped), E = G.ANIM.ent[ent], fr = E && E.idle && E.idle.frames[0], pb = this.portBox;
+      if (fr && this.textures.exists('hd') && this.textures.get('hd').has(fr)) this.port = this.add.image(pb.x, pb.y, 'hd', fr).setScale(0.8);
+      else { var C = G.classDef(G.BAL, G.cls); this.port = this.add.image(pb.x, pb.y, 'atlas', C.sprite.frames + '_0').setOrigin(0.5, 1).setScale(1.5); }
+      this.port.setDepth(this.L.depth + 2); this.L.objs.push(this.port);
       this.seedText.setText(G.t('title.seed', { n: G.runSeed }));
       this.seedText.x = this.seedX;
     },
@@ -88,7 +126,10 @@
       G.testRoom = !!test;
       this.scene.stop('backdrop'); this.scene.start(test ? 'game' : 'city');      // the city is the hub: gear, shops and the portal are there
     },
-    update: function () {}
+    update: function (t) {
+      if (this.enterGlow) this.enterGlow.setAlpha(0.14 + 0.08 * Math.sin(t / 420));
+      if (this.logoGlow) this.logoGlow.setAlpha(0.24 + 0.06 * Math.sin(t / 700));
+    }
   });
 
   // a real generated room, drawn dim under the title

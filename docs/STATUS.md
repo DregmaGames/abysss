@@ -1034,3 +1034,12 @@ catches up, the number with a 1 px shadow; the XP bar framed. Item card (panels.
 frame with a glow (HD art via G.HD.itemArt, else the icon x2), a rarity-coloured rule under the header. Bag / equipment cells
 draw the HD art too. Checked: HUD and inventory at 960x540 and 540x960 with 6 items, 0 console errors; check_i18n; check_bag
 (the known longCracks failure only). Not done: the title / city / shop screens checked in the new frames.
+
+Title screen and font (2026-11-14; the user: better UI/UX on the title, better buttons and font). tools/pixelart.py font(): glyphs
+shaded top to bottom (SHADE: the tint multiplies, every colour gets a lit top), a bold cut `fontbold` (strokes 1 px wider; UI.text
+big === 'bold'); frames `btn_main` / `btn_main_hot` (gold call to action). UI.button: opts.main (gold frame + bold), opts.bold;
+every button's label sinks 1 px while pressed. title.js layout: logo with a slow ember glow; a character card (bronze panel, the
+class's HD idle portrait in a sunken box, arrows, name in bold gold, gear score and monster scale on two lines); ENTER in gold with
+a pulsing glow; Daily / Practice / Tutorial in one row (stacked when narrow); settings as a gear icon top right; controls at the
+bottom; the seed + reroll small at the bottom left, hidden where there is no room. QA names kept (start, cls_l, cls_r, reroll,
+title_*). Checked: 960x540 EN, 540x960 ES, 640x360 ES, 8 named buttons each, 0 console errors, check_i18n.

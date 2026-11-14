@@ -2070,6 +2070,8 @@ def ui():
     bevel('btn', 12, 'ui_bg2', 'iron2', 'iron1', 'iron0')
     bevel('btn_hot', 12, 'wb1', 'gold', 'gold_d', 'ch0')
     bevel('inset', 12, 'void', 'outline', 'ui_bg2', 'outline', None, 255, False)
+    bevel('btn_main', 12, 'ch0', 'gold', 'gold_d', 'outline', 'em4')       # the main call to action: gold, warm inside
+    bevel('btn_main_hot', 12, 'ch1', 'em4', 'gold', 'outline', 'white')
     # sunken slot: dark inside, shadow on the top / left, a lit bottom / right lip, bronze rim
     im = blank(20, 20)
     rect(im, 0, 0, 20, 20, 'ch0'); rect(im, 1, 1, 18, 18, 'outline'); rect(im, 2, 2, 16, 16, 'ui_bg2')
@@ -2232,17 +2234,25 @@ def font():
     """Pack both fonts into one sheet; glyph cells include a baked 1 px outline."""
     W = 256
     cells, meta = [], {}
-    for key, big in (('font', False), ('fontbig', True)):
+    # 2026-11-14 (the user: a better font): the glyphs are shaded top to bottom (the tint multiplies, so every text colour gets a lit
+    # top and a deeper base) and there is a bold cut, `fontbold` (each stroke one px wider), for buttons and headings.
+    SHADE = [255, 255, 246, 236, 224, 212, 198]
+    for key, big, bold in (('font', False, False), ('fontbig', True, False), ('fontbold', False, True)):
         chars = {}
         for code in list(range(32, 127)) + [ord(c) for c in EXTRA_CHARS]:
             g = glyph(code)
+            up0 = EXTRA_ABOVE.get(code, 0)
+            if bold and code != 32:
+                g = [''.join('1' if r[x] == '1' or (x > 0 and r[x - 1] == '1') else '0' for x in range(len(r))) + r[-1] for r in g]
             if big:
                 g = scale2x(g)
             im = blank(len(g[0]), len(g))
             for y, r in enumerate(g):
+                row = (y // 2 if big else y) - up0
+                v = SHADE[max(0, min(6, row))]
                 for x, ch in enumerate(r):
                     if ch == '1':
-                        im.putpixel((x, y), (255, 255, 255, 255))
+                        im.putpixel((x, y), (v, v, v, 255))
             im = outline(im, 'outline', diag=True)
             cells.append((key, code, im))
             chars[code] = im

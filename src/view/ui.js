@@ -59,8 +59,11 @@
 
   UI.registerFonts = function (scene) {
     var meta = G_ASSETS.fontJson;
-    ['font', 'fontbig'].forEach(function (key) {
-      var m = meta[key], data = { font: key, size: m.size, lineHeight: m.lineHeight, retroFont: true, chars: {} };
+    ['font', 'fontbig', 'fontbold'].forEach(function (key) {
+      var m = meta[key];
+      if (!m) return;
+      m = meta[key];
+      var data = { font: key, size: m.size, lineHeight: m.lineHeight, retroFont: true, chars: {} };
       Object.keys(m.chars).forEach(function (code) {
         var c = m.chars[code];
         data.chars[code] = { x: c[0], y: c[1], width: c[2], height: c[3], centerX: c[2] >> 1, centerY: c[3] >> 1,
@@ -75,7 +78,7 @@
   UI.camera = function (scene) { scene.cameras.main.setOrigin(0, 0).setZoom(G.view.S).setScroll(0, 0); };
 
   UI.text = function (scene, x, y, str, color, big) {
-    var t = scene.add.bitmapText(Math.round(x), Math.round(y), big ? 'fontbig' : 'font', str);
+    var t = scene.add.bitmapText(Math.round(x), Math.round(y), big === 'bold' ? 'fontbold' : big ? 'fontbig' : 'font', str);
     t.setTint(UI.hex(color || 'ui_text'));
     return t;
   };
@@ -99,8 +102,10 @@
   UI.button = function (scene, x, y, w, h, label, onClick, opts) {
     opts = opts || {};
     x = Math.round(x); y = Math.round(y);
-    var bg = UI.panel(scene, x, y, w, h, 'btn');
-    var t = UI.text(scene, 0, 0, label || '', opts.color);
+    // opts.main: the gold call-to-action frame; opts.bold: the bold font (main buttons use it too)
+    var F0 = opts.main ? 'btn_main' : 'btn', F1 = opts.main ? 'btn_main_hot' : 'btn_hot';
+    var bg = UI.panel(scene, x, y, w, h, F0);
+    var t = UI.text(scene, 0, 0, label || '', opts.color, opts.main || opts.bold ? 'bold' : false);
     var icon = opts.icon ? scene.add.image(x + (w >> 1), y + (h >> 1), 'atlas', opts.icon) : null;
     var b = { bg: bg, t: t, icon: icon, enabled: true, x: x, y: y, w: w, h: h, objs: icon ? [bg, t, icon] : [bg, t] };
     b.setLabel = function (s, color) {
@@ -108,7 +113,7 @@
       // accented capitals (Ñ, Á...) rise 2 px over the line: move the label down so the mark clears the frame
       var ty = Math.round((h - 7) / 2) - 1;
       if (UI.RAISED.test(s)) ty += Math.max(0, Math.min(4 - ty, h - 10 - ty));
-      t.setPosition(x + Math.round((w - t.width) / 2), y + ty);
+      t.setPosition(x + Math.round((w - t.width) / 2), y + ty); b.ty = y + ty;
     };
     b.setEnabled = function (on) { b.enabled = on; b.objs.forEach(function (o) { o.setAlpha(on ? 1 : 0.4); }); };
     b.setVisible = function (on) { b.objs.forEach(function (o) { o.setVisible(on); }); if (on) bg.setInteractive(); else bg.disableInteractive(); };
@@ -120,9 +125,10 @@
     var need = G.finger || G.touch ? Math.ceil(UI.FINGER / G.view.S) : 0, ex = Math.max(0, Math.ceil((need - w) / 2)), ey = Math.max(0, Math.ceil((need - h) / 2));
     bg.setInteractive({ hitArea: new Phaser.Geom.Rectangle(-ex, -ey, w + 2 * ex, h + 2 * ey), hitAreaCallback: Phaser.Geom.Rectangle.Contains, useHandCursor: true });
     var back = opts.icon === 'i_close' || /(^|_)(close|back|resume)/.test(opts.name || '');
-    bg.on('pointerover', function () { if (b.enabled) { bg.setFrame('btn_hot'); if (!G.finger) G.audio.ui('hover'); } });
-    bg.on('pointerout', function () { bg.setFrame('btn'); });
-    bg.on('pointerdown', function (p) { if (p.rightButtonDown()) return; var live = b.enabled && bg.visible; b.click(); if (live) G.audio.ui(back ? 'back' : 'click'); });
+    bg.on('pointerover', function () { if (b.enabled) { bg.setFrame(F1); if (!G.finger) G.audio.ui('hover'); } });
+    bg.on('pointerout', function () { bg.setFrame(F0); t.y = b.ty; });
+    bg.on('pointerup', function () { t.y = b.ty; });      // pressed (pointerdown below): the label sinks a px
+    bg.on('pointerdown', function (p) { if (p.rightButtonDown()) return; if (b.enabled) t.y = b.ty + 1; var live = b.enabled && bg.visible; b.click(); if (live) G.audio.ui(back ? 'back' : 'click'); });
     if (opts.name) UI.hit(opts.name, x, y, w, h);
     return b;
   };
