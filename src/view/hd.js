@@ -60,8 +60,10 @@
       var E = G.ANIM.ent[ent], p = G.params.get('wpn'), item = eq && eq.weapon;
       if (!E || !E.hands || p === '0' || (!item && p !== '1')) return null;
       var wt = cls && cls.weapons ? G.weaponOf(cls, { equipped: eq || {} }).id : ({ mage: 'staff', archer: 'bow' }[cls && cls.id] || 'weapon');
-      var fr = G.ANIM.wpnArt[wt] || G.ANIM.wpnArt.any;
-      return fr ? { frame: fr, glow: HD.glowOf(item) } : null;
+      var A = G.ANIM, gp = (G.cheats && G.cheats.glow) || G.params.get('glow'), n = gp ? A.wpnByGlow[gp] : item ? A.wpnByRarity[item.rarity | 0] : 0;
+      var set = 'wpn_' + wt + '_' + (n == null ? 0 : n), has = G.game.textures.get('hd').has(set);
+      var fr = has ? set : A.wpnArt[wt] || A.wpnArt.any;
+      return fr ? { frame: fr, glow: HD.glowOf(item), grip: has ? A.wpnGripByType[wt] : null } : null;
     },
     // the tint of a glow at time t: one colour, or a slow walk round `cycle`
     glowColor: function (g, t) {
@@ -283,7 +285,7 @@
       var hx = o.x + ((flip ? W - meta.hand[0] - 0.5 : meta.hand[0] + 0.5) - img.originX * W) * img.scaleX, hy = o.y + (meta.hand[1] + 0.5 - img.originY * H) * img.scaleY;
       var ha = meta.hand[2] * Math.PI / 180, wr = (flip ? Math.PI - ha : ha) + Math.PI / 2 + rq, wd = (o.depth != null ? o.depth : img.depth) + 0.02, wal = o.alpha == null ? 1 : o.alpha;
       var wsc = k === 1 ? 1 / D : Math.max(1, Math.round(wi.frame.height * k)) / wi.frame.height / D;      // the weapon at the hero's size, whole HD px
-      var gy = G.ANIM.wpnGrip[wp.frame] || 1;
+      var gy = wp.grip || G.ANIM.wpnGrip[wp.frame] || 1;
       wi.setVisible(true).setFlipX(flip).setOrigin(0.5, gy).setScale(wsc).setRotation(wr).setPosition(hx, hy).setDepth(wd).setAlpha(wal);
       var wgd = wp.glow && G.ANIM.glow[wp.glow];
       if (wgd) wg.setVisible(true).setFlipX(flip).setOrigin(0.5, gy).setScale(wsc).setRotation(wr).setPosition(hx, hy).setDepth(wd + 0.01).setTint(HD.glowColor(wgd, this.t))

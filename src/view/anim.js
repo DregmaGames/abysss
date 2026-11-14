@@ -38,7 +38,13 @@
     // the body sheet by the body armour's material (item.mat: 0 light, 1 medium, 2 heavy; an item without one counts as heavy)
     armorLook: ['leather', 'chain', 'plate'],
     // held weapon art by weapon type (frames wpn_<name> of the HD atlas); `any`: the one drawn for a type with no art yet
-    wpnArt: { sword: 'wpn_sword', staff: 'wpn_staff', any: null },      // a type with no art yet draws nothing in the hand
+    wpnArt: { sword: 'wpn_sword', staff: 'wpn_staff', any: null },      // fallback art by type when the rarity set is missing; null = nothing in the hand
+    // held weapons by rarity (tools/weapon_sheet.py): wpn_<type>_<n>, n = 0 common, 1 magic, 2 rare, 3 legendary, 4 mythic, 5 unique.
+    // item rarity -> n (the game has epic between rare and legendary and no mythic / unique yet: epic shows the legendary art)
+    wpnByRarity: [0, 1, 2, 3, 3],
+    wpnByGlow: { none: 0, magic: 1, rare: 2, epic: 3, legendary: 3, mythic: 4, unique: 5 },      // the ?glow= / DBG preview picks the art too
+    // where the fist holds a weapon type, as a share of its sprite's height from the top
+    wpnGripByType: { sword: 0.86, axe: 0.82, mace: 0.82, hammer: 0.78, staff: 0.58, bow: 0.5 },
     // where the fist holds each weapon sprite, as a share of its height from the top (default 1: the bottom end, a sword's guard)
     wpnGrip: { wpn_staff: 0.46 },
     glowOrder: ['none', 'magic', 'rare', 'epic', 'legendary', 'mythic', 'unique'],
