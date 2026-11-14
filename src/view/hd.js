@@ -63,7 +63,7 @@
       var A = G.ANIM, gp = (G.cheats && G.cheats.glow) || G.params.get('glow'), n = gp ? A.wpnByGlow[gp] : item ? A.wpnByRarity[item.rarity | 0] : 0;
       var set = 'wpn_' + wt + '_' + (n == null ? 0 : n), has = G.game.textures.get('hd').has(set);
       var fr = has ? set : A.wpnArt[wt] || A.wpnArt.any;
-      return fr ? { frame: fr, glow: HD.glowOf(item), grip: has ? A.wpnGripByType[wt] : null } : null;
+      return fr ? { frame: fr, glow: HD.glowOf(item), grip: has ? A.wpnGripByType[wt] : null, upright: wt === 'bow' } : null;
     },
     // the tint of a glow at time t: one colour, or a slow walk round `cycle`
     glowColor: function (g, t) {
@@ -160,9 +160,13 @@
   R.motion = function () { var E = G.ANIM.ent[this.ent]; return (E && E.motion) || {}; };
   R.windup = function (dur) { this.wind = this.windDur = Math.max(0.05, dur); };
   R.release = function (dur) { this.wind = 0; this.rel = this.relDur = dur || 0.25; };
-  R.attack = function (dur) {      // an attack with no wind-up (the hero's); the sheet's attack `dur` wins, so its poses can be seen
+  // an attack with no wind-up (the hero's); the sheet's attack `dur` wins, so its poses can be seen. dir (+1 / -1): the
+  // side the shot or swing goes to: the hero turns to it at once for the whole attack, even while walking the other way
+  R.attack = function (dur, dir) {
     var E = G.ANIM.ent[this.ent], a = E && E.attack;
     this.rel = this.relDur = (a && a.dur) || dur || 0.25; this.atkFrames = true;
+    this.atkDir = dir || 0;
+    if (dir) { this.face = dir; this.flipT = 0; }
   };    // an attack with no wind-up (the hero's)
   R.hurt = function (fromX) { this.hit = 0.2; this.hitDir = sign(this.img.x - fromX); };
   R.destroy = function () { this.shadow.destroy(); if (this.glowImg) this.glowImg.destroy(); if (this.wpnImg) { this.wpnImg.destroy(); this.wpnGlow.destroy(); } if (this.trimImg) this.trimImg.destroy(); };
@@ -184,7 +188,9 @@
     this.wa += ((moving ? 1 : 0) - this.wa) * Math.min(1, dt * 10);
     this.t += dt;
     // facing: the target while winding up / attacking, else the way it walks, else the sim's facing; a short hysteresis
-    var want = o.tx != null && (attacking || this.wind > 0 || this.rel > 0) ? sign(o.tx - o.x) : Math.abs(dx) > 0.04 ? sign(dx) : (o.face || this.face);
+    var want = this.atkFrames && this.atkDir ? this.atkDir : o.tx != null && (attacking || this.wind > 0 || this.rel > 0) ? sign(o.tx - o.x) : Math.abs(dx) > 0.04 ? sign(dx) : (o.face || this.face);
+    // shooting back over the walk: the sheet's backstep pose (ANIM `backstep`) while moving away from the shot
+    this.backstep = this.atkFrames && this.atkDir && Math.abs(dx) > 0.04 && sign(dx) !== this.atkDir;
     if (want !== this.face) { this.flipT += dt; if (this.flipT > 0.09 || this.wind > 0) { this.face = want; this.flipT = 0; } } else this.flipT = 0;
     var td = o.tx != null ? sign(o.tx - o.x) : this.face;
     // the frame: 'walk' is locomotion, shown as idle while standing
@@ -192,6 +198,7 @@
     if (this.atkFrames && this.rel <= 0) this.atkFrames = false;
     var fstate = this.atkFrames ? 'attack' : o.state === 'walk' && !moving ? 'idle' : o.state;
     var fs = HD.frames(scene, this.ent, fstate) || HD.frames(scene, this.ent, 'idle');
+    var BS = G.ANIM.ent[this.ent] && G.ANIM.ent[this.ent].backstep;
     var list = fs.list, n = list.length, st = fs.def, fname;
     if (fs.state === 'walk') fname = list[Math.floor(((this.ph / 2) % 1) * (st.cycle || n)) % n];
     else if (attacking || this.atkFrames) {
@@ -203,6 +210,7 @@
       }
       if (this.rel <= 0) this.atkFrames = false;
     } else fname = list[Math.floor(this.t * (st.fps || 1)) % n];
+    if (this.backstep && BS && scene.textures.get('hd').has(BS)) fname = BS;
     if (this.hit > 0) { var hf = HD.frames(scene, this.ent, 'hurt'); if (hf && hf.state === 'hurt') fname = hf.list[0]; }
     if (img.texture.key !== 'hd') img.setTexture('hd', fname); else if (img.frame.name !== fname) img.setFrame(fname, false, false);
     var W = img.frame.width, H = img.frame.height, meta = HD.meta(fname) || {};
@@ -287,6 +295,8 @@
       // a weapon held near its middle (bow, staff) has no 'front end' in the rod mark: keep its top end up, or a bow
       // whose longer half of the rod pointed down would be drawn upside down (its curve and string swapped)
       if ((wp.grip || G.ANIM.wpnGrip[wp.frame] || 1) <= 0.65 && Math.sin(ha) > 0) ha -= Math.PI;
+      // a bow is held upright: at most 30 degrees off vertical whatever the rod mark says (a near-flat rod laid it on its side)
+      if (wp.upright) { var dv = ha + Math.PI / 2; dv = Math.atan2(Math.sin(dv), Math.cos(dv)); ha = -Math.PI / 2 + Math.max(-0.52, Math.min(0.52, dv)); }
       var wr = (flip ? Math.PI - ha : ha) + Math.PI / 2 + rq, wd = (o.depth != null ? o.depth : img.depth) + 0.02, wal = o.alpha == null ? 1 : o.alpha;
       var wsc = k === 1 ? 1 / D : Math.max(1, Math.round(wi.frame.height * k)) / wi.frame.height / D;      // the weapon at the hero's size, whole HD px
       var gy = wp.grip || G.ANIM.wpnGrip[wp.frame] || 1;

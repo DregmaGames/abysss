@@ -194,9 +194,12 @@
             for (var va = 0; va < 14; va++) fx.spark(e.x + Math.cos(va / 14 * 6.2832) * 10, e.y - 4 + Math.sin(va / 14 * 6.2832) * 10, vf[2], 0.25);
             fx.shake(0.25);
             break;
-          case 'cast': this.prig.attack(0.22); break;
+          case 'cast': {      // face the shot: the newest main bolt's direction (a shot behind the walk turns the hero round)
+            var cb = null; for (var ci = this.sim.bolts.length - 1; ci >= 0; ci--) if (this.sim.bolts[ci].main) { cb = this.sim.bolts[ci]; break; }
+            this.prig.attack(0.22, cb ? (cb.vx >= 0 ? 1 : -1) : 0); break;
+          }
           case 'swing':
-            this.swingT = 9; this.prig.attack(0.22);
+            this.swingT = 9; this.prig.attack(0.22, Math.cos(e.a) >= 0 ? 1 : -1);
             // melee: a crescent of sparks swept along the arc (leading edge bright), a nick of shake on a crit
             var sc = e.whirl ? 'white' : (this.cls.sprite.slash || 'ui_text');
             for (var sr = 0; sr < 2; sr++) for (var sa = -5; sa <= 5; sa++) {

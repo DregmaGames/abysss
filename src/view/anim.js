@@ -86,6 +86,7 @@
       archer_bare: {
         hands: true,
         skills: ['archer_bare_skill_0', 'archer_bare_skill_1', 'archer_bare_skill_2', 'archer_bare_skill_3'],
+        backstep: 'archer_bare_skill_3',      // the quick shot while stepping back: shooting behind the walk
         idle: { frames: ['archer_bare_idle_0'] },
         walk: { frames: ['archer_bare_walk_0', 'archer_bare_walk_1', 'archer_bare_walk_2', 'archer_bare_walk_3'], fps: 8 },
         attack: { frames: ['archer_bare_attack_0', 'archer_bare_attack_1'], fps: 14, hold: 0.14, dur: 0.38, split: 0.5 },
