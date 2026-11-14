@@ -41,7 +41,9 @@
     // Visible equipment. The hero's body sheet by the body armour worn: none -> `<id>_bare`, else `<id>_<look>` by the
     // item's material (G.ANIM.armorLook), when the class has those sheets; else the class's own sheet (armour drawn in).
     // ?look=bare|leather|chain|plate|full forces one.
+    gearOn: function () { var p = G.params.get('gear'); return p != null ? p === '1' : !!G.ANIM.visibleGear; },
     heroEnt: function (id, eq) {
+      if (!HD.gearOn()) return id;
       var bare = id + '_bare', look = G.params.get('look'), A = eq && eq.armor;
       if (!G.ANIM.ent[bare]) return id;
       if (look === 'full') return id;
@@ -52,11 +54,13 @@
     },
     // the trim colour of the body armour worn (?arar=<rarity> previews one)
     trimColor: function (eq) {
+      if (!HD.gearOn()) return null;
       var p = G.params.get('arar'), A = eq && eq.armor, r = p != null ? +p : A ? A.rarity : null;
       return r == null ? null : G.ANIM.trimByRarity[Math.max(0, Math.min(G.ANIM.trimByRarity.length - 1, r | 0))];
     },
     // the weapon to draw in the hand of a sheet that marks its fist (ANIM `hands`): by the equipped weapon (?wpn=1 / ?wpn=0 forces)
     heroWeapon: function (ent, cls, eq) {
+      if (!HD.gearOn()) return null;
       var E = G.ANIM.ent[ent], p = G.params.get('wpn'), item = eq && eq.weapon;
       if (!E || !E.hands || p === '0' || (!item && p !== '1')) return null;
       var wt = cls && cls.weapons ? G.weaponOf(cls, { equipped: eq || {} }).id : ({ mage: 'staff', archer: 'bow' }[cls && cls.id] || 'weapon');
@@ -67,12 +71,14 @@
     },
     // the helmet and the shield to draw (null = none): by the equipped item's material; ?helm=0|1|2 / ?shield=0|1|2 preview one
     heroHelm: function (clsId, eq) {
+      if (!HD.gearOn()) return null;
       var p = G.params.get('helm'), it = eq && eq.helmet, m = p != null ? +p : it ? (it.mat != null ? it.mat : 1) : null, A = G.ANIM.helmArt[clsId];
       if (m == null || p === '-1' || !A) return null;
       var fr = A[Math.max(0, Math.min(2, m | 0))];
       return G.game.textures.get('hd').has(fr) ? { frame: fr, fit: G.ANIM.helmFit[fr] || { top: 3 } } : null;
     },
     heroShield: function (eq) {
+      if (!HD.gearOn()) return null;
       var p = G.params.get('shield'), it = eq && eq.shield, m = p != null ? +p : it ? (it.mat != null ? it.mat : 1) : null;
       if (m == null || p === '-1') return null;
       var fr = G.ANIM.shieldArt[Math.max(0, Math.min(2, m | 0))];

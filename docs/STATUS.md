@@ -1002,3 +1002,9 @@ G.Rig draws them through the sprite's origin, scale and tilt (the shield behind 
 ?helm=0|1|2 / ?shield=0|1|2 preview. Lava: more yellow, Bayer-dithered between colours.
 Checked: close-ups of 8 class/look/helmet/shield cases standing, walking both ways and attacking, qa/equip.js, 0 console errors.
 Rough: the helmet's trim takes no rarity colour; gloves and boots are not drawn; the mage with a shield looks odd (allowed by the loot).
+
+Visible equipment switched OFF (2026-11-14, the user: "quita por ahora el tema de armaduras, sigamos como veníamos antes, deja
+nomás la fisura"): G.ANIM.visibleGear = false; G.HD.gearOn() gates heroEnt (each class drawn from its full sheet: warrior,
+mage, archer), heroWeapon, trimColor, heroHelm, heroShield. Nothing deleted: ?gear=1 turns it on (qa/equip.js passes it).
+The lava fissures, town portal, keepers, stalls, props and floor stay. Checked: the three classes in a room (full sheets,
+walk, attack), rooms at 960x540 and 540x960, 0 console errors.

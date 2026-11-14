@@ -17,7 +17,7 @@ fs.mkdirSync(OUT, { recursive: true });
     ['plate', '&look=plate&wpn=1', 'warrior_plate', true], ['old_full', '&look=full', 'warrior', false], ['fresh', '', 'warrior_bare', true],
     ['mage_leather', '&look=leather&wpn=1&arar=1', 'mage_leather', true, 'mage'], ['mage_chain', '&look=chain&wpn=1&arar=2', 'mage_chain', true, 'mage'], ['mage_plate', '&look=plate&wpn=1&arar=3&glow=legendary', 'mage_plate', true, 'mage']];      // the mage's robes (one per armour weight)      // fresh: a new warrior wears no armour and holds the starter sword (step gear data)
   for (const [name, q, ent, wpn, cls] of cases) {
-    const page = await Q.open(browser, '?scene=game&room=test&fresh=1&seed=4&hd=1&class=' + (cls || 'warrior') + q, { width: 1640, height: 922 });
+    const page = await Q.open(browser, '?scene=game&room=test&fresh=1&seed=4&hd=1&gear=1&class=' + (cls || 'warrior') + q, { width: 1640, height: 922 });
     await page.evaluate(() => { G.cheats.god = true; });
     await sleep(900);
     const snap = () => page.evaluate(() => { const gs = G.gameScene, p = gs.sim.player, wv = gs.cameras.main.worldView, S = G.view.S, r = gs.prig, eq = gs.sim.gear.equipped;
