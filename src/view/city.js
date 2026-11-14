@@ -12,7 +12,7 @@
   var UI = G.UI, T = 16;
   // the portal's look: glow alpha (far, + near), glow growth near, vortex turn (rad/s far, + near), sparks a second near,
   // burst a second while going in, the ring they start on (px from the centre), how long the hero takes to be pulled in (s)
-  var PORTAL = { glow: [0.25, 0.4], grow: 0.35, spin: [1.2, 3.5], sparks: 26, burst: 90, r: [16, 30], absorb: 0.6 };
+  var PORTAL = { glow: [0.25, 0.4], grow: 0.35, spin: [1.2, 3.5], sparks: 26, burst: 90, r: [10, 20], absorb: 0.6, oval: [20, 34] };      // oval: the vortex's size in town px (the arch's opening)
   var REACH = 26;                                     // px from the front of a stall to talk to its owner
   var FRONT = 26;                                     // px from a stall's counter to that front: the keeper stands between the two
   var LINE = 12;                                      // px from a label to the prompt above it (a text line is 7 px, 9 with an accent)
@@ -38,7 +38,7 @@
     garden: [[3, 17, 8, 4], [13, 17, 7, 4], [36, 17, 7, 4], [45, 17, 8, 4], [2, 28, 13, 3], [41, 28, 13, 3]],
     torches: [[5, 2], [13, 2], [21, 2], [34, 2], [42, 2], [50, 2], [25, 3], [30, 3]],      // on wall faces, [tile x, tile y]: the rooms' torch and its light
     start: { x: 448, y: 242 },                        // where the hero arrives: the plaza, in front of the portal
-    portal: { x: 448, y: 206, w: 20, h: 14, cy: 22 }, // walking into it (from the front) starts a run; cy: the vortex centre above its foot
+    portal: { x: 448, y: 206, w: 18, h: 14, cy: 21 }, // walking into it (from the front) starts a run; cy: the vortex centre above its foot
     stalls: [{ id: 'montoto', x: 248, y: 208 }, { id: 'smith', x: 348, y: 208 }, { id: 'trainer', x: 548, y: 208 }],
     board: { x: 388, y: 296 },                        // the notice board: the daily challenge
     // empty lots with a sign: nothing is built there yet. `at`: where the quarter's name is written
@@ -127,6 +127,7 @@
     });
     S.push([L.board.x - 12, L.board.y - 5, L.board.x + 12, L.board.y]);
     S.push([P.x - 17, P.y - 30, P.x + 17, P.y - 9]);
+    S.push([P.x - 34, P.y - 10, P.x - 10, P.y - 2], [P.x + 10, P.y - 10, P.x + 34, P.y - 2]);      // the arch's legs and broken pillars
     L.props.forEach(function (p) {
       var d = PROP[p[0]], b = d && d.box;
       if (b) S.push(p[3] ? [p[1] - b[2], p[2] - b[1], p[1] - b[0], p[2]] : [p[1] + b[0], p[2] - b[1], p[1] + b[2], p[2]]);
@@ -271,8 +272,14 @@
       // the HD portal (Grok, two pieces): the stone arch, and the vortex drawn glowing inside it and turned by code
       this.portalArch = G.HD.frame(this, 'portal_arch') ? G.HD.show(put(L.portal.x, L.portal.y, 'portal_0'), 'portal_arch', 0.5, 1) : null;
       if (this.portalArch) { this.portalArch.setDepth(L.portal.y - 19); this.portal.setVisible(false); }
-      this.swirl = G.HD.frame(this, 'portal_swirl') ? G.HD.show(put(L.portal.x, L.portal.y - L.portal.cy, 'portal_0'), 'portal_swirl', 0.5, 0.5).setBlendMode(Phaser.BlendModes.ADD).setDepth(L.portal.y - 20) : null;
-      if (this.swirl) { this.swirlK = this.swirl.scaleX; this.portal.setVisible(false); }
+      this.swirl = null;
+      if (G.HD.frame(this, 'portal_swirl')) {
+        // the round vortex turns inside a box stretched to the opening (an oval that stays an oval while it turns)
+        this.swirl = G.HD.show(this.add.image(0, 0, 'atlas', 'portal_0'), 'portal_swirl', 0.5, 0.5).setBlendMode(Phaser.BlendModes.ADD);
+        var sw = this.swirl.frame.width;
+        this.swirlBox = this.add.container(L.portal.x, L.portal.y - L.portal.cy, [this.swirl]).setDepth(L.portal.y - 20).setScale(PORTAL.oval[0] / (sw / 2), PORTAL.oval[1] / (sw / 2));
+        W.push(this.swirlBox); this.swirlK = this.swirl.scaleX; this.portal.setVisible(false);
+      }
       // sparks drawn into the vortex while the hero is near (and a burst when he goes in)
       this.pk = 0; this.sparks = [];
       for (var si = 0; si < 36; si++) this.sparks.push({ img: put(0, 0, 'px').setBlendMode(Phaser.BlendModes.ADD).setTint(UI.hex(si % 3 ? 'rg3' : 'ui_good')).setDepth(L.portal.y - 18).setVisible(false), t: 0, life: 0 });
@@ -469,7 +476,7 @@
         s.t += dt; var u = s.t / s.life;
         if (u >= 1) { s.life = 0; s.img.setVisible(false); continue; }
         var a = s.a + u * 2.2, r = s.r * (1 - u);
-        s.img.setVisible(true).setPosition(Math.round(cx + Math.cos(a) * r), Math.round(cy + Math.sin(a) * r * 0.9)).setAlpha(Math.min(1, (1 - u) * 2)).setScale(u < 0.3 ? 2 : 1);
+        s.img.setVisible(true).setPosition(Math.round(cx + Math.cos(a) * r), Math.round(cy + Math.sin(a) * r * PORTAL.oval[1] / PORTAL.oval[0])).setAlpha(Math.min(1, (1 - u) * 2)).setScale(u < 0.3 ? 2 : 1);
       }
       this.sparkAcc = Math.min(this.sparkAcc, 3);
     },

@@ -968,3 +968,6 @@ Ready for the HD art (prompts given to the user): `portal_arch` (the stone arch,
 on black, drawn ADD and turned by code); with them the old 3-frame portal is hidden. `L.portal.cy` = the vortex centre above
 the foot (22 px for the old art; set it to the new arch's opening). Checked: build, a capture sequence far / near / going in,
 the run starts, 0 console errors. Rough: the hero arrives already near the portal, so it is always lively.
+Portal HD art in (same night): `portal_arch` (Grok arch, 69x50 art px, opening 18 art px wide) and `portal_swirl` (the second
+of two Grok vortices, 96 HD px, black kept for ADD, corners faded) turned inside a container stretched to PORTAL.oval [20, 34];
+the arch's legs and pillars are solid. Checked: capture sequence, the run starts, 0 console errors.
