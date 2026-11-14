@@ -90,7 +90,12 @@
         motion: M_BIG
       },
       // Don Montoto in the city (two imported idle frames) and the classes once their sheets arrive
-      npc_montoto: { idle: { frames: ['npc_montoto_0', 'npc_montoto_1'], fps: 0.8 }, motion: M_NPC },
+      // the town's keepers (Grok, chosen style, 4 poses each): idle loops slowly; `talk` while the hero is in reach (city.js)
+      npc_montoto: { idle: { frames: ['npc_montoto_0', 'npc_montoto_0', 'npc_montoto_1', 'npc_montoto_3'], fps: 0.6 }, talk: { frames: ['npc_montoto_2'] }, motion: M_NPC },
+      npc_smith: { idle: { frames: ['npc_smith_0', 'npc_smith_1'], fps: 0.6 }, talk: { frames: ['npc_smith_2'] }, motion: M_NPC },
+      npc_trainer: { idle: { frames: ['npc_trainer_0', 'npc_trainer_1', 'npc_trainer_0', 'npc_trainer_3'], fps: 0.6 }, talk: { frames: ['npc_trainer_2'] }, motion: M_NPC },
+      // the merchant met in the rooms (game.js draws him with these frames): idle loop, the open hand while the hero is in reach
+      merchant: { idle: { frames: ['merchant_0', 'merchant_0', 'merchant_1', 'merchant_0', 'merchant_3'], fps: 0.6 }, talk: { frames: ['merchant_2'] } },
       // the mage sheet (Grok, 4x2; walk row redrawn once): walk x4 (stride, feet together, stride, feet together),
       // idle x1, attack x2 (staff raised, staff thrust), hurt x1
       mage: {

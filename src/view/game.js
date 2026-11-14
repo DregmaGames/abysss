@@ -367,7 +367,9 @@
       var mc = sim.merchant;
       this.merch.setVisible(!!mc); this.merchShadow.setVisible(!!mc);
       if (mc) {
-        this.merch.setPosition(mc.x, mc.y + 6).setDepth(mc.y + 6).setFrame('merchant_' + ((tick >> 4) % 3));
+        this.merch.setPosition(mc.x, mc.y + 6).setDepth(mc.y + 6);
+        var ma = G.ANIM.ent.merchant, mf = sim.canTalk() ? ma.talk.frames[0] : ma.idle.frames[((tick / 100) | 0) % ma.idle.frames.length];
+        if (G.HD.frame(this, mf)) G.HD.show(this.merch, mf, 0.5, 1); else G.HD.show(this.merch, 'merchant_' + ((tick >> 4) % 3), 0.5, 1);      // chunky: the old 3-frame loop
         this.merchShadow.setPosition(mc.x, mc.y + 5);
         var near = sim.canTalk();
         this.tradeTag.setText(G.t('game.trade')).setVisible(near).setPosition(Math.round(mc.x - this.tradeTag.width / 2), Math.round(mc.y - 26 - ((tick >> 4) & 1)));

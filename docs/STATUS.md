@@ -951,3 +951,11 @@ Checked: build, qa/equip.js 11 cases PASS (3 new mage cases), screenshots room a
 Not used: the mage skill-pose rows (robes; the battle robe's skill row came out crimson with a breastplate, not the purple of its
 walk sheet) and the sheet with a real staff and a book. Rough: the chest and cage were not seen in a run; Montoto is dark behind
 the bars; the floor is a mirrored tile (the mirror can show at a glance).
+
+Town keepers and the merchant (2026-11-13 night, same branch): npc_smith_0..3, npc_trainer_0..3, npc_montoto_0..3 (replaces the
+old two frames) and merchant_0..3 imported from the user's Grok sheets (Montoto and merchant re-spaced first: poses touched).
+G.ANIM.ent npc_smith / npc_trainer / npc_montoto: slow idle loop + `talk` pose while the hero is in reach (city.js passes
+state 'talk' when `this.near` is that stall). The merchant is the one met in the runs (not the town): game.js draws him with
+G.HD.show, idle loop / open hand while sim.canTalk(). The cage's Montoto (assets/hd/parts/cage_montoto.png) is the new one.
+Checked: build, city at 960x540 and 540x960, a test room with cheatMerchant + cheatCage, 0 console errors.
+Not seen: Montoto's stall in the city (needs a save with him rescued), the talk poses on screen.

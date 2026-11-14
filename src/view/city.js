@@ -406,7 +406,7 @@
       var self = this, f = this.frame, i;
       Object.keys(this.spots).forEach(function (k) {
         var s = self.spots[k];
-        if (s.rig && s.rig.update(G.paused ? 0 : dt, { x: s.s.x, y: s.s.y + 12, ground: s.s.y + 11, face: 1, tx: null, state: 'idle', depth: s.s.y + 12 })) s.shadow.setVisible(false);
+        if (s.rig && s.rig.update(G.paused ? 0 : dt, { x: s.s.x, y: s.s.y + 12, ground: s.s.y + 11, face: 1, tx: null, state: self.near === s && G.ANIM.ent[s.s.npc].talk ? 'talk' : 'idle', depth: s.s.y + 12 })) s.shadow.setVisible(false);
         else if (s.npc) {
           if (s.npc.isHD || s.npc.texture.key !== 'atlas') { G.HD.chunky(s.npc, s.s.npc + '_0'); s.npc.setOrigin(0.5, 1).setPosition(s.s.x, s.s.y + 12); }
           s.npc.setFrame(s.s.npc + '_' + (((f >> 4) + s.s.x) & 1));
