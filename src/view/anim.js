@@ -38,7 +38,7 @@
     // the body sheet by the body armour's material (item.mat: 0 light, 1 medium, 2 heavy; an item without one counts as heavy)
     armorLook: ['leather', 'chain', 'plate'],
     // held weapon art by weapon type (frames wpn_<name> of the HD atlas); `any`: the one drawn for a type with no art yet
-    wpnArt: { sword: 'wpn_sword', staff: 'wpn_staff', any: 'wpn_sword' },
+    wpnArt: { sword: 'wpn_sword', staff: 'wpn_staff', any: null },      // a type with no art yet draws nothing in the hand
     // where the fist holds each weapon sprite, as a share of its height from the top (default 1: the bottom end, a sword's guard)
     wpnGrip: { wpn_staff: 0.46 },
     glowOrder: ['none', 'magic', 'rare', 'epic', 'legendary', 'mythic', 'unique'],
@@ -69,16 +69,28 @@
       // the mage with no gear on (Grok, 4x2, chibi style, a plain blue apprentice robe, no hat, the green rod as the staff)
       mage_bare: {
         hands: true,
+        skills: ['mage_bare_skill_0', 'mage_bare_skill_1', 'mage_bare_skill_2', 'mage_bare_skill_3'],      // skill poses (Grok extra row), not used by the game yet
         idle: { frames: ['mage_bare_idle_0'] },
         walk: { frames: ['mage_bare_walk_0', 'mage_bare_walk_1', 'mage_bare_walk_2', 'mage_bare_walk_3'], fps: 8 },
         attack: { frames: ['mage_bare_attack_0', 'mage_bare_attack_1'], fps: 14, hold: 0.14, dur: 0.38, split: 0.5 },
         hurt: { frames: ['mage_bare_hurt'], hold: 0.25 },
         motion: { bob: 1, tilt: 0.015, squash: 0.03, lean: 1, lunge: 2, stretch: 0.04, recoil: 2, breathe: 0.02, breathT: 1.7, dust: 1, faces: 1, die: 0.9 }
       },
+      // the archer with no gear on (Grok, 4x2, chibi, green hunter's shirt, the green rod as the bow)
+      archer_bare: {
+        hands: true,
+        skills: ['archer_bare_skill_0', 'archer_bare_skill_1', 'archer_bare_skill_2', 'archer_bare_skill_3'],
+        idle: { frames: ['archer_bare_idle_0'] },
+        walk: { frames: ['archer_bare_walk_0', 'archer_bare_walk_1', 'archer_bare_walk_2', 'archer_bare_walk_3'], fps: 8 },
+        attack: { frames: ['archer_bare_attack_0', 'archer_bare_attack_1'], fps: 14, hold: 0.14, dur: 0.38, split: 0.5 },
+        hurt: { frames: ['archer_bare_hurt'], hold: 0.25 },
+        motion: { bob: 1, tilt: 0.015, squash: 0.03, lean: 1, lunge: 1, stretch: 0.03, recoil: 2, breathe: 0.02, breathT: 1.7, dust: 1, faces: 1, die: 0.9 }
+      },
       // the warrior with no gear on (Grok, 4x2, generated holding a green rod that tools/hand_weapon.py took out): the same
       // eight poses; `hands`: its frames carry the fist, so the equipped weapon is drawn into it (G.HD.heroWeapon)
       warrior_bare: {
         hands: true,
+        skills: ['warrior_bare_skill_0', 'warrior_bare_skill_1', 'warrior_bare_skill_2', 'warrior_bare_skill_3'],      // skill poses (Grok extra row), not used by the game yet
         idle: { frames: ['warrior_bare_idle_0'] },
         walk: { frames: ['warrior_bare_walk_0', 'warrior_bare_walk_1', 'warrior_bare_walk_2', 'warrior_bare_walk_3'], fps: 8 },
         attack: { frames: ['warrior_bare_attack_0', 'warrior_bare_attack_1'], fps: 14, hold: 0.14, dur: 0.38, split: 0.5 },

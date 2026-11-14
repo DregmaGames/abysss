@@ -927,3 +927,5 @@ height or hit sparks; (6) values stored in localStorage stay on in that browser 
 Mage base imported (2026-11-13, chibi, blue apprentice robe, green rod -> fist): mage_bare; held staff wpn_staff cut from the first mage sheet (grip 0.46 from the top, G.ANIM.wpnGrip). heroWeapon maps classes without weapon types: mage -> staff, archer -> bow (no bow art yet: falls back to the sword).
 
 Warrior base replaced by the chibi one (2026-11-13). His leather/chain/plate sheets are still the realistic ones: to be redone in the chibi chat.
+
+Batch 2026-11-13 evening: archer_bare (chibi, green shirt, rod as bow; no bow art yet: empty hand) and skill poses for all three (G.ANIM.ent.<cls>_bare.skills, 4 frames each, with fist points; not used by the game yet: needs a skill->pose mapping). wpnArt.any is null: a weapon type with no art draws nothing.

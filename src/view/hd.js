@@ -60,7 +60,8 @@
       var E = G.ANIM.ent[ent], p = G.params.get('wpn'), item = eq && eq.weapon;
       if (!E || !E.hands || p === '0' || (!item && p !== '1')) return null;
       var wt = cls && cls.weapons ? G.weaponOf(cls, { equipped: eq || {} }).id : ({ mage: 'staff', archer: 'bow' }[cls && cls.id] || 'weapon');
-      return { frame: G.ANIM.wpnArt[wt] || G.ANIM.wpnArt.any, glow: HD.glowOf(item) };
+      var fr = G.ANIM.wpnArt[wt] || G.ANIM.wpnArt.any;
+      return fr ? { frame: fr, glow: HD.glowOf(item) } : null;
     },
     // the tint of a glow at time t: one colour, or a slow walk round `cycle`
     glowColor: function (g, t) {
