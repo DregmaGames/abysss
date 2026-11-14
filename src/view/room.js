@@ -13,7 +13,7 @@
     bands: [0.3, 0.55, 0.75], heat: [3.6, 2.9], crust: 0.3, every: 3, flames: 9, cap: 80, capBig: 140, life: [28, 56], rise: [0.25, 0.55], embers: 0.25, glow: 'em2',
     // heat on the floor round the crack (R px, peak alpha), the pulse running along it (waves over the crack, speed, strength),
     // bubbles a second per middle px, smoke: share of the flames, its colour and alpha
-    heatR: 5, heatA: 0.5, wave: [26, 0.045, 0.9], bubbles: 1 / 160, smoke: 0.16, smokeCol: 0x2a2228, smokeA: 0.4 };
+    heatR: 8, heatA: 0.5, wave: [26, 0.045, 0.9], bubbles: 1 / 160, smoke: 0.16, smokeCol: 0x2a2228, smokeA: 0.4 };
   // a smooth value-noise table, 128 x 128, wrapping (view only: Math-free hash, same every run)
   var NZ = (function () {
     var N = 128, a = new Float32Array(N * N), b = new Float32Array(N * N), i, x, y, k;
@@ -32,7 +32,10 @@
   // edge / pit: where the smoothed field (outside -1, crack 0.5, pit 1) starts the crack and the pit; pitMid: the crack px whose
   // FissureView.mid is at least this are pit; lump: share of the lip px past the crack that are rock lumps; drip: the far wall's
   // longest drip (sub px) and its share of the pit's height; rock: the lip's colours dark -> light; seam: the red line.
-  var HDF = { S: 2, pad: 3, edge: -0.25, pit: 0.8, pitMid: 0.42, lump: [0.36, 0.09, 4], drip: [9, 0.6], spark: 41,
+  // The user (2026-11-14): bigger cracks. A wider crack in the sim made the runs much harder (bot: 4 wins in 5 -> 0-1), so the
+  // crack the sim knows is all lava pit here and the rock lip is drawn OUTSIDE it, on the floor: lip[0] sub px solid, lumps
+  // out to lip[1] (fewer further out: lump = [threshold, + per sub px]); seamW: sub px of red line next to the pit.
+  var HDF = { S: 2, pad: 6, edge: 0, pit: 0, lip: [4, 10], lump: [0.3, 0.05], seamW: 1, drip: [9, 0.6], spark: 41,
     rock: ['#0b0807', '#251a15', '#3b2b22', '#564131', '#735845'], seam: ['#c41a08', '#ff3a10', '#ff6a1c', '#ffa030'], wallTip: [170, 40, 14] };
   var HEX = function (hx) { var v = parseInt(hx.slice(1), 16); return [v >> 16, (v >> 8) & 255, v & 255]; };
   // the user (2026-11-13): a black crack, a little red going in, orange in the middle where the lava / fire is.
@@ -205,6 +208,7 @@
       return Math.min(1, grid[gy * w + gx] / m);
     });
     this.hash = cells.map(function (cl) { return (((cl.x * 73856093) ^ (cl.y * 19349663)) >>> 0) % 64; });
+    this.phase = fissSeq % 6;      // cracks redraw their lava on different frames (no spike when they all change at once)
     this.key = 'fiss' + (fissSeq++);
     this.scene = scene; this.big = f.big; this.fx0 = f.x; this.fy0 = f.y;
     this.flash = null;                   // { x, y, tick }: where the mage last bumped into this crack
@@ -268,7 +272,11 @@
   FissureView.prototype.buildHD = function (scene, f) {
     var S = HDF.S, PC = HDF.pad, cells = this.cells, n = cells.length, ox = this.ox, oy = this.oy, i, x, y, k;
     var CW = this.w + 2 * PC, CH = this.h + 2 * PC, val = new Float32Array(CW * CH).fill(-1), cidx = new Int32Array(CW * CH).fill(-1);
-    for (i = 0; i < n; i++) { var c = cells[i], gi = (c.y - oy + PC) * CW + (c.x - ox + PC); val[gi] = c.core && this.mid[i] >= HDF.pitMid ? 1 : 0.5; cidx[gi] = i; }
+    for (i = 0; i < n; i++) { var c = cells[i], gi = (c.y - oy + PC) * CW + (c.x - ox + PC); val[gi] = 1; cidx[gi] = i; }
+    // smooth the crack's outline (a 3 x 3 average of inside 1 / outside -1): round edges instead of the room px's stair steps
+    var sm = new Float32Array(CW * CH);
+    for (y = 0; y < CH; y++) for (x = 0; x < CW; x++) { var acc = 0; for (var yy = -1; yy <= 1; yy++) for (var xx = -1; xx <= 1; xx++) { var vx = x + xx, vy = y + yy; acc += vx < 0 || vy < 0 || vx >= CW || vy >= CH ? -1 : val[vy * CW + vx]; } sm[y * CW + x] = val[y * CW + x] > 0 ? Math.max(0.2, acc / 9) : acc / 9; }      // a crack px always stays inside: what blocks is drawn
+    val = sm;
     var W2 = CW * S, H2 = CH * S, N2 = W2 * H2, crack = new Uint8Array(N2), pit = new Uint8Array(N2), own = new Int32Array(N2).fill(-1);
     function get(cx, cy) { return cx < 0 || cy < 0 || cx >= CW || cy >= CH ? -1 : val[cy * CW + cx]; }
     function gid(cx, cy) { return cx < 0 || cy < 0 || cx >= CW || cy >= CH ? -1 : cidx[cy * CW + cx]; }
@@ -295,7 +303,7 @@
       }
       return D;
     }
-    var dIn = bfs(function (j) { return !pit[j]; }, 60), dOut = bfs(function (j) { return pit[j]; }, 40), dCr = bfs(function (j) { return crack[j]; }, HDF.lump[2], own);
+    var dIn = bfs(function (j) { return !pit[j]; }, 60), dOut = bfs(function (j) { return pit[j]; }, 40), dCr = bfs(function (j) { return crack[j]; }, HDF.lip[1], own);
     // the pit's vertical span: px of pit above (dUp) and below in the same column; and its horizontal span
     var up = new Int16Array(N2), dn = new Int16Array(N2), lf = new Int16Array(N2), rt = new Int16Array(N2);
     for (x = 0; x < W2; x++) { for (y = 0; y < H2; y++) { k = y * W2 + x; up[k] = pit[k] ? (y > 0 && pit[k - W2] ? up[k - W2] + 1 : 0) : 0; }
@@ -309,7 +317,7 @@
       return ROCK[Math.max(0, Math.min(4, lev + (d > 0.025 ? 1 : d < -0.025 ? -1 : 0)))];
     }
     var solid = new Uint8Array(N2);      // crack or rock lump: the lip's outer edge is where solid ends
-    for (k = 0; k < N2; k++) solid[k] = crack[k] || (dCr[k] <= HDF.lump[2] && nzA(k % W2 + wx + 40, ((k / W2) | 0) + wy + 40) > HDF.lump[0] + dCr[k] * HDF.lump[1]) ? 1 : 0;
+    for (k = 0; k < N2; k++) solid[k] = crack[k] || dCr[k] <= HDF.lip[0] || (dCr[k] <= HDF.lip[1] && nzA(k % W2 + wx + 40, ((k / W2) | 0) + wy + 40) > HDF.lump[0] + (dCr[k] - HDF.lip[0]) * HDF.lump[1]) ? 1 : 0;
     var LP = [], LC = [], LK = [], LA = [], LR = [], LG = [], LB = [], LH = [], LX = [], LY = [];
     for (k = 0; k < N2; k++) {
       var kind = -1, a = 0, x1 = k % W2, y1 = (k / W2) | 0, ax = x1 + wx, ay = y1 + wy, oc = own[k];
@@ -318,8 +326,7 @@
         var wl = Math.min(cs * HDF.drip[1], 1.5 + NZ[((ax * 5) & 127) + 37 * 128] * HDF.drip[0] * (0.6 + 0.8 * NZ[((ax * 11) & 127) + 91 * 128]));
         if (cs >= 4 && up[k] < wl) { kind = 2; a = up[k] / Math.max(1, wl); }
         else { kind = 3; a = Math.min(1, dIn[k] / Math.max(1, span / 2)); }
-      } else if (crack[k]) kind = dOut[k] <= 1 ? 1 : 0;
-      else if (solid[k]) kind = 0;      // rock lumps spilling past the crack
+      } else if (solid[k]) kind = dOut[k] <= HDF.seamW ? 1 : 0;      // rock lumps spilling past the crack
       if (kind < 0 || oc < 0) continue;
       var rc = rock(ax, ay);
       if (kind === 0) {
@@ -377,7 +384,7 @@
     var st = f.state, sh = this.slow ? (tick >> 4) : (tick >> 3), s, cool = [], minCool = 1, opening = st === 'opening';
     var fl = this.flash, flA = fl ? 1 - (tick - fl.tick) / FLASH_T : 0;
     if (flA <= 0) { flA = 0; this.flash = fl = null; }
-    var lt = Math.floor(tick / (this.slow ? LAVA.every * 2 : LAVA.every)) * (this.slow ? LAVA.every * 2 : LAVA.every);      // lava redraw step
+    var lt = Math.floor((tick + this.phase) / (this.slow ? LAVA.every * 2 : LAVA.every)) * (this.slow ? LAVA.every * 2 : LAVA.every);      // lava redraw step
     var key = st + '|' + (opening ? Math.round(f.reveal * (this.slow ? 30 : 80)) : (f.litN ? lt : 0)) + '|' + Math.round(flA * 12);
     for (s = 0; s < f.nSeg; s++) {
       var cv = f.dark[s] ? Math.min(1, (tick - f.darkTick[s]) / 480) : -1;
@@ -451,7 +458,7 @@
   FissureView.prototype.update = function (f, tick) {
     if (!f.big) { this.updateNet(f, tick); return; }
     var st = f.state, cooling = st === 'scar' ? Math.min(1, (tick - (f.scarTick || tick)) / 480) : 0, sh = tick >> 3;
-    var lt = Math.floor(tick / (LAVA.every * 2)) * LAVA.every * 2;
+    var lt = Math.floor((tick + this.phase) / (LAVA.every * 2)) * LAVA.every * 2;
     var key = st + '|' + (st === 'open' ? lt : Math.round(f.reveal * 80)) + '|' + Math.round(cooling * 24);
     // light
     var a = 0, tint = LAVA.glow;

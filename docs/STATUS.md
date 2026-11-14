@@ -986,3 +986,8 @@ its tips), lava below (the LAVA ramp by depth in the pit, flowing, pulse along t
 dark rock, the seam cools. Particles at 1 HD px. Floor heat: round distance, LINEAR-filtered texture.
 Checked: build, room close-ups, 0 console errors. Not checked: frame time on the biggest cracks (each redraw walks every sub px),
 the super fissure open in this look, phones.
+Bigger cracks (2026-11-14, the user: "más grandes así se ven mejor"). Tried in the sim first (BAL fissures width x1.6, then x1.3,
+taper 0.8): node bot 5 seeds went from 4 wins (avg 9 rooms) to 0 (7.2 rooms) and 1 (8 rooms): reverted, the sim is unchanged.
+Instead the HD drawing: the whole sim crack is lava pit (outline smoothed by a 3x3 average, every crack px kept inside), the rock lip
+is drawn OUTSIDE it on the floor (HDF.lip: 4 sub px solid, lumps to 10), heat radius 8. The far-wall drips now show in most of the
+pit. Each crack redraws on its own frame phase (paint ~1-3 ms per crack per redraw, every 3 ticks). Sealed: dark rock, red seam.
