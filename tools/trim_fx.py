@@ -31,7 +31,7 @@ def main():
     src = np.asarray(Image.open(strip).convert('RGB')).astype(float)
     h, s, v = hsv(src)
     back = (np.abs(((h - 323 + 180) % 360) - 180) < 32) & (s > 0.28) & (v > 0.3)
-    cyan = ~back & (h > 165) & (h < 210) & (s > 0.3) & (v > 0.3)
+    cyan = ~back & (h > 152) & (h < 210)   # 152: Grok draws some trims teal & (s > 0.3) & (v > 0.3)
     m = src.copy(); m[~back] = (40, 40, 40); m[cyan] = (255, 255, 255)
     tmp = os.path.join(HD, '_trim_src.png'); Image.fromarray(m.astype(np.uint8)).save(tmp)
     # the cells of the strip, in the order the hero sheets are imported (docs/grok-prompts.md): walk x4, idle, attack x2, hurt

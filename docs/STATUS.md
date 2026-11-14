@@ -935,3 +935,19 @@ Held weapons by rarity (2026-11-13): tools/weapon_sheet.py cut the six Grok weap
 Arrows (2026-11-13): arrow_0..5 from the Grok sheet (assets/gear_src/arrows.jpg), the archer HD bolt uses the arrow of the bow rarity index, drawn at 16x3 art px, turned to its flight.
 
 Monsters in the chosen style (2026-11-13): imp, bat, skeleton, hound, cultist, warden and the tyrant (8 poses) imported from Grok sheets; G.ANIM.ent entries; stray specks from row bleed removed. Hound has no hurt pose (its cell came out wrong).
+
+Batch 2026-11-13 night (branch `step-weapon-glow`): the user's new Grok sheets.
+- Mage robes, one per armour weight (G.ANIM.armorLook): `mage_leather` = light blue robe, `mage_chain` = reinforced purple robe,
+  `mage_plate` = ornate purple battle robe (figures touched: re-spaced with /home/claude/builds/espaciar.py before the import;
+  its trim is the blue gems). G.HD.heroEnt picks them by the body armour's `mat` like the warrior's.
+- Warrior leather / chain / plate redone in the chibi style (replace the realistic ones), trim found (leather trim is teal:
+  tools/trim_fx.py hue window widened to 152-210).
+- tools/hand_weapon.py: a frame that still has its rod is a new import and replaces the copy in raw_rod/ (before, a re-import
+  got the OLD drawing back).
+- Props: chest_closed / chest_open (game.js draws the chest with G.HD.show), the cage (assets/hd/parts/cage_front.png over the
+  HD Don Montoto, in hd_atlas.py cage_frames), dummy_0 and the four stalls (city.js `put` swaps stall_* and dummy_* to HD).
+- Dungeon floor: the user's big-slab texture (tools/hd_atlas.py floor --from ... --size 512). The old floor: builds/lote2/hd_floor_viejo.png.
+Checked: build, qa/equip.js 11 cases PASS (3 new mage cases), screenshots room and city at 960x540 and 540x960, 0 console errors.
+Not used: the mage skill-pose rows (robes; the battle robe's skill row came out crimson with a breastplate, not the purple of its
+walk sheet) and the sheet with a real staff and a book. Rough: the chest and cage were not seen in a run; Montoto is dark behind
+the bars; the floor is a mirrored tile (the mirror can show at a glance).

@@ -14,9 +14,10 @@ fs.mkdirSync(OUT, { recursive: true });
   let fails = 0;
   const cases = [['bare', '&look=bare&wpn=0', 'warrior_bare', false], ['sword', '&look=bare&wpn=1', 'warrior_bare', true],
     ['sword_legendary', '&look=bare&wpn=1&glow=legendary', 'warrior_bare', true], ['leather_rare', '&look=leather&wpn=1&arar=2', 'warrior_leather', true], ['chain_epic', '&look=chain&wpn=1&arar=3&glow=epic', 'warrior_chain', true],
-    ['plate', '&look=plate&wpn=1', 'warrior_plate', true], ['old_full', '&look=full', 'warrior', false], ['fresh', '', 'warrior_bare', true]];      // fresh: a new warrior wears no armour and holds the starter sword (step gear data)
-  for (const [name, q, ent, wpn] of cases) {
-    const page = await Q.open(browser, '?scene=game&room=test&fresh=1&seed=4&hd=1&class=warrior' + q, { width: 1640, height: 922 });
+    ['plate', '&look=plate&wpn=1', 'warrior_plate', true], ['old_full', '&look=full', 'warrior', false], ['fresh', '', 'warrior_bare', true],
+    ['mage_leather', '&look=leather&wpn=1&arar=1', 'mage_leather', true, 'mage'], ['mage_chain', '&look=chain&wpn=1&arar=2', 'mage_chain', true, 'mage'], ['mage_plate', '&look=plate&wpn=1&arar=3&glow=legendary', 'mage_plate', true, 'mage']];      // the mage's robes (one per armour weight)      // fresh: a new warrior wears no armour and holds the starter sword (step gear data)
+  for (const [name, q, ent, wpn, cls] of cases) {
+    const page = await Q.open(browser, '?scene=game&room=test&fresh=1&seed=4&hd=1&class=' + (cls || 'warrior') + q, { width: 1640, height: 922 });
     await page.evaluate(() => { G.cheats.god = true; });
     await sleep(900);
     const snap = () => page.evaluate(() => { const gs = G.gameScene, p = gs.sim.player, wv = gs.cameras.main.worldView, S = G.view.S, r = gs.prig, eq = gs.sim.gear.equipped;

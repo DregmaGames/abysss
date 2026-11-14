@@ -110,6 +110,33 @@
         hurt: { frames: ['mage_bare_hurt'], hold: 0.25 },
         motion: { bob: 1, tilt: 0.015, squash: 0.03, lean: 1, lunge: 2, stretch: 0.04, recoil: 2, breathe: 0.02, breathT: 1.7, dust: 1, faces: 1, die: 0.9 }
       },
+      // the mage in the light robe (blue cloth, wide sleeves, sash): the mage's leather weight (robes, not armour), green rod -> fist, trim recoloured by rarity
+      mage_leather: {
+        hands: true,
+        idle: { frames: ['mage_leather_idle_0'] },
+        walk: { frames: ['mage_leather_walk_0', 'mage_leather_walk_1', 'mage_leather_walk_2', 'mage_leather_walk_3'], fps: 8 },
+        attack: { frames: ['mage_leather_attack_0', 'mage_leather_attack_1'], fps: 14, hold: 0.14, dur: 0.38, split: 0.5 },
+        hurt: { frames: ['mage_leather_hurt'], hold: 0.25 },
+        motion: { bob: 1, tilt: 0.015, squash: 0.03, lean: 1, lunge: 2, stretch: 0.04, recoil: 2, breathe: 0.02, breathT: 1.7, dust: 1, faces: 1, die: 0.9 }
+      },
+      // the mage in the reinforced robe (purple, leather mantle, belt with pouches): the mage's chain weight (robes, not armour), green rod -> fist, trim recoloured by rarity
+      mage_chain: {
+        hands: true,
+        idle: { frames: ['mage_chain_idle_0'] },
+        walk: { frames: ['mage_chain_walk_0', 'mage_chain_walk_1', 'mage_chain_walk_2', 'mage_chain_walk_3'], fps: 8 },
+        attack: { frames: ['mage_chain_attack_0', 'mage_chain_attack_1'], fps: 14, hold: 0.14, dur: 0.38, split: 0.5 },
+        hurt: { frames: ['mage_chain_hurt'], hold: 0.25 },
+        motion: { bob: 1, tilt: 0.015, squash: 0.03, lean: 1, lunge: 2, stretch: 0.04, recoil: 2, breathe: 0.02, breathT: 1.7, dust: 1, faces: 1, die: 0.9 }
+      },
+      // the mage in the battle robe (purple, gems and shoulder plates): the mage's plate weight (robes, not armour), green rod -> fist, trim recoloured by rarity
+      mage_plate: {
+        hands: true,
+        idle: { frames: ['mage_plate_idle_0'] },
+        walk: { frames: ['mage_plate_walk_0', 'mage_plate_walk_1', 'mage_plate_walk_2', 'mage_plate_walk_3'], fps: 8 },
+        attack: { frames: ['mage_plate_attack_0', 'mage_plate_attack_1'], fps: 14, hold: 0.14, dur: 0.38, split: 0.5 },
+        hurt: { frames: ['mage_plate_hurt'], hold: 0.25 },
+        motion: { bob: 1, tilt: 0.015, squash: 0.03, lean: 1, lunge: 2, stretch: 0.04, recoil: 2, breathe: 0.02, breathT: 1.7, dust: 1, faces: 1, die: 0.9 }
+      },
       // the archer with no gear on (Grok, 4x2, chibi, green hunter's shirt, the green rod as the bow)
       archer_bare: {
         hands: true,
@@ -132,7 +159,7 @@
         hurt: { frames: ['warrior_bare_hurt'], hold: 0.25 },
         motion: { bob: 1, tilt: 0.015, squash: 0.03, lean: 1, lunge: 3, stretch: 0.04, recoil: 2, breathe: 0.02, breathT: 1.8, dust: 1, faces: 1, die: 0.9 }
       },
-      // the warrior in leather (light) armour: the bare sheet's poses, head and hands bare, the trim recoloured by rarity (tools/trim_fx.py)
+      // the warrior in leather (light) armour (chibi, 2026-11-13): the bare sheet's poses, head and hands bare, the trim recoloured by rarity (tools/trim_fx.py)
       warrior_leather: {
         hands: true,
         idle: { frames: ['warrior_leather_idle_0'] },

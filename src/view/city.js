@@ -182,7 +182,12 @@
     // ---------------------------------------------------------------- the world
     buildWorld: function () {
       var self = this, L = this.lay, x, y, W = this.world, A = APRON, wall = L.wallAt;
-      var put = function (px, py, frame) { var o = self.add.image(px, py, 'atlas', frame); W.push(o); return o; };
+      var put = function (px, py, frame) {
+        var o = self.add.image(px, py, 'atlas', frame); W.push(o);
+        // the stalls and the dummies have HD art (Grok, the chosen style): drawn from the HD atlas when the art mode is HD
+        if (/^(stall_|dummy_)/.test(frame) && G.HD.frame(self, frame)) G.HD.show(o, frame, 0.5, 0.5);
+        return o;
+      };
       var glow = function (px, py, frame, tint, alpha) { return put(px, py, frame).setDepth(-650).setBlendMode(Phaser.BlendModes.ADD).setTint(UI.hex(tint)).setAlpha(alpha); };
       this.marks = []; this.lights = []; this.anims2 = [];
       // ground and walls: two tile layers, as in a room (the rooms' wall tops, faces and shadows; the town's own ground),

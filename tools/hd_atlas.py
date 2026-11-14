@@ -460,6 +460,17 @@ def cage_frames():
     P = pal()
     mo = Image.open(part).convert('RGBA')
     out = {}
+    front = os.path.join(HD, 'parts', 'cage_front.png')
+    if os.path.exists(front):
+        # the imported cage (Grok, chosen style; its gaps are see-through) drawn over Don Montoto, who breathes (1 px)
+        cf = Image.open(front).convert('RGBA'); W, H = cf.size
+        for f in range(2):
+            cg = Image.new('RGBA', (W, H), (0, 0, 0, 0))
+            fig = mo if f == 0 else mo.resize((mo.width, mo.height - 1), Image.NEAREST)
+            cg.alpha_composite(fig, ((W - fig.width) // 2, H - 7 - fig.height))
+            cg.alpha_composite(cf)
+            out['cage_%d' % f] = np.array(cg)
+        return out
     for f in range(2):
         W, H = 36, 44
         cg = Image.new('RGBA', (W, H), (0, 0, 0, 0))

@@ -97,7 +97,8 @@ def cmd_hands(a):
     shots = []
     for f in sorted(glob.glob(os.path.join(HD, a.name + '_*.png'))):
         base = os.path.basename(f); raw = os.path.join(RAW, base)
-        if not os.path.exists(raw):
+        # a frame that still has its rod is a new import: it replaces the kept copy (else the old drawing would come back)
+        if not os.path.exists(raw) or find_rod(np.asarray(Image.open(f).convert('RGBA')))[1] is not None:
             shutil.copy(f, raw)
         im = np.asarray(Image.open(raw).convert('RGBA'))
         rod, hand = find_rod(im)

@@ -383,7 +383,7 @@
       if (this.goldAcc > 0 && --this.goldT <= 0) { this.fx.number(this.goldX, this.goldY - 14, '+' + this.goldAcc, 'gold'); this.goldAcc = 0; this.goldT = 12; }
       // chest and exit
       var c = sim.chest;
-      this.chest.setVisible(c.state !== 'hidden').setFrame(c.state === 'open' ? 'chest_open' : 'chest_closed');
+      this.chest.setVisible(c.state !== 'hidden'); G.HD.show(this.chest, c.state === 'open' ? 'chest_open' : 'chest_closed', 0.5, 1);
       this.chestGlow.setAlpha(c.state === 'closed' ? 0.45 + ((tick >> 3) % 4) * 0.05 : (c.state === 'open' ? 0.3 : 0));
       this.door.setFrame(sim.exit.open ? 'door_open' : 'door_closed');
       this.doorGlow.setAlpha(sim.exit.open ? 0.35 + ((tick >> 3) % 3) * 0.04 : 0);
