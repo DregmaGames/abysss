@@ -84,10 +84,17 @@
       var hw = this.hpW = V.W >= 640 ? 110 : 66, pw = this.plateW = hw + 20;
       L.panel(X, Y, pw, 27, 'plate');
       L.image(X + 8, Y + 9, 'heart');
+      L.panel(X + 14, Y + 3, hw + 2, 11, 'inset', 0.6);           // a sunken frame round the bar
       L.bar(X + 15, Y + 4, hw, 9, 'hp_d');
+      this.hpLag = L.bar(X + 15, Y + 4, hw, 9, 'gold', 1.2);        // the damage just taken: catches up with the bar
       this.hpFill = L.bar(X + 15, Y + 4, hw, 9, 'hp', 1.5);
+      this.hpShine = L.bar(X + 15, Y + 4, hw, 1, 'ui_bad', 1.6).setAlpha(0.7);      // a lit top edge
+      this.hpLagW = hw;
+      this.hpTextSh = L.text(X + 18, Y + 6, '', 'outline');      // a 1 px drop shadow: the number reads over red and gold
       this.hpText = L.text(X + 17, Y + 5, '');
+      this.hpTextSh._dz = 2; this.hpTextSh.setDepth(L.depth + 1.9); this.hpText._dz = 2.1; this.hpText.setDepth(L.depth + 2.1);
       this.lvText = L.text(X + 5, Y + 17, '', 'ui_warn');
+      L.bar(X + 36, Y + 18, hw - 20, 5, 'outline', 0.6);
       L.bar(X + 37, Y + 19, hw - 22, 3, 'xp_d');
       this.xpFill = L.bar(X + 37, Y + 19, hw - 22, 3, 'xp', 1.5);
 
@@ -486,10 +493,14 @@
       var hp = Math.ceil(p.hp), key = hp + '/' + p.maxHp;
       if (L.hp !== key) {
         L.hp = key;
-        this.hpFill.setDisplaySize(Math.max(0.01, Math.round(this.hpW * Math.max(0, p.hp) / p.maxHp)), 9);
+        this.hpTo = Math.round(this.hpW * Math.max(0, p.hp) / p.maxHp);
+        this.hpFill.setDisplaySize(Math.max(0.01, this.hpTo), 9); this.hpShine.setDisplaySize(Math.max(0.01, this.hpTo), 1);
+        if (this.hpTo > this.hpLagW) this.hpLagW = this.hpTo;
         this.hpText.setText(key);
         UI.centerX(this.hpText, X + 15 + this.hpW / 2);
+        this.hpTextSh.setText(key).setPosition(this.hpText.x + 1, this.hpText.y + 1);
       }
+      if (this.hpLagW > (this.hpTo || 0)) { this.hpLagW = Math.max(this.hpTo, this.hpLagW - Math.max(0.6, (this.hpLagW - this.hpTo) * 0.06)); this.hpLag.setDisplaySize(Math.max(0.01, Math.round(this.hpLagW)), 9); }
       var sk = p.slots.map(function (id) { return id ? id + p.abil[id] : '-'; }).join(',') + '|' + G.view.W + 'x' + G.view.H;
       if (L.slots !== sk) { L.slots = sk; this.drawSlots(); }
       if (L.lv !== p.level) { L.lv = p.level; this.lvText.setText(G.t('hud.level', { n: p.level })); }

@@ -83,6 +83,15 @@
       var fr = G.ANIM.shieldArt[Math.max(0, Math.min(2, m | 0))];
       return G.game.textures.get('hd').has(fr) ? { frame: fr } : null;
     },
+    // the HD art of an item (loot on the floor, the item card): a weapon by type and rarity, a shield / helmet by material; or null
+    itemArt: function (scene, it, clsId) {
+      if (!it || !G.hdMode || G.hdStyle === 'lo' || !scene.textures.exists('hd')) return null;
+      var A = G.ANIM, T = scene.textures.get('hd'), m = it.mat != null ? it.mat : 1, hf = null;
+      if (it.slot === 'weapon' && it.wtype) hf = 'wpn_' + it.wtype + '_' + A.wpnByRarity[Math.min(4, it.rarity | 0)];
+      else if (it.slot === 'shield') hf = A.shieldArt[m];
+      else if (it.slot === 'helmet') hf = (A.helmArt[clsId] || A.helmArt.warrior)[m];
+      return hf && T.has(hf) ? hf : null;
+    },
     // the tint of a glow at time t: one colour, or a slow walk round `cycle`
     glowColor: function (g, t) {
       if (!g.cycle) return g.color;

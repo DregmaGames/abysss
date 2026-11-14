@@ -2050,16 +2050,43 @@ def ui():
             for x, y in ((0, 0), (size - 1, 0), (0, size - 1), (size - 1, size - 1)):
                 im.putpixel((x, y), (0, 0, 0, 0))
         add(name, im)
-    frame('panel', 'ui_bg', 'ui_line', 'ui_hi')
-    frame('btn', 'ui_bg2', 'ui_line', 'ui_hi')
-    frame('btn_hot', 'wb1', 'ui_hi', 'ui_text')
-    frame('inset', 'void', 'ui_bg2', 'ui_bg2')
-    frame('slot', 'ui_bg2', 'ui_line', 'ui_line', 20, False)
+    # 2026-11-14 restyle (the user: "todo con un estilo nuevo", to sit with the chibi SNES art): bronze frames with gold rivets,
+    # iron buttons, sunken slots. Every frame keeps its size and its 4 px nine-slice border (UI.panel).
+    def bevel(name, size, fill, light, dark, inner=None, rivet=None, a=255, hole=True):
+        im = blank(size, size)
+        rect(im, 0, 0, size, size, 'outline', a)
+        rect(im, 1, 1, size - 2, size - 2, dark, a)                 # the frame, its shaded side
+        rect(im, 1, 1, size - 2, 1, light, a); rect(im, 1, 1, 1, size - 2, light, a)      # lit top and left
+        rect(im, 2, 2, size - 4, size - 4, inner or 'outline', a)   # a dark groove inside the frame
+        rect(im, 3, 3, size - 6, size - 6, fill, a)
+        if rivet:
+            for x, y in ((1, 1), (size - 2, 1), (1, size - 2), (size - 2, size - 2)):
+                im.putpixel((x, y), rgb(rivet, a))
+        if hole:
+            for x, y in ((0, 0), (size - 1, 0), (0, size - 1), (size - 1, size - 1)):
+                im.putpixel((x, y), (0, 0, 0, 0))
+        add(name, im)
+    bevel('panel', 12, 'ui_bg', 'gold_d', 'ch1', 'ch0', 'gold')
+    bevel('btn', 12, 'ui_bg2', 'iron2', 'iron1', 'iron0')
+    bevel('btn_hot', 12, 'wb1', 'gold', 'gold_d', 'ch0')
+    bevel('inset', 12, 'void', 'outline', 'ui_bg2', 'outline', None, 255, False)
+    # sunken slot: dark inside, shadow on the top / left, a lit bottom / right lip, bronze rim
+    im = blank(20, 20)
+    rect(im, 0, 0, 20, 20, 'ch0'); rect(im, 1, 1, 18, 18, 'outline'); rect(im, 2, 2, 16, 16, 'ui_bg2')
+    rect(im, 2, 2, 16, 2, 'void'); rect(im, 2, 2, 2, 16, 'void'); rect(im, 2, 17, 16, 1, 'wb1'); rect(im, 17, 2, 1, 16, 'wb1')
+    add('slot', im)
     for i, k in enumerate(['r_common', 'r_magic', 'r_rare', 'r_epic', 'r_legend']):
-        frame('rar_%d' % i, 'ui_bg2', k, k, 20, False)
-    # HUD plate: translucent so the room shows through, text stays on a dark backing
+        im = blank(20, 20)
+        rect(im, 0, 0, 20, 20, 'outline'); rect(im, 1, 1, 18, 18, k); rect(im, 2, 2, 16, 16, 'outline'); rect(im, 3, 3, 14, 14, 'ui_bg2')
+        rect(im, 3, 3, 14, 1, 'void'); rect(im, 3, 3, 1, 14, 'void')
+        if i >= 2:                                                   # rare and up: corner studs in the rarity colour
+            for x, y in ((2, 2), (17, 2), (2, 17), (17, 17)):
+                im.putpixel((x, y), rgb(k))
+        add('rar_%d' % i, im)
+    # HUD plate: translucent so the room shows through, text stays on a dark backing; a thin bronze rim
     im = blank(12, 12)
-    rect(im, 0, 0, 12, 12, 'outline', 200); rect(im, 1, 1, 10, 10, 'ui_bg', 200)
+    rect(im, 0, 0, 12, 12, 'outline', 210); rect(im, 1, 1, 10, 10, 'ch0', 210); rect(im, 2, 2, 8, 8, 'ui_bg', 200)
+    rect(im, 1, 1, 10, 1, 'gold_d', 220)
     for x, y in ((0, 0), (11, 0), (0, 11), (11, 11)):
         im.putpixel((x, y), (0, 0, 0, 0))
     add('plate', im)

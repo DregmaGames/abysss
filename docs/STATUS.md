@@ -1025,3 +1025,12 @@ Loot on the floor (2026-11-14, the user: better-looking drops, then the UI). gam
 the class); other items keep the icon. A column of light in the rarity colour (texture 'loot_beam' made once, ADD, pulsing):
 G.ANIM.lootBeam[rarity] = [height, alpha], none for common. Checked: 5 weapon rarities + shield / helmet / armour / boots /
 scroll for warrior and archer, 0 console errors.
+
+UI restyle, first pass (2026-11-14; the user: HP bar, gear panel, item card, a new style for everything). tools/pixelart.py ui():
+the nine-slice frames redrawn with the same sizes and 4 px borders: `panel` bronze (gold_d lit / ch1 shade / ch0 groove) with gold
+rivets, `btn` iron, `btn_hot` gold, `inset` sunken, `slot` sunken with a bronze rim, `rar_N` rarity rim (+ corner studs from rare),
+`plate` translucent with a bronze top. HUD (hud.js): HP bar in a sunken frame, a lit top edge, a gold "damage just taken" bar that
+catches up, the number with a 1 px shadow; the XP bar framed. Item card (panels.js): the item's picture top right in its rarity
+frame with a glow (HD art via G.HD.itemArt, else the icon x2), a rarity-coloured rule under the header. Bag / equipment cells
+draw the HD art too. Checked: HUD and inventory at 960x540 and 540x960 with 6 items, 0 console errors; check_i18n; check_bag
+(the known longCracks failure only). Not done: the title / city / shop screens checked in the new frames.

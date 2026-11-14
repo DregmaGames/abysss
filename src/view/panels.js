@@ -128,7 +128,12 @@
     }
     function cell(x, y, item, slotKey, sel, name) {
       var bg = L.image(x + 10, y + 10, item ? 'rar_' + item.rarity : 'slot', 1);
-      var ic = L.image(x + 10, y + 10, (item ? G.itemIcon(item) : 'i_' + (slotKey || 'bag')), 2);
+      var art = item && G.HD.itemArt(scene, item, cls), ic;
+      if (art) {      // HD art fitted to the slot (a weapon turned on its diagonal)
+        ic = scene.add.image(x + 10, y + 10, 'hd', art); ic._dz = 2; L.add(ic);
+        var wp = item.slot === 'weapon', fm = Math.max(ic.frame.width, ic.frame.height);
+        ic.setOrigin(0.5, 0.5).setScale(Math.min(0.75, (wp ? 22 : 16) / fm)).setRotation(wp ? -Math.PI / 4 : 0);
+      } else ic = L.image(x + 10, y + 10, (item ? G.itemIcon(item) : 'i_' + (slotKey || 'bag')), 2);
       if (!item) { ic.setAlpha(slotKey ? 0.22 : 0); }
       else if (item.unid) { ic.setAlpha(0.55); L.image(x + 10, y + 10, 'i_unid', 3); }      // unidentified: a "?" over the icon
       if (P.sel && P.sel.kind === sel.kind && P.sel.key === sel.key) L.image(x + 10, y + 10, 'select', 3);
@@ -191,14 +196,27 @@
       P.sel = null;
       L.text(ix + 5, iy + 5, G.t(s ? 'inv.tapRun' : (wide ? 'inv.tapWide' : 'inv.tapNarrow')), 'ui_dim').setMaxWidth(iw - 10);
     } else {
-      var col = UI.RARITY[item.rarity], ty = iy + 5;
-      var nm = L.text(ix + 5, ty, G.itemName(item), col).setMaxWidth(iw - 10); ty += nm.height + 3;
+      var col = UI.RARITY[item.rarity], ty = iy + 5, AB = 28;
+      // the item's picture, top right, in its rarity frame (HD art when there is some, else the icon x2), a soft rarity glow behind
+      var ax = ix + iw - AB - 4, ay = iy + 4;
+      L.add(scene.add.image(ax + AB / 2, ay + AB / 2, 'atlas', 'glow_s').setBlendMode(Phaser.BlendModes.ADD).setTint(UI.hex(col)).setAlpha(0.35).setScale(1.1))._dz = 1.2;
+      L.panel(ax, ay, AB, AB, 'rar_' + Math.min(4, item.rarity | 0), 1.3);
+      var art = G.HD.itemArt(scene, item, cls), pic;
+      if (art) {
+        pic = scene.add.image(ax + AB / 2, ay + AB / 2, 'hd', art);
+        var fh = Math.max(pic.frame.width, pic.frame.height), wpn = item.slot === 'weapon';
+        pic.setOrigin(0.5, 0.5).setScale(Math.min(1, (wpn ? 30 : 22) / fh)).setRotation(wpn ? -Math.PI / 4 : 0);
+      } else pic = scene.add.image(ax + AB / 2, ay + AB / 2, 'atlas', G.itemIcon(item)).setScale(2);
+      pic._dz = 2; L.add(pic);
+      var nm = L.text(ix + 5, ty, G.itemName(item), col).setMaxWidth(iw - AB - 14); ty += nm.height + 3;
       var foreign = G.foreignClass(item, B, cls);
       L.text(ix + 5, ty, G.itemType(item), col); ty += 10;
       var matLine = G.itemMat(item);      // an armour piece: light / medium / heavy
       if (matLine) { L.text(ix + 5, ty, matLine, 'ui_dim'); ty += 10; }
       if (foreign) { L.text(ix + 5, ty, G.t('inv.foreign', { cls: G.t('cls.' + G.weaponClass(B, item.wtype)) }), 'ui_warn'); ty += 10; }
-      L.text(ix + 5, ty, G.t('inv.itemLevel', { n: item.ilvl }), 'ui_dim'); ty += 12;
+      L.text(ix + 5, ty, G.t('inv.itemLevel', { n: item.ilvl }), 'ui_dim'); ty += 10;
+      ty = Math.max(ty, ay + AB + 3);
+      L.bar(ix + 5, ty, iw - 10, 1, col, 1.5).setAlpha(0.6); ty += 4;      // a rarity-coloured rule under the header
       if (item.unid) {
         L.text(ix + 5, ty, G.t('inv.unid'), 'ui_warn'); ty += 10;
         L.text(ix + 5, ty, G.t(scrollCount ? 'inv.hiddenScroll' : 'inv.hiddenNeed'), 'ui_dim').setMaxWidth(iw - 10);

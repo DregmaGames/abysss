@@ -353,15 +353,7 @@
       this.list('orbs', sim.orbs, function (o) { return self.add.image(o.x, o.y, 'atlas', o.kind === 'exp' ? 'orb_exp' : 'orb_heal').setDepth(-50); },
         function (s, o) { s.setPosition(o.x, o.y + (((tick >> 3) + o.id) % 4 === 0 ? -1 : 0)); });
       this.list('drops', sim.drops, function (d) {
-        var it = d.item, A = G.ANIM, hdOn = G.hdMode && G.hdStyle !== 'lo' && self.textures.exists('hd'), hf = null;
-        // the HD look of the item: a weapon by type and rarity, a helmet / shield by material (G.ANIM tables)
-        if (it && hdOn) {
-          var T = self.textures.get('hd'), m = it.mat != null ? it.mat : 1;
-          if (it.slot === 'weapon' && it.wtype) hf = 'wpn_' + it.wtype + '_' + A.wpnByRarity[Math.min(4, it.rarity | 0)];
-          else if (it.slot === 'shield') hf = A.shieldArt[m];
-          else if (it.slot === 'helmet') { var ha = A.helmArt[G.cls] || A.helmArt.warrior; hf = ha[m]; }
-          if (hf && !T.has(hf)) hf = null;
-        }
+        var it = d.item, A = G.ANIM, hf = G.HD.itemArt(self, it, G.cls);
         var s = hf ? self.add.image(d.x, d.y, 'hd', hf).setScale(0.5).setRotation(it.slot === 'weapon' ? A.lootLie : 0)
           : self.add.image(d.x, d.y, 'atlas', d.kind === 'tome' ? 'i_tome' : d.kind === 'scroll' ? 'i_scroll' : G.itemIcon(it));
         s.setDepth(d.y); s.hdLoot = !!hf;
