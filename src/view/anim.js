@@ -53,6 +53,10 @@
     // held weapons by rarity (tools/weapon_sheet.py): wpn_<type>_<n>, n = 0 common, 1 magic, 2 rare, 3 legendary, 4 mythic, 5 unique.
     // item rarity -> n (the game has epic between rare and legendary and no mythic / unique yet: epic shows the legendary art)
     wpnByRarity: [0, 1, 2, 3, 3],
+    // loot on the floor (game.js drops): a weapon is its HD art lying at `lie` rad, a helmet / shield its HD piece by material;
+    // a column of light in the rarity colour: beam[rarity] = [height px, alpha] (0 = none; common has none)
+    lootLie: -0.9,
+    lootBeam: [[0, 0], [30, 0.45], [46, 0.55], [62, 0.65], [80, 0.75]],
     wpnByGlow: { none: 0, magic: 1, rare: 2, epic: 3, legendary: 3, mythic: 4, unique: 5 },      // the ?glow= / DBG preview picks the art too
     // where the fist holds a weapon type, as a share of its sprite's height from the top
     wpnGripByType: { sword: 0.86, axe: 0.82, mace: 0.82, hammer: 0.78, staff: 0.58, bow: 0.5 },

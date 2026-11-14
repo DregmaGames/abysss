@@ -1019,3 +1019,9 @@ i_weapon = the staff). Now: G.fillWtype (src/sim/items.js) gives such a weapon i
 drop's type among the played class's own types only (one draw as before). Checked: 3000 rolls per class (only own types), an
 old save with an untyped weapon equipped + one in the bag (both become bows, 0 errors), check_bag (only the known longCracks
 failure), node bot 10 seeds: 5 wins / 8.5 rooms (before 6 / 9.0: noise of different drops).
+
+Loot on the floor (2026-11-14, the user: better-looking drops, then the UI). game.js drops: in HD mode a weapon is its HD art
+(wpn_<type>_<G.ANIM.wpnByRarity>) lying at G.ANIM.lootLie, a shield / helmet its HD piece by material (shieldArt / helmArt of
+the class); other items keep the icon. A column of light in the rarity colour (texture 'loot_beam' made once, ADD, pulsing):
+G.ANIM.lootBeam[rarity] = [height, alpha], none for common. Checked: 5 weapon rarities + shield / helmet / armour / boots /
+scroll for warrior and archer, 0 console errors.

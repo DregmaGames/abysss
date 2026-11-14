@@ -353,13 +353,41 @@
       this.list('orbs', sim.orbs, function (o) { return self.add.image(o.x, o.y, 'atlas', o.kind === 'exp' ? 'orb_exp' : 'orb_heal').setDepth(-50); },
         function (s, o) { s.setPosition(o.x, o.y + (((tick >> 3) + o.id) % 4 === 0 ? -1 : 0)); });
       this.list('drops', sim.drops, function (d) {
-        var s = self.add.image(d.x, d.y, 'atlas', d.kind === 'tome' ? 'i_tome' : d.kind === 'scroll' ? 'i_scroll' : G.itemIcon(d.item)).setDepth(d.y);
-        s.sh = self.add.image(d.x, d.y + 8, 'atlas', 'shadow_s').setDepth(-100);
-        s.rar = d.item ? d.item.rarity : 3;
-        s.gl = self.add.image(d.x, d.y, 'atlas', 'glow_s').setDepth(-640).setBlendMode(ADD).setTint(UI.hex(d.item ? UI.RARITY[s.rar] : 'tome1')).setAlpha(0.6);
+        var it = d.item, A = G.ANIM, hdOn = G.hdMode && G.hdStyle !== 'lo' && self.textures.exists('hd'), hf = null;
+        // the HD look of the item: a weapon by type and rarity, a helmet / shield by material (G.ANIM tables)
+        if (it && hdOn) {
+          var T = self.textures.get('hd'), m = it.mat != null ? it.mat : 1;
+          if (it.slot === 'weapon' && it.wtype) hf = 'wpn_' + it.wtype + '_' + A.wpnByRarity[Math.min(4, it.rarity | 0)];
+          else if (it.slot === 'shield') hf = A.shieldArt[m];
+          else if (it.slot === 'helmet') { var ha = A.helmArt[G.cls] || A.helmArt.warrior; hf = ha[m]; }
+          if (hf && !T.has(hf)) hf = null;
+        }
+        var s = hf ? self.add.image(d.x, d.y, 'hd', hf).setScale(0.5).setRotation(it.slot === 'weapon' ? A.lootLie : 0)
+          : self.add.image(d.x, d.y, 'atlas', d.kind === 'tome' ? 'i_tome' : d.kind === 'scroll' ? 'i_scroll' : G.itemIcon(it));
+        s.setDepth(d.y); s.hdLoot = !!hf;
+        s.sh = self.add.image(d.x, d.y + (hf ? 4 : 8), 'atlas', 'shadow_s').setDepth(-100).setScale(hf ? 0.8 : 1, hf ? 0.6 : 1);
+        s.rar = it ? it.rarity : 3;
+        var col = UI.hex(it ? UI.RARITY[s.rar] : 'tome1');
+        s.gl = self.add.image(d.x, d.y, 'atlas', 'glow_s').setDepth(-640).setBlendMode(ADD).setTint(col).setAlpha(0.6);
+        // the column of light (rarity): a soft vertical gradient made once, tinted, additive, pulsing
+        var bm = it ? A.lootBeam[Math.min(4, s.rar)] : [30, 0.4];
+        if (bm[0] > 0) {
+          if (!self.textures.exists('loot_beam')) {
+            var bt = self.textures.createCanvas('loot_beam', 16, 64), bx = bt.getContext(), bi = bx.createImageData(16, 64);
+            for (var by = 0; by < 64; by++) for (var bxx = 0; bxx < 16; bxx++) {
+              var u = by / 63, side = 1 - Math.abs(bxx - 7.5) / 8, a = Math.pow(side, 1.6) * Math.pow(u, 1.4) * (0.7 + 0.3 * side), q2 = (by * 16 + bxx) * 4;
+              bi.data[q2] = bi.data[q2 + 1] = bi.data[q2 + 2] = 255; bi.data[q2 + 3] = Math.round(255 * a);
+            }
+            bx.putImageData(bi, 0, 0); bt.refresh(); bt.setFilter(Phaser.Textures.FilterMode.LINEAR);
+          }
+          s.beam = self.add.image(d.x, d.y + 4, 'loot_beam').setOrigin(0.5, 1).setBlendMode(ADD).setTint(col).setDepth(d.y - 1).setDisplaySize(10 + s.rar * 2, bm[0]);
+          s.beamA = bm[1];
+        }
         return s;
       }, function (s, d) {
-        s.setPosition(d.x, d.y + ([0, -1, -2, -1][((tick >> 3) + d.id) & 3]));
+        var bob = s.hdLoot ? 0 : [0, -1, -2, -1][((tick >> 3) + d.id) & 3];
+        s.setPosition(d.x, d.y - (s.hdLoot ? 2 : 0) + bob);
+        if (s.beam) s.beam.setPosition(d.x, d.y + 4).setAlpha(s.beamA * (0.75 + 0.25 * Math.sin((tick + d.id * 13) / 14)));
         if ((tick + d.id * 7) % 24 === 0) self.fx.burst(d.x, d.y - 2, d.item ? UI.RARITY[s.rar] : 'tome2', 1 + (s.rar > 1 ? 1 : 0), 14, 0.6);
       });
 
@@ -484,7 +512,7 @@
         update(s, arr[i]);
       }
       if (map.size !== arr.length) {
-        map.forEach(function (sp, id) { if (sp.seen !== seen) { if (sp.sh) sp.sh.destroy(); if (sp.gl) sp.gl.destroy(); if (sp.rig) sp.rig.destroy(); sp.destroy(); map.delete(id); } });
+        map.forEach(function (sp, id) { if (sp.seen !== seen) { if (sp.sh) sp.sh.destroy(); if (sp.gl) sp.gl.destroy(); if (sp.beam) sp.beam.destroy(); if (sp.rig) sp.rig.destroy(); sp.destroy(); map.delete(id); } });
       }
     },
 
