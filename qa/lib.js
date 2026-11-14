@@ -22,7 +22,7 @@ async function open(browser, query, size, opts) {
   const page = await ctx.newPage();
   const errors = [];
   page.on('console', m => { if (m.type() === 'error' && !NOISE.some(r => r.test(m.text()))) errors.push('console: ' + m.text()); });
-  page.on('pageerror', e => errors.push('uncaught: ' + e.message));
+  page.on('pageerror', e => { errors.push('uncaught: ' + e.message); if (process.env.TV) console.log('STACK', e.stack); });
   // the QA sizes are windows, not phones: no quarter turn (src/main.js) unless the test asks for it
   query = query || '';
   if (!/[?&]rotate=/.test(query)) query += (query.indexOf('?') < 0 ? '?' : '&') + 'rotate=0';

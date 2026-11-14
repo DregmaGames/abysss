@@ -24,7 +24,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
 
 async function run(name, cfg, browser) {
   const results = [];
-  const check = (n, ok, detail) => { results.push({ n, ok: !!ok, detail: detail || '' }); if (!ok) console.log('  FAIL ' + name + ': ' + n + (detail ? '  -> ' + detail : '')); };
+  const check = (n, ok, detail) => { results.push({ n, ok: !!ok, detail: detail || '' }); if (process.env.TV) console.log('    ' + (ok ? 'ok ' : 'NO ') + n); if (!ok) console.log('  FAIL ' + name + ': ' + n + (detail ? '  -> ' + detail : '')); };
   const touch = cfg.touch, V = Q.SIZES[cfg.size], t0 = Date.now();
   const page = await Q.open(browser, `?seed=5&fresh=1&tutorial=1&lang=${cfg.lang}&class=${cfg.cls}&speed=2`, cfg.size, { touch });
   const cdp = touch ? await page.context().newCDPSession(page) : null;
@@ -151,12 +151,13 @@ async function run(name, cfg, browser) {
     // ----------------------------------------------------------- title -> the forced tutorial room
     await wait(400);
     const st0 = await page.evaluate(() => ({ screen: G.screen, state: G.save.hints.tut.state, cls: G.cls }));
-    check('a fresh save starts with the tutorial pending', st0.screen === 'title' && st0.state === 'pending' && st0.cls === cfg.cls, JSON.stringify(st0));
-    check('the title offers a TUTORIAL button', !!(await hit('title_tutorial')));
-    await clickHit('start');
+    check('a fresh save starts on the main menu with the tutorial pending', st0.screen === 'menu' && st0.state === 'pending' && st0.cls === cfg.cls, JSON.stringify(st0));
+    check('the main menu offers PLAY', !!(await hit('menu_play')));
+    await clickHit('menu_play'); await wait(300);
+    await clickHit('pick_' + cfg.cls);      // the hero choice; a fresh save goes on to the tutorial room
     await until(async () => (await S()).screen === 'game', 8000, 'the tutorial room after ENTER');
     const inTut = await page.evaluate(() => !!(G.tutorial && G.gameScene.sim.tut));
-    check('ENTER THE CITY on a fresh save goes to the tutorial room (after the class pick)', inTut);
+    check('PLAY + a hero on a fresh save goes to the tutorial room', inTut);
     if (touch) await page.evaluate(() => { G.touch = true; G.hud.build(); });      // the buttons show once a finger was seen (a real first touch does this)
     await wait(300);
 
@@ -357,6 +358,7 @@ async function run(name, cfg, browser) {
     await wait(1200);
     r = await R(); check('merchant: waits until his screen opens', r.T.id === 'merchant' && !r.merch && !r.gates.merchant);
     const mx = Math.round((r.merchant.x - r.wv.x) * r.S), my = Math.round((r.merchant.y - r.wv.y - 6) * r.S);
+    if (process.env.TV) console.log('TAP', mx, my, JSON.stringify(await page.evaluate(([x, y]) => Object.entries(G.qa.hits).filter(([k, h]) => Math.abs(h.x - x) < 60 && Math.abs(h.y - y) < 60), [mx, my])));
     await tapAt(mx, my); await wait(400);
     r = await R(); check('merchant: tapping him opened his screen and finished the step', r.merch && r.gates.merchant === true, JSON.stringify(r.gates));
     await clickHit('merch_close'); await wait(300);

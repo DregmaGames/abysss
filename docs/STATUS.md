@@ -1064,3 +1064,11 @@ tutorial) with a back arrow top left. City "end" and the run's quit go to 'menu'
 waiting for the art) else the dim generated room; embers rise. ui.js: UI.skin overlays HD hot / down copies instead of re-framing
 the nine-slice (re-framing broke its size). Checked: main, credits, heroes, pick at 960x540, 844x390, 667x375 (EN / ES), M and
 back, 0 console errors, check_i18n.
+
+Tutorial freeze fixes (2026-11-14; the user: "cuando apretás skip y skip tutorial se cuelga el juego"):
+1. Skip outside the tutorial room (the city's and the run's tips): the YES branch did nothing but close the box and left G.paused
+   on: the game froze. Now every remaining gated step is marked done, state 'skipped' if pending, saved, unpaused (tutorial.js).
+2. Tutorial launched from the new main menu (PLAY -> hero on a fresh save): G.Tut.launch did not stop the 'menu' scene, so its
+   invisible buttons stayed live over the game; a tap there re-picked a hero and broke the run (glTexture crash). 'menu' added
+   to the scenes Tut.launch stops. qa/tutorial.js now goes menu -> PLAY -> hero (TV=1 prints each check and page error stacks).
+Checked: qa/tutorial.js all four configs pass (506 checks); skip in the city: unpaused, the hero moves.

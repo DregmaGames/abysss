@@ -43,7 +43,7 @@
     var g = G.game.scene;
     G.tutorial = true; G.testRoom = false; G.daily = null; G.paused = false;
     G.Panels.close(true); T.hide(); T.cityN = 0;
-    ['hud', 'cityhud', 'backdrop', 'city', 'title', 'game'].forEach(function (k) { var sc = g.getScene(k); if (sc && (g.isActive(k) || g.isPaused(k) || g.isSleeping(k))) g.stop(k); });
+    ['hud', 'cityhud', 'backdrop', 'city', 'title', 'menu', 'game'].forEach(function (k) { var sc = g.getScene(k); if (sc && (g.isActive(k) || g.isPaused(k) || g.isSleeping(k))) g.stop(k); });
     g.start('game');
   };
   T.leaveRoom = function () { G.tutorial = false; G.toCity(); };
@@ -58,7 +58,12 @@
     var bw = Math.floor((mw - 22) / 2);
     m.button(m.x + 8, m.y + 96 - 26, bw, 18, G.t('tut.skipYes'), function () {
       m.destroy(); T.confirm = null;
-      if (sim) { sim.tutEnd(false); T.settle(sim, 'skipped'); T.leaveRoom(); }
+      if (sim) { sim.tutEnd(false); T.settle(sim, 'skipped'); T.leaveRoom(); return; }
+      // outside the tutorial room (the city's and the run's tips): every remaining step is done, the game goes on.
+      // (Before, this branch did nothing and left G.paused on: the game froze. Reported 2026-11-14.)
+      var t = tut(); ['city', 'card', 'choice', 'merchant', 'cage'].forEach(function (k) { t.steps[k] = true; });
+      if (t.state === 'pending') t.state = 'skipped';
+      G.storeSave(G.save); T.hide(); G.paused = was;
     }, { name: 'tut_skip_yes', color: 'ui_warn' });
     m.button(m.x + 14 + bw, m.y + 96 - 26, bw, 18, G.t('tut.skipNo'), function () { m.destroy(); T.confirm = null; G.paused = was; }, { name: 'tut_skip_no' });
   };
