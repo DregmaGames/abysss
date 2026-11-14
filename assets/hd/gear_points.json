@@ -1,0 +1,869 @@
+{
+"archer_bare_attack_0": {
+"cap": [
+13.5,
+0,
+17
+],
+"off": null
+},
+"archer_bare_attack_1": {
+"cap": [
+22.5,
+0,
+17
+],
+"off": [
+5.6,
+18.9
+]
+},
+"archer_bare_hurt": {
+"cap": [
+19.0,
+7,
+17
+],
+"off": [
+1.7,
+33.4
+]
+},
+"archer_bare_idle_0": {
+"cap": [
+11.5,
+0,
+17
+],
+"off": [
+1.0,
+29.4
+]
+},
+"archer_bare_skill_0": {
+"cap": [
+16.0,
+4,
+17
+],
+"off": null
+},
+"archer_bare_skill_1": {
+"cap": [
+18.5,
+2,
+17
+],
+"off": [
+4.8,
+16.2
+]
+},
+"archer_bare_skill_2": {
+"cap": [
+11.0,
+9,
+17
+],
+"off": null
+},
+"archer_bare_skill_3": {
+"cap": [
+12.5,
+0,
+17
+],
+"off": [
+5.9,
+17.0
+]
+},
+"archer_bare_walk_0": {
+"cap": [
+13.5,
+0,
+17
+],
+"off": [
+2.1,
+25.6
+]
+},
+"archer_bare_walk_1": {
+"cap": [
+11.5,
+0,
+17
+],
+"off": [
+17.0,
+23.5
+]
+},
+"archer_bare_walk_2": {
+"cap": [
+15.5,
+0,
+17
+],
+"off": [
+22.3,
+23.0
+]
+},
+"archer_bare_walk_3": {
+"cap": [
+11.5,
+0,
+17
+],
+"off": [
+0.3,
+26.2
+]
+},
+"mage_bare_attack_0": {
+"cap": [
+19.0,
+4,
+16
+],
+"off": [
+24.0,
+37.3
+]
+},
+"mage_bare_attack_1": {
+"cap": [
+19.0,
+0,
+16
+],
+"off": [
+22.7,
+32.9
+]
+},
+"mage_bare_hurt": {
+"cap": [
+12.5,
+3,
+16
+],
+"off": [
+15.4,
+35.7
+]
+},
+"mage_bare_idle_0": {
+"cap": [
+12.0,
+0,
+16
+],
+"off": [
+15.8,
+36.8
+]
+},
+"mage_bare_skill_0": {
+"cap": [
+18.5,
+0,
+16
+],
+"off": [
+22.1,
+29.6
+]
+},
+"mage_bare_skill_1": {
+"cap": [
+21.0,
+3,
+16
+],
+"off": [
+12.4,
+37.4
+]
+},
+"mage_bare_skill_2": {
+"cap": [
+10.5,
+0,
+16
+],
+"off": [
+14.3,
+36.4
+]
+},
+"mage_bare_skill_3": {
+"cap": [
+14.0,
+0,
+16
+],
+"off": [
+18.0,
+29.5
+]
+},
+"mage_bare_walk_0": {
+"cap": [
+15.0,
+0,
+16
+],
+"off": [
+19.1,
+35.3
+]
+},
+"mage_bare_walk_1": {
+"cap": [
+13.0,
+0,
+16
+],
+"off": [
+3.4,
+28.1
+]
+},
+"mage_bare_walk_2": {
+"cap": [
+17.0,
+0,
+16
+],
+"off": [
+21.2,
+35.3
+]
+},
+"mage_bare_walk_3": {
+"cap": [
+12.0,
+0,
+16
+],
+"off": [
+2.6,
+27.9
+]
+},
+"mage_chain_attack_0": {
+"cap": [
+18.0,
+4,
+16
+],
+"off": null
+},
+"mage_chain_attack_1": {
+"cap": [
+17.0,
+0,
+16
+],
+"off": null
+},
+"mage_chain_hurt": {
+"cap": [
+12.0,
+3,
+16
+],
+"off": [
+16.0,
+37.5
+]
+},
+"mage_chain_idle_0": {
+"cap": [
+15.0,
+0,
+16
+],
+"off": [
+6.4,
+28.2
+]
+},
+"mage_chain_walk_0": {
+"cap": [
+17.0,
+0,
+16
+],
+"off": [
+6.7,
+27.5
+]
+},
+"mage_chain_walk_1": {
+"cap": [
+16.0,
+0,
+16
+],
+"off": [
+7.2,
+28.0
+]
+},
+"mage_chain_walk_2": {
+"cap": [
+17.0,
+0,
+16
+],
+"off": [
+7.0,
+28.2
+]
+},
+"mage_chain_walk_3": {
+"cap": [
+16.0,
+0,
+16
+],
+"off": [
+7.0,
+27.8
+]
+},
+"mage_leather_attack_0": {
+"cap": [
+18.5,
+4,
+17
+],
+"off": null
+},
+"mage_leather_attack_1": {
+"cap": [
+18.5,
+0,
+17
+],
+"off": null
+},
+"mage_leather_hurt": {
+"cap": [
+12.0,
+3,
+17
+],
+"off": [
+23.5,
+17.0
+]
+},
+"mage_leather_idle_0": {
+"cap": [
+11.5,
+0,
+17
+],
+"off": [
+3.2,
+28.9
+]
+},
+"mage_leather_walk_0": {
+"cap": [
+13.5,
+0,
+17
+],
+"off": [
+4.2,
+28.2
+]
+},
+"mage_leather_walk_1": {
+"cap": [
+13.5,
+0,
+17
+],
+"off": [
+3.6,
+28.4
+]
+},
+"mage_leather_walk_2": {
+"cap": [
+15.5,
+0,
+17
+],
+"off": [
+5.7,
+28.3
+]
+},
+"mage_leather_walk_3": {
+"cap": [
+12.5,
+0,
+17
+],
+"off": [
+2.8,
+28.4
+]
+},
+"mage_plate_attack_0": {
+"cap": [
+27.5,
+3,
+18
+],
+"off": null
+},
+"mage_plate_attack_1": {
+"cap": [
+26.5,
+0,
+18
+],
+"off": null
+},
+"mage_plate_hurt": {
+"cap": [
+23.5,
+2,
+18
+],
+"off": [
+16.8,
+38.4
+]
+},
+"mage_plate_idle_0": {
+"cap": [
+23.0,
+0,
+18
+],
+"off": [
+21.7,
+33.2
+]
+},
+"mage_plate_walk_0": {
+"cap": [
+25.0,
+1,
+18
+],
+"off": [
+16.5,
+38.8
+]
+},
+"mage_plate_walk_1": {
+"cap": [
+26.0,
+1,
+18
+],
+"off": null
+},
+"mage_plate_walk_2": {
+"cap": [
+26.0,
+1,
+18
+],
+"off": [
+24.6,
+36.2
+]
+},
+"mage_plate_walk_3": {
+"cap": [
+26.0,
+1,
+18
+],
+"off": [
+3.0,
+34.5
+]
+},
+"warrior_bare_attack_0": {
+"cap": [
+25.0,
+0,
+16
+],
+"off": [
+23.9,
+21.7
+]
+},
+"warrior_bare_attack_1": {
+"cap": [
+23.0,
+0,
+16
+],
+"off": [
+27.8,
+24.4
+]
+},
+"warrior_bare_hurt": {
+"cap": [
+18.5,
+4,
+16
+],
+"off": [
+18.5,
+28.5
+]
+},
+"warrior_bare_idle_0": {
+"cap": [
+16.0,
+0,
+16
+],
+"off": [
+15.2,
+23.2
+]
+},
+"warrior_bare_skill_0": {
+"cap": [
+16.0,
+0,
+16
+],
+"off": [
+25.2,
+15.6
+]
+},
+"warrior_bare_skill_1": {
+"cap": [
+14.5,
+2,
+16
+],
+"off": [
+12.6,
+19.5
+]
+},
+"warrior_bare_skill_2": {
+"cap": [
+10.5,
+1,
+16
+],
+"off": [
+12.8,
+17.5
+]
+},
+"warrior_bare_skill_3": {
+"cap": [
+22.0,
+0,
+16
+],
+"off": [
+13.0,
+18.3
+]
+},
+"warrior_bare_walk_0": {
+"cap": [
+17.0,
+0,
+16
+],
+"off": [
+22.4,
+26.8
+]
+},
+"warrior_bare_walk_1": {
+"cap": [
+17.0,
+0,
+16
+],
+"off": [
+22.3,
+25.8
+]
+},
+"warrior_bare_walk_2": {
+"cap": [
+18.0,
+0,
+16
+],
+"off": [
+24.0,
+26.3
+]
+},
+"warrior_bare_walk_3": {
+"cap": [
+17.0,
+0,
+16
+],
+"off": [
+17.1,
+21.2
+]
+},
+"warrior_chain_attack_0": {
+"cap": [
+25.0,
+0,
+16
+],
+"off": null
+},
+"warrior_chain_attack_1": {
+"cap": [
+23.0,
+0,
+16
+],
+"off": [
+27.8,
+24.7
+]
+},
+"warrior_chain_hurt": {
+"cap": [
+18.0,
+4,
+16
+],
+"off": null
+},
+"warrior_chain_idle_0": {
+"cap": [
+16.0,
+0,
+16
+],
+"off": [
+3.9,
+28.7
+]
+},
+"warrior_chain_walk_0": {
+"cap": [
+17.0,
+0,
+16
+],
+"off": [
+23.3,
+27.4
+]
+},
+"warrior_chain_walk_1": {
+"cap": [
+17.0,
+0,
+16
+],
+"off": [
+4.6,
+28.2
+]
+},
+"warrior_chain_walk_2": {
+"cap": [
+17.0,
+0,
+16
+],
+"off": [
+23.8,
+27.4
+]
+},
+"warrior_chain_walk_3": {
+"cap": [
+16.0,
+0,
+16
+],
+"off": [
+4.3,
+28.1
+]
+},
+"warrior_leather_attack_0": {
+"cap": [
+23.0,
+0,
+16
+],
+"off": null
+},
+"warrior_leather_attack_1": {
+"cap": [
+21.0,
+0,
+16
+],
+"off": [
+8.8,
+17.2
+]
+},
+"warrior_leather_hurt": {
+"cap": [
+17.0,
+4,
+16
+],
+"off": [
+30.0,
+30.5
+]
+},
+"warrior_leather_idle_0": {
+"cap": [
+15.0,
+0,
+16
+],
+"off": [
+21.3,
+27.7
+]
+},
+"warrior_leather_walk_0": {
+"cap": [
+16.0,
+0,
+16
+],
+"off": [
+5.6,
+20.1
+]
+},
+"warrior_leather_walk_1": {
+"cap": [
+16.0,
+0,
+16
+],
+"off": [
+5.6,
+20.3
+]
+},
+"warrior_leather_walk_2": {
+"cap": [
+16.0,
+0,
+16
+],
+"off": [
+7.3,
+29.3
+]
+},
+"warrior_leather_walk_3": {
+"cap": [
+16.0,
+0,
+16
+],
+"off": [
+5.4,
+20.7
+]
+},
+"warrior_plate_attack_0": {
+"cap": [
+24.5,
+0,
+17
+],
+"off": [
+31.2,
+29.0
+]
+},
+"warrior_plate_attack_1": {
+"cap": [
+21.5,
+0,
+17
+],
+"off": null
+},
+"warrior_plate_hurt": {
+"cap": [
+18.0,
+4,
+17
+],
+"off": null
+},
+"warrior_plate_idle_0": {
+"cap": [
+15.5,
+0,
+17
+],
+"off": [
+22.3,
+29.9
+]
+},
+"warrior_plate_walk_0": {
+"cap": [
+16.5,
+0,
+17
+],
+"off": null
+},
+"warrior_plate_walk_1": {
+"cap": [
+16.5,
+0,
+17
+],
+"off": null
+},
+"warrior_plate_walk_2": {
+"cap": [
+16.5,
+0,
+17
+],
+"off": null
+},
+"warrior_plate_walk_3": {
+"cap": [
+15.5,
+0,
+17
+],
+"off": null
+}
+}

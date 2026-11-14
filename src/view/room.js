@@ -10,7 +10,7 @@
   // red, red-orange and orange start; heat: the middle's ramp index = heat[0] + noise x heat[1];
   // flames: open core px per flame a second, cap per crack, life (ticks), rise (px/tick); embers: share of the flames.
   var LAVA = { flow: [0.05, 0.02, -0.035, 0.03], ramp: ['#170507', '#4a0e08', '#962210', '#d23c10', '#f26818', '#ff9a26', '#ffc84a', '#fff0a8'],
-    bands: [0.3, 0.55, 0.75], heat: [3.6, 2.9], crust: 0.3, every: 3, flames: 9, cap: 80, capBig: 140, life: [28, 56], rise: [0.25, 0.55], embers: 0.25, glow: 'em2',
+    bands: [0.3, 0.55, 0.75], heat: [3.9, 2.6, 2.2], crust: 0.3, every: 3, flames: 9, cap: 80, capBig: 140, life: [28, 56], rise: [0.25, 0.55], embers: 0.25, glow: 'em2',
     // heat on the floor round the crack (R px, peak alpha), the pulse running along it (waves over the crack, speed, strength),
     // bubbles a second per middle px, smoke: share of the flames, its colour and alpha
     heatR: 8, heatA: 0.5, wave: [26, 0.045, 0.9], bubbles: 1 / 160, smoke: 0.16, smokeCol: 0x2a2228, smokeA: 0.4 };
@@ -26,7 +26,7 @@
     for (i = 0; i < N * N; i++) a[i] = (a[i] - lo) / (hi - lo);
     return a;
   })();
-  var RAMP = null;
+  var RAMP = null, BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(function (b) { return (b + 0.5) / 16; });
   // HD fissure (the user's reference, 2026-11-13: lumpy rock lip, a red seam, the far wall dripping into the pit, lava below,
   // sparkles; drawn at the HD art's density so it is not chunky). S: sub px per room px; pad: room px of lip outside the crack;
   // edge / pit: where the smoothed field (outside -1, crack 0.5, pit 1) starts the crack and the pit; pitMid: the crack px whose
@@ -51,8 +51,10 @@
     if (wv > 0.75 && m >= B[0]) m += 0.25;
     if (m < B[0]) return v > 0.8 ? RAMP[2] : (h % 6 === 0 ? RAMP[1] : RAMP[0]);           // the black wall, a red glint
     if (m < B[1]) return v > 0.6 ? RAMP[3] : RAMP[2];                                     // red, going in
-    if (m < B[2]) return v > 0.55 ? RAMP[4] : RAMP[3];                                    // red-orange
-    return RAMP[Math.max(4, Math.min(RAMP.length - 1, Math.round(LAVA.heat[0] + v * LAVA.heat[1] + (h & 3) * 0.08 + Math.max(0, wv) * LAVA.wave[2])))];   // the middle: orange lava, yellow streaks
+    if (m < B[2]) return (m - B[1]) / (B[2] - B[1]) * 0.6 + v * 0.5 > BAYER[(y & 3) * 4 + (x & 3)] + 0.2 ? RAMP[4] : RAMP[3];      // red-orange, dithered
+    // the middle: orange lava fading into yellow; between two colours an ordered (Bayer 4 x 4) dither, so they blend instead of banding
+    var fi = Math.max(4, Math.min(RAMP.length - 1.001, LAVA.heat[0] + v * LAVA.heat[1] + Math.max(0, wv) * LAVA.wave[2] + (m - B[2]) * LAVA.heat[2])), b0 = Math.floor(fi);
+    return RAMP[fi - b0 > BAYER[(y & 3) * 4 + (x & 3)] ? b0 + 1 : b0];
   }
   function rimCol(h, tick) { if (!RAMP) lavaCol({ x: 0, y: 0 }, 0, 0, 0); return (h + (tick >> 4)) % 17 === 0 ? RAMP[1] : RAMP[0]; }
 

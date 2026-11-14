@@ -421,7 +421,7 @@
         kH *= Math.max(0.05, 1 - 0.95 * e);
       }
       var hd = this.prig.update(G.paused ? 0 : dt, { x: hx, y: hy, ground: hy - 1, face: this.face, tx: null, state: 'walk', speed: C.base.speed, depth: this.py, k: kH,
-        glow: G.HD.glowOf(ceq.weapon), weapon: G.HD.heroWeapon(this.prig.ent, C, ceq), trim: G.HD.trimColor(ceq) });
+        glow: G.HD.glowOf(ceq.weapon), weapon: G.HD.heroWeapon(this.prig.ent, C, ceq), trim: G.HD.trimColor(ceq), helm: G.HD.heroHelm(C.id, ceq), shield: G.HD.heroShield(ceq) });
       if (!hd) {
         if (this.player.isHD || this.player.texture.key !== 'atlas') G.HD.chunky(this.player, C.sprite.frames + '_0');
         var walk = this.moving ? ((this.frame >> 3) & 1) : 0;

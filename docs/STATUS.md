@@ -991,3 +991,14 @@ taper 0.8): node bot 5 seeds went from 4 wins (avg 9 rooms) to 0 (7.2 rooms) and
 Instead the HD drawing: the whole sim crack is lava pit (outline smoothed by a 3x3 average, every crack px kept inside), the rock lip
 is drawn OUTSIDE it on the floor (HDF.lip: 4 sub px solid, lumps to 10), heat radius 8. The far-wall drips now show in most of the
 pit. Each crack redraws on its own frame phase (paint ~1-3 ms per crack per redraw, every 3 ticks). Sealed: dark rock, red seam.
+
+Helmets and shields drawn on the hero (2026-11-14; the user equipped a helmet and a shield and saw nothing). tools/gear_points.py:
+per hero frame `cap` [head centre x, crown y, head width] (the face of the look's own idle frame matched in each frame; hurt
+frames and poor matches use the hair's top rows) and `off` [free hand x, y] (the skin blob below the head that is not the
+weapon's fist) -> assets/hd/gear_points.json -> atlas meta. Art: the six Grok helmets and three shields cut from
+assets/gear_src (helmets' dark insides made see-through so the face shows; their cyan trim painted dark grey for now: no rarity
+tint yet). G.ANIM.helmArt (per class x material), helmFit (top / brim), shieldArt (by material); G.HD.heroHelm / heroShield;
+G.Rig draws them through the sprite's origin, scale and tilt (the shield behind the body when the free hand is the back one).
+?helm=0|1|2 / ?shield=0|1|2 preview. Lava: more yellow, Bayer-dithered between colours.
+Checked: close-ups of 8 class/look/helmet/shield cases standing, walking both ways and attacking, qa/equip.js, 0 console errors.
+Rough: the helmet's trim takes no rarity colour; gloves and boots are not drawn; the mage with a shield looks odd (allowed by the loot).

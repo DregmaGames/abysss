@@ -503,6 +503,7 @@ def pack():
     W = 512
     order = sorted(items, key=lambda k: (-items[k].shape[0], k))
     x = y = 1; rowh = 0; place = []; points = json.load(open(os.path.join(HD, 'fx_points.json'))) if os.path.exists(os.path.join(HD, 'fx_points.json')) else {}; hands = json.load(open(os.path.join(HD, 'hand_points.json'))) if os.path.exists(os.path.join(HD, 'hand_points.json')) else {}
+    gear = json.load(open(os.path.join(HD, 'gear_points.json'))) if os.path.exists(os.path.join(HD, 'gear_points.json')) else {}
     frames = {}
     for k in order:
         h, w = items[k].shape[:2]
@@ -514,6 +515,10 @@ def pack():
             frames[k]['head'] = points[k]      # the weapon's glowing head, px from the frame's top left (tools/weapon_fx.py)
         if k in hands:
             frames[k]['hand'] = hands[k]       # where a held weapon goes: x, y, degrees, length (tools/hand_weapon.py)
+        if k in gear:
+            frames[k]['cap'] = gear[k]['cap']      # the head: centre x, top y, width (tools/gear_points.py): the helmet
+            if gear[k]['off']:
+                frames[k]['off'] = gear[k]['off']  # the free hand: the shield
         rowh = max(rowh, h); x += w + 1
     H = 1
     while H < y + rowh + 1:

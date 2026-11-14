@@ -65,6 +65,19 @@
       var fr = has ? set : A.wpnArt[wt] || A.wpnArt.any;
       return fr ? { frame: fr, glow: HD.glowOf(item), grip: has ? A.wpnGripByType[wt] : null, upright: wt === 'bow' } : null;
     },
+    // the helmet and the shield to draw (null = none): by the equipped item's material; ?helm=0|1|2 / ?shield=0|1|2 preview one
+    heroHelm: function (clsId, eq) {
+      var p = G.params.get('helm'), it = eq && eq.helmet, m = p != null ? +p : it ? (it.mat != null ? it.mat : 1) : null, A = G.ANIM.helmArt[clsId];
+      if (m == null || p === '-1' || !A) return null;
+      var fr = A[Math.max(0, Math.min(2, m | 0))];
+      return G.game.textures.get('hd').has(fr) ? { frame: fr, fit: G.ANIM.helmFit[fr] || { top: 3 } } : null;
+    },
+    heroShield: function (eq) {
+      var p = G.params.get('shield'), it = eq && eq.shield, m = p != null ? +p : it ? (it.mat != null ? it.mat : 1) : null;
+      if (m == null || p === '-1') return null;
+      var fr = G.ANIM.shieldArt[Math.max(0, Math.min(2, m | 0))];
+      return G.game.textures.get('hd').has(fr) ? { frame: fr } : null;
+    },
     // the tint of a glow at time t: one colour, or a slow walk round `cycle`
     glowColor: function (g, t) {
       if (!g.cycle) return g.color;
@@ -169,11 +182,11 @@
     if (dir) { this.face = dir; this.flipT = 0; }
   };    // an attack with no wind-up (the hero's)
   R.hurt = function (fromX) { this.hit = 0.2; this.hitDir = sign(this.img.x - fromX); };
-  R.destroy = function () { this.shadow.destroy(); if (this.glowImg) this.glowImg.destroy(); if (this.wpnImg) { this.wpnImg.destroy(); this.wpnGlow.destroy(); } if (this.trimImg) this.trimImg.destroy(); };
+  R.destroy = function () { this.shadow.destroy(); if (this.glowImg) this.glowImg.destroy(); if (this.wpnImg) { this.wpnImg.destroy(); this.wpnGlow.destroy(); } if (this.trimImg) this.trimImg.destroy(); if (this.helmImg) this.helmImg.destroy(); if (this.shieldImg) this.shieldImg.destroy(); };
 
   R.update = function (dt, o) {
     var img = this.img, scene = this.scene, M = this.motion();
-    if (!HD.frames(scene, this.ent, 'idle') && !HD.frames(scene, this.ent, o.state)) { this.hdOn = false; this.shadow.setVisible(false); if (this.glowImg) this.glowImg.setVisible(false); if (this.wpnImg) { this.wpnImg.setVisible(false); this.wpnGlow.setVisible(false); } if (this.trimImg) this.trimImg.setVisible(false); this.lx = null; return false; }
+    if (!HD.frames(scene, this.ent, 'idle') && !HD.frames(scene, this.ent, o.state)) { this.hdOn = false; this.shadow.setVisible(false); if (this.glowImg) this.glowImg.setVisible(false); if (this.wpnImg) { this.wpnImg.setVisible(false); this.wpnGlow.setVisible(false); } if (this.trimImg) this.trimImg.setVisible(false); if (this.helmImg) this.helmImg.setVisible(false); if (this.shieldImg) this.shieldImg.setVisible(false); this.lx = null; return false; }
     this.hdOn = true;
     // movement since the last frame (sim feet position); a jump (new room, dodge) does not count as walking
     if (this.lx === null) { this.lx = o.x; this.ly = o.y; }
@@ -306,6 +319,32 @@
         .setAlpha(wal * (wgd.min + (wgd.max - wgd.min) * (0.5 + 0.5 * Math.sin(this.t * 6.2832 / (wgd.period || 1.4)))));
       else wg.setVisible(false);
     } else if (wi) { wi.setVisible(false); wg.setVisible(false); }
+    // the helmet (o.helm = { frame, fit }) on the head (meta.cap = centre x, crown y, head width) and the shield (o.shield =
+    // { frame }) in the free hand (meta.off; with none, on the chest), turned and squashed with the body
+    var bd = o.depth != null ? o.depth : img.depth, gal = o.alpha == null ? 1 : o.alpha, self = this;
+    function toWorld(fx, fy) {      // a frame px -> the world, through the sprite's origin, scale and tilt (round the feet)
+      var dx = ((flip ? W - fx : fx) - img.originX * W) * img.scaleX, dy = (fy - img.originY * H) * img.scaleY, c = Math.cos(rq), sn = Math.sin(rq);
+      return [o.x + dx * c - dy * sn, o.y + dx * sn + dy * c];
+    }
+    function piece(key, want, fx, fy, ox2, oy2, depth) {
+      var pi = self[key];
+      if (!want) { if (pi) pi.setVisible(false); return; }
+      if (!pi) pi = self[key] = scene.add.image(0, 0, 'hd', want);
+      if (pi.frame.name !== want) pi.setFrame(want, false, false);
+      var pw = toWorld(fx, fy);
+      pi.setVisible(true).setFlipX(flip).setOrigin(flip ? 1 - ox2 : ox2, oy2).setScale(img.scaleX, img.scaleY).setRotation(rq).setPosition(pw[0], pw[1]).setDepth(depth).setAlpha(gal);
+    }
+    var hm = o.helm, cap = meta.cap;
+    if (hm && cap && img.visible) {
+      var ft = hm.fit;
+      if (ft.brim != null) piece('helmImg', hm.frame, cap[0], cap[1] + ft.drop, 0.5, ft.brim, bd + 0.015);
+      else piece('helmImg', hm.frame, cap[0], cap[1] - ft.top, 0.5, 0, bd + 0.015);
+    } else piece('helmImg', null);
+    var sd = o.shield;
+    if (sd && cap && img.visible) {
+      var off = meta.off, front = off ? off[0] >= cap[0] - 2 : true, sx2 = off ? off[0] : cap[0] + cap[2] * 0.25, sy2 = off ? off[1] : H * 0.6;
+      piece('shieldImg', sd.frame, sx2, sy2, 0.5, 0.5, bd + (front ? 0.012 : -0.012));
+    } else piece('shieldImg', null);
     // soft contact shadow: as wide as the feet, smaller while the body is up
     var fw = Math.max(8, ((meta.foot || W * 0.6) / D) * 1.15 + 4) * k, lift = 1 - Math.max(0, -oyq) * 0.04;
     var sw = Math.round(fw * lift / 2) * 2;

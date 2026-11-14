@@ -37,6 +37,13 @@
     trimByRarity: [0xb08850, 0x6eaaff, 0xffd84a, 0xcc80ff, 0xff9434],
     // the body sheet by the body armour's material (item.mat: 0 light, 1 medium, 2 heavy; an item without one counts as heavy)
     armorLook: ['leather', 'chain', 'plate'],
+    // helmets and shields (visible equipment): the art per class and material (0 light, 1 medium, 2 heavy). Helmets sit on the
+    // head the frame meta `cap` gives (tools/gear_points.py): `top` = their top this many HD px above the crown; hats sit on
+    // their brim: `brim` = the share of their height where the brim meets the head, put `drop` px below the crown.
+    // A shield is held in the free hand (meta `off`), in front of the body when that hand is the front one.
+    helmArt: { warrior: ['helm_fur', 'helm_coif', 'helm_plate'], archer: ['helm_ranger', 'helm_coif', 'helm_plate'], mage: ['helm_hood', 'helm_wizard', 'helm_wizard'] },
+    helmFit: { helm_fur: { top: 3 }, helm_coif: { top: 3 }, helm_plate: { top: 3 }, helm_hood: { top: 3 }, helm_wizard: { brim: 0.78, drop: 5 }, helm_ranger: { brim: 0.7, drop: 4 } },
+    shieldArt: ['shield_round', 'shield_banded', 'shield_kite'],
     // held weapon art by weapon type (frames wpn_<name> of the HD atlas); `any`: the one drawn for a type with no art yet
     wpnArt: { sword: 'wpn_sword', staff: 'wpn_staff', any: null },      // fallback art by type when the rarity set is missing; null = nothing in the hand
     // held weapons by rarity (tools/weapon_sheet.py): wpn_<type>_<n>, n = 0 common, 1 magic, 2 rare, 3 legendary, 4 mythic, 5 unique.
