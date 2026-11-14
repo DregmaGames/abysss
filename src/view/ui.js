@@ -84,9 +84,22 @@
   };
   UI.centerX = function (t, cx) { t.x = Math.round(cx - t.width / 2); return t; };
 
+  // HD skins (the user's Grok buttons, tools/ui_import.py): frame -> [hd frame, left, right, top, bottom border in HD px]. In the
+  // HD art mode a button frame is a nine-slice of the HD art at half scale; otherwise the chunky atlas frame.
+  UI.HDF = { btn: ['ui_btn', 20, 20, 14, 14], btn_hot: ['ui_btn_hot', 20, 20, 14, 14], btn_down: ['ui_btn_down', 20, 20, 14, 14],
+    btn_main: ['ui_main', 20, 20, 14, 14], btn_main_hot: ['ui_main_hot', 20, 20, 14, 14], btn_main_down: ['ui_main_down', 20, 20, 14, 14] };
+  UI.HDICON = { i_gear: 'ui_i_gear', i_close: 'ui_i_close', arrow_l: 'ui_i_left', arrow_r: 'ui_i_right', i_bag: 'ui_i_bag' };
+  UI.hdUi = function (scene) { return !!(G.hdMode && G.hdStyle !== 'lo' && scene.textures.exists('hd') && scene.textures.get('hd').has('ui_btn')); };
   UI.panel = function (scene, x, y, w, h, key) {
+    var m = UI.HDF[key];
+    if (m && UI.hdUi(scene)) {
+      var p = scene.add.nineslice(Math.round(x), Math.round(y), 'hd', m[0], w * 2, h * 2, m[1], m[2], Math.min(m[3], h - 1), Math.min(m[4], h - 1)).setOrigin(0, 0).setScale(0.5);
+      p.hdSkin = true; return p;
+    }
     return scene.add.nineslice(Math.round(x), Math.round(y), 'atlas', key || 'panel', w, h, 4, 4, 4, 4).setOrigin(0, 0);
   };
+  // a button frame's look: normal / hot / down (the HD skin when the frame is one)
+  UI.skin = function (bg, key) { if (bg.iconSkin) return; bg.setFrame(bg.hdSkin ? (UI.HDF[key] || UI.HDF.btn)[0] : key); };
   UI.bar = function (scene, x, y, w, h, color) {
     return scene.add.image(x, y, 'atlas', 'px').setOrigin(0, 0).setDisplaySize(Math.max(0.01, w), h).setTint(UI.hex(color));
   };
@@ -103,13 +116,18 @@
     opts = opts || {};
     x = Math.round(x); y = Math.round(y);
     // opts.main: the gold call-to-action frame; opts.bold: the bold font (main buttons use it too)
-    var F0 = opts.main ? 'btn_main' : 'btn', F1 = opts.main ? 'btn_main_hot' : 'btn_hot';
-    var bg = UI.panel(scene, x, y, w, h, F0);
-    var t = UI.text(scene, 0, 0, label || '', opts.color, opts.main || opts.bold ? 'bold' : false);
-    var icon = opts.icon ? scene.add.image(x + (w >> 1), y + (h >> 1), 'atlas', opts.icon) : null;
+    var F0 = opts.main ? 'btn_main' : 'btn', F1 = opts.main ? 'btn_main_hot' : 'btn_hot', F2 = opts.main ? 'btn_main_down' : 'btn_down';
+    var hdi = opts.icon && UI.HDICON[opts.icon] && UI.hdUi(scene), bg;
+    if (hdi) {      // an HD icon button: the whole square is the user's art, stretched to the button (borders kept)
+      bg = scene.add.nineslice(x, y, 'hd', UI.HDICON[opts.icon], w * 2, h * 2, 10, 10, 10, 10).setOrigin(0, 0).setScale(0.5).setTint(0xdcdcdc);
+      bg.hdSkin = true; bg.iconSkin = true;
+    } else bg = UI.panel(scene, x, y, w, h, F0);
+    var gold = opts.main && bg.hdSkin;      // white text (dark outline baked in) on the gold HD button
+    var t = UI.text(scene, 0, 0, label || '', gold ? 'white' : opts.color, opts.main || opts.bold ? 'bold' : false);
+    var icon = opts.icon && !hdi ? scene.add.image(x + (w >> 1), y + (h >> 1), 'atlas', opts.icon) : null;
     var b = { bg: bg, t: t, icon: icon, enabled: true, x: x, y: y, w: w, h: h, objs: icon ? [bg, t, icon] : [bg, t] };
     b.setLabel = function (s, color) {
-      t.setText(s); if (color) t.setTint(UI.hex(color));
+      t.setText(s); if (color && !gold) t.setTint(UI.hex(color));
       // accented capitals (Ñ, Á...) rise 2 px over the line: move the label down so the mark clears the frame
       var ty = Math.round((h - 7) / 2) - 1;
       if (UI.RAISED.test(s)) ty += Math.max(0, Math.min(4 - ty, h - 10 - ty));
@@ -123,12 +141,13 @@
     b.setLabel(label || '');
     // touch: a finger needs about FINGER CSS px. A smaller button keeps its look and gets a hit box that reaches out around it.
     var need = G.finger || G.touch ? Math.ceil(UI.FINGER / G.view.S) : 0, ex = Math.max(0, Math.ceil((need - w) / 2)), ey = Math.max(0, Math.ceil((need - h) / 2));
-    bg.setInteractive({ hitArea: new Phaser.Geom.Rectangle(-ex, -ey, w + 2 * ex, h + 2 * ey), hitAreaCallback: Phaser.Geom.Rectangle.Contains, useHandCursor: true });
+    var hk = bg.hdSkin ? 2 : 1;      // the hit area is in the frame's own px (HD skins are drawn at half scale)
+    bg.setInteractive({ hitArea: new Phaser.Geom.Rectangle(-ex * hk, -ey * hk, (w + 2 * ex) * hk, (h + 2 * ey) * hk), hitAreaCallback: Phaser.Geom.Rectangle.Contains, useHandCursor: true });
     var back = opts.icon === 'i_close' || /(^|_)(close|back|resume)/.test(opts.name || '');
-    bg.on('pointerover', function () { if (b.enabled) { bg.setFrame(F1); if (!G.finger) G.audio.ui('hover'); } });
-    bg.on('pointerout', function () { bg.setFrame(F0); t.y = b.ty; });
-    bg.on('pointerup', function () { t.y = b.ty; });      // pressed (pointerdown below): the label sinks a px
-    bg.on('pointerdown', function (p) { if (p.rightButtonDown()) return; if (b.enabled) t.y = b.ty + 1; var live = b.enabled && bg.visible; b.click(); if (live) G.audio.ui(back ? 'back' : 'click'); });
+    bg.on('pointerover', function () { if (b.enabled) { UI.skin(bg, F1); if (bg.iconSkin) bg.setTint(0xffffff); if (!G.finger) G.audio.ui('hover'); } });
+    bg.on('pointerout', function () { UI.skin(bg, F0); if (bg.iconSkin) bg.setTint(0xdcdcdc); t.y = b.ty; });
+    bg.on('pointerup', function () { UI.skin(bg, G.finger ? F0 : F1); t.y = b.ty; });      // pressed (pointerdown below): the label sinks a px
+    bg.on('pointerdown', function (p) { if (p.rightButtonDown()) return; if (b.enabled) { t.y = b.ty + 1; UI.skin(bg, F2); if (bg.iconSkin) bg.setTint(0xb0b0b0); } var live = b.enabled && bg.visible; b.click(); if (live) G.audio.ui(back ? 'back' : 'click'); });
     if (opts.name) UI.hit(opts.name, x, y, w, h);
     return b;
   };

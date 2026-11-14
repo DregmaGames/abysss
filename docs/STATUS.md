@@ -1043,3 +1043,11 @@ class's HD idle portrait in a sunken box, arrows, name in bold gold, gear score 
 a pulsing glow; Daily / Practice / Tutorial in one row (stacked when narrow); settings as a gear icon top right; controls at the
 bottom; the seed + reroll small at the bottom left, hidden where there is no room. QA names kept (start, cls_l, cls_r, reroll,
 title_*). Checked: 960x540 EN, 540x960 ES, 640x360 ES, 8 named buttons each, 0 console errors, check_i18n.
+
+Grok UI buttons (2026-11-14): tools/ui_import.py cuts the user's sheets (6 wide buttons: gold / iron x normal, hover, pressed; 5
+square icon buttons: gear, close, left, right, bag) into assets/hd/ui_* (44 / 36 HD px tall, background-pink edge px turned to the
+outline). ui.js: UI.HDF (frame -> HD nine-slice + borders), UI.HDICON (icon -> HD square), UI.hdUi(scene), UI.skin(bg, key);
+in the HD art mode UI.panel draws btn / btn_hot / btn_down / btn_main* as an HD nine-slice at half scale (hit areas doubled), icon
+buttons are the HD squares (tint for hover / press), the gold main button gets white text. Old art modes keep the chunky frames.
+Checked: title 960x540, phone landscape 844x390, phone upright rotated 390x844, 667x375; inventory + item card 960x540 / 540x960;
+0 console errors. Waiting: the logo.

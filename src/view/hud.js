@@ -422,8 +422,8 @@
           var bg = m.panel(cx, cy, cw, ch, 'btn', 1);
           card(m, false, i, cx, cy);
           bg.setInteractive({ useHandCursor: true });
-          bg.on('pointerover', function () { bg.setFrame('btn_hot'); });
-          bg.on('pointerout', function () { bg.setFrame('btn'); });
+          bg.on('pointerover', function () { UI.skin(bg, 'btn_hot'); });
+          bg.on('pointerout', function () { UI.skin(bg, 'btn'); });
           bg.on('pointerdown', function () { if (!self.tooSoon()) self.pickLevel(i); });
           UI.hit('card_' + i, cx, cy, cw, ch);
         });
@@ -460,8 +460,8 @@
             });
             if (loss) m.text(x0 + 6, sy + 27, loss, 'ui_bad').setMaxWidth(inner - 12);
             bg.setInteractive({ useHandCursor: true });
-            bg.on('pointerover', function () { bg.setFrame('btn_hot'); });
-            bg.on('pointerout', function () { bg.setFrame('btn'); });
+            bg.on('pointerover', function () { UI.skin(bg, 'btn_hot'); });
+            bg.on('pointerout', function () { UI.skin(bg, 'btn'); });
             bg.on('pointerdown', function () { self.pickLevel(k); });
             UI.hit('slot_' + k, x0, sy, inner, sbh);
           })(k);
