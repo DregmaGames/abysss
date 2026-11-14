@@ -55,7 +55,7 @@
             n.starter = g.starter === true;
             G.giveStarter(n, B, id);
             // v9: the material of armour pieces. Items from before it (worn, kept bag, shop stock) get theirs from their id, written here so it stays.
-            n.bag.concat(SLOTS.map(function (k) { return n.equipped[k]; }), n.shop ? n.shop.stock : []).forEach(function (it) { G.fillMat(it, B); });
+            n.bag.concat(SLOTS.map(function (k) { return n.equipped[k]; }), n.shop ? n.shop.stock : []).forEach(function (it) { G.fillMat(it, B); G.fillWtype(it, B, id); });
             s.gears[id] = n;
           });
           s.v = 9;

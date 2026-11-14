@@ -1011,3 +1011,11 @@ walk, attack), rooms at 960x540 and 540x960, 0 console errors.
 Correction the same night (the user, on the full sheets: "siguen las armaduras y escudos"): with gear off the hero is the BASE
 sheet (<cls>_bare: no armour, no shield) with the equipped weapon in the hand, as before the armour looks; armour looks,
 trim, helmets and shields stay off (?gear=1 for all). Checked: the three classes standing, walking, attacking, 0 errors.
+
+Class-only weapons (2026-11-14; the user's archer wore a "staff" and showed a bow): the equip rules already refused other
+classes' typed weapons; the item was an UNTYPED weapon from a save older than weapon types (any class could wear it; icon
+i_weapon = the staff). Now: G.fillWtype (src/sim/items.js) gives such a weapon its owner class's starter type on load
+(src/save.js, with fillMat; "...Staff" renamed to the type's base, e.g. "Blazing Yew Longbow"); and G.rollItem picks a weapon
+drop's type among the played class's own types only (one draw as before). Checked: 3000 rolls per class (only own types), an
+old save with an untyped weapon equipped + one in the bag (both become bows, 0 errors), check_bag (only the known longCracks
+failure), node bot 10 seeds: 5 wins / 8.5 rooms (before 6 / 9.0: noise of different drops).

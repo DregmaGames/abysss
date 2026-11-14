@@ -41,6 +41,16 @@
   }
   // An item from an old save, an old export code or old shop stock: gives it its material (helmet, armor, shield, gloves, boots) from its
   // id, and its stored English name when that was the generator's old name. Other slots never carry one. Returns true when it changed.
+  // A weapon from a save older than weapon types has no `wtype` (any class could wield it, drawn with the staff icon): it becomes
+  // the owning class's own type (its starter type), and its base name follows ("Staff" -> "Short Bow").
+  G.fillWtype = function (it, B, clsId) {
+    if (!it || it.slot !== 'weapon' || it.wtype) return;
+    var wd = G.starterType(B, clsId);
+    if (!wd) return;
+    it.wtype = wd.id;
+    var base = it.rarity >= 2 && wd.itemRare ? wd.itemRare : wd.item;
+    if (/Staff$/.test(it.name) && wd.id !== 'staff') it.name = it.name.replace(/Staff$/, base);
+  };
   G.fillMat = function (it, B) {
     if (!it) return false;
     if (!G.hasMat(B, it.slot)) { if (it.mat === undefined) return false; delete it.mat; return true; }
@@ -68,8 +78,10 @@
 
   G.rollItem = function (rng, ilvl, luck, B, gear, cls) {
     var slot = rng.pick(ITEM_SLOTS), rarity = G.rollRarity(rng, luck, B);
-    // weapon drops pick their type from all types, equal weight, whatever class is played (one extra draw)
-    var wd = slot === 'weapon' ? rng.pick(B.loot.weaponTypes) : null;
+    // weapon drops pick their type among the played class's own types, equal weight (one extra draw; the user, 2026-11-14:
+    // "que las armas sean de la clase nomás"). Without a class: all types.
+    var own = cls ? B.loot.weaponTypes.filter(function (w) { return w.cls === G.classDef(B, cls.id || cls).id; }) : [];
+    var wd = slot === 'weapon' ? rng.pick(own.length ? own : B.loot.weaponTypes) : null;
     return G.makeItem(rng, slot, rarity, wd, ilvl, B, gear);
   };
 
