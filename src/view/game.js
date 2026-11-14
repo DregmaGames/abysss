@@ -334,7 +334,7 @@
         if (!wv && self.cls.id === 'archer' && G.hdMode && self.textures.get('hd').has('arrow_0')) {
           var eq = sim.gear && sim.gear.equipped, gp = (G.cheats && G.cheats.glow) || G.params.get('glow');
           var an = gp ? G.ANIM.wpnByGlow[gp] : eq && eq.weapon ? G.ANIM.wpnByRarity[eq.weapon.rarity | 0] : 0;
-          s.setTexture('hd', 'arrow_' + (an == null ? 0 : an)).setScale(0.5).clearTint(); s.hdArrow = true;      // HD scale: 12 art px long (the old arrow was 10 x 7)
+          s.setTexture('hd', 'arrow_' + (an == null ? 0 : an)).setScale(0.5).clearTint(); s.hdArrow = true;      // HD scale: 9 art px long (the old arrow was 10 x 7)
         }
         if (wv) s.setTint(UI.hex('gold'));       // Thunder Wave: a gold bolt
         s.wv = wv;
