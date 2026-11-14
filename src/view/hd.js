@@ -283,7 +283,11 @@
       if (!wi) { wi = this.wpnImg = scene.add.image(0, 0, 'hd', wp.frame); wg = this.wpnGlow = scene.add.image(0, 0, 'hd', wp.frame).setBlendMode(Phaser.BlendModes.ADD); }
       if (wi.frame.name !== wp.frame) { wi.setFrame(wp.frame, false, false); wg.setFrame(wp.frame, false, false); }
       var hx = o.x + ((flip ? W - meta.hand[0] - 0.5 : meta.hand[0] + 0.5) - img.originX * W) * img.scaleX, hy = o.y + (meta.hand[1] + 0.5 - img.originY * H) * img.scaleY;
-      var ha = meta.hand[2] * Math.PI / 180, wr = (flip ? Math.PI - ha : ha) + Math.PI / 2 + rq, wd = (o.depth != null ? o.depth : img.depth) + 0.02, wal = o.alpha == null ? 1 : o.alpha;
+      var ha = meta.hand[2] * Math.PI / 180;
+      // a weapon held near its middle (bow, staff) has no 'front end' in the rod mark: keep its top end up, or a bow
+      // whose longer half of the rod pointed down would be drawn upside down (its curve and string swapped)
+      if ((wp.grip || G.ANIM.wpnGrip[wp.frame] || 1) <= 0.65 && Math.sin(ha) > 0) ha -= Math.PI;
+      var wr = (flip ? Math.PI - ha : ha) + Math.PI / 2 + rq, wd = (o.depth != null ? o.depth : img.depth) + 0.02, wal = o.alpha == null ? 1 : o.alpha;
       var wsc = k === 1 ? 1 / D : Math.max(1, Math.round(wi.frame.height * k)) / wi.frame.height / D;      // the weapon at the hero's size, whole HD px
       var gy = wp.grip || G.ANIM.wpnGrip[wp.frame] || 1;
       wi.setVisible(true).setFlipX(flip).setOrigin(0.5, gy).setScale(wsc).setRotation(wr).setPosition(hx, hy).setDepth(wd).setAlpha(wal);
