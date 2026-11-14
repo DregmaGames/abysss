@@ -49,15 +49,43 @@
     wpnGrip: { wpn_staff: 0.46 },
     glowOrder: ['none', 'magic', 'rare', 'epic', 'legendary', 'mythic', 'unique'],
     ent: {
-      // one imported pose (the bone blade raised): serves every skeleton frame, the motion does the rest
+      // monsters (Grok 4x2 / 4x3 sheets in the chosen style, 2026-11-13): walk x4, idle, wind-up, strike, hurt
       skeleton: {
-        idle: { frames: ['skeleton'] }, walk: { frames: ['skeleton'], fps: 9 }, attack: { frames: ['skeleton'], hold: 0.25 },
+        idle: { frames: ['skeleton_idle'] }, walk: { frames: ['skeleton_walk_0', 'skeleton_walk_1', 'skeleton_walk_2', 'skeleton_walk_3'], fps: 8 },
+        attack: { frames: ['skeleton_atk_0', 'skeleton_atk_1'], hold: 0.25 },
+        hurt: { frames: ['skeleton_hurt'], hold: 0.2 },
         motion: M_SMALL
       },
-      // three imported poses; idle and walk = the burst pose (arms spread, the most upright and neutral) with its chest glow
-      // repainted (tools/hd_atlas.py --calm), so the glow only shows when the burst comes
+      imp: {
+        idle: { frames: ['imp_idle'] }, walk: { frames: ['imp_walk_0', 'imp_walk_1', 'imp_walk_2', 'imp_walk_3'], fps: 11 },
+        attack: { frames: ['imp_atk_0', 'imp_atk_1'], hold: 0.25 },
+        hurt: { frames: ['imp_hurt'], hold: 0.2 },
+        motion: M_SMALL
+      },
+      cultist: {
+        idle: { frames: ['cultist_idle'] }, walk: { frames: ['cultist_walk_0', 'cultist_walk_1', 'cultist_walk_2', 'cultist_walk_3'], fps: 6 },
+        attack: { frames: ['cultist_atk_0', 'cultist_atk_1'], hold: 0.25 },
+        hurt: { frames: ['cultist_hurt'], hold: 0.2 },
+        motion: M_SMALL
+      },
+      hound: {
+        idle: { frames: ['hound_idle'] }, walk: { frames: ['hound_walk_0', 'hound_walk_1', 'hound_walk_2', 'hound_walk_3'], fps: 10 },
+        attack: { frames: ['hound_atk_0', 'hound_atk_1'], hold: 0.25 },
+        motion: M_BIG
+      },
+      warden: {
+        idle: { frames: ['warden_idle'] }, walk: { frames: ['warden_walk_0', 'warden_walk_1', 'warden_walk_2', 'warden_walk_3'], fps: 6 },
+        attack: { frames: ['warden_atk_0', 'warden_atk_1'], hold: 0.25 },
+        hurt: { frames: ['warden_hurt'], hold: 0.2 },
+        motion: M_BIG
+      },
+      bat: {
+        idle: { frames: ['bat_idle'] }, walk: { frames: ['bat_walk_0', 'bat_walk_1', 'bat_walk_2', 'bat_walk_3'], fps: 12 },
+        attack: { frames: ['bat_atk_0', 'bat_atk_1'], hold: 0.25 }, hurt: { frames: ['bat_x3'], hold: 0.2 },
+        motion: M_SMALL
+      },
       tyrant: {
-        idle: { frames: ['tyrant_idle'] }, walk: { frames: ['tyrant_idle'], fps: 7 },
+        idle: { frames: ['tyrant_idle'] }, walk: { frames: ['tyrant_walk_0', 'tyrant_walk_1', 'tyrant_walk_2', 'tyrant_walk_3'], fps: 6 },
         slam: { frames: ['tyrant_slam'], hold: 0.35 }, charge: { frames: ['tyrant_charge'], hold: 0.6 }, burst: { frames: ['tyrant_burst'], hold: 0.6 },
         motion: M_BIG
       },
