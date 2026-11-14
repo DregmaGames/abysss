@@ -978,3 +978,11 @@ within 3 px, so thin arms get their own middle line), flowing (two layers of a w
 LAVA.every ticks), yellow streaks; flames (2x4 -> 1 px, rising, yellow -> red) and embers rise from the middle (pooled, cap per
 crack); the light is orange. Sealed: black crust, red edge cooling (no yellow, no flames). All numbers in `LAVA`.
 Checked: build, room 960x540 and 540x960 close-ups, 0 console errors. Not seen: sealing and the super fissure in the new look.
+Fissures at HD density (same night; the user: "es muy pixelado", sent a Grok reference to copy the idea, not the image):
+FissureView.buildHD / paintHD (HD art mode only; the old per-px drawing stays for the old art modes). The crack's cells give a
+smoothed field sampled at HDF.S = 2 sub px a room px: rocky lip (lumps shaded from the top left, spilling up to 4 sub px past the
+crack, darkest px on its outer edge), a red seam where the lip meets the pit, the far wall dripping into wide pits (lit red at
+its tips), lava below (the LAVA ramp by depth in the pit, flowing, pulse along the crack, sparkles). Sealed: the pit fills with
+dark rock, the seam cools. Particles at 1 HD px. Floor heat: round distance, LINEAR-filtered texture.
+Checked: build, room close-ups, 0 console errors. Not checked: frame time on the biggest cracks (each redraw walks every sub px),
+the super fissure open in this look, phones.
